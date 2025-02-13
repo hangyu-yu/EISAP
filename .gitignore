@@ -4,5 +4,4 @@
 .vscode/
 *.code-workspace
 .settings.json
-test
-test/
+**/test.py
