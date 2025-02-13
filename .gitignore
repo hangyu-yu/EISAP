@@ -4,3 +4,5 @@
 .vscode/
 *.code-workspace
 .settings.json
+test
+test/
