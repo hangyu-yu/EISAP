@@ -32,10 +32,7 @@ def rmoutliers(data, window_size, threshold_constant):
     data_threshold = threshold_constant * np.std(data_residuals)
     outliers = data_residuals > data_threshold
     
-    # Get indices of outliers
-    outliers_indices = np.where(outliers)[0]
-    
     # Remove outliers
     data_clean = data[~outliers]
     
-    return data_clean, outliers_indices
+    return data_clean, outliers

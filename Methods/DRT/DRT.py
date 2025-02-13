@@ -9,7 +9,7 @@ Created by:
     Created date: 2025.02.12
     Last modified: 
 """
-from Methods.DRT.Utils import *
+from Methods.DRT.Utils import rmoutliers
 import numpy as np
 import pandas as pd
 
@@ -185,14 +185,8 @@ class DRT:
 
         # Remove outliers based on the standard deviation
         mv_window_size = 6
-        Re_mean = pd.Series(self.Re_trunc).rolling(window=mv_window_size, center=True).mean()
-        Re_mean.iloc[0]  = self.Re_trunc[0:mv_window_size].mean()
-        Re_mean.iloc[-1] = self.Re_trunc[-mv_window_size:].mean()
-        Re_residuals = np.abs(pd.Series(self.Re_trunc) - Re_mean)
-        Re_threshold = 2 * np.std(Re_residuals)
-        Re_outliers = Re
-        Re_outliers = np.abs(self.Re_trunc - pd.Series(self.Re_trunc).rolling(window=6, center=True).mean()) > 3 * pd.Series(self.Re_trunc).rolling(window=6, center=True).std()
-        Im_outliers = np.abs(self.Im_trunc - pd.Series(self.Im_trunc).rolling(window=6, center=True).mean()) > 3 * pd.Series(self.Im_trunc).rolling(window=6, center=True).std()
+        _, Re_outliers = rmoutliers(self.Re_trunc, mv_window_size, 2)
+        _, Im_outliers = rmoutliers(self.Im_trunc, mv_window_size, 2)
         outliers = Re_outliers | Im_outliers
 
         self.Re_trunc = self.Re_trunc[~outliers]
