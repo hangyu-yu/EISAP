@@ -19,7 +19,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 class DRT:
-    def __init__(self, cell_area=None, n_cell=None, file_folder=None, filename=None):
+    def __init__(self, Re_raw=None, Im_raw=None, f_raw=None, cell_area=None, n_cell=None, file_folder=None, filename=None):
         # Test information
         self.cell_area = cell_area     # SOC area [cm^2]
         self.n_cell = n_cell           # Number of cells
@@ -27,14 +27,13 @@ class DRT:
         self.filename = filename       # File name
         self.instrument_type = None    # Zahner or Biologic or others
         self.save_name = None          # Save name for results
-        self.Parameters = None         # Parameters stored
         self.store = None              # Trash can for everything
         
         # Data classification
-        self.Re_raw = None             # Real part of raw impedance data [Ω]
-        self.Im_raw = None             # Imaginary part of raw impedance data [Ω]
+        self.Re_raw = Re_raw             # Real part of raw impedance data [Ω]
+        self.Im_raw = Im_raw             # Imaginary part of raw impedance data [Ω]
         self.Z_raw = None              # Raw impedance data [Ω]
-        self.frequency_raw = None      # Raw frequency data
+        self.frequency_raw = f_raw      # Raw frequency data
         self.significance = None       # Significance values for EIS data, mostly applicable in Zahner data
 
         self.Re_trunc = None           # Truncated real part of impedance data [Ω]
@@ -67,18 +66,19 @@ class DRT:
 
         self.sig_threshold = 0.995     # Significance threshold for EIS data, specifically for Zahner data
         self.mu_threshold = 0.85       # Threshold for Dante's method
-        self.RC_max = 50              # Maximum RC elements used for Dante's method
+        self.nRCmax = 50              # Maximum RC elements used for Dante's method
         self.kk_threshold = 1          # Threshold for the kk residual, used for auto-kk cut
 
         # Parameters and variables for Kronig-Kramers method
         self.delta_Re_kk = None        # KK residual of real part
         self.delta_Im_kk = None        # KK residual of imaginary part
+        self.frequency_kk = None       # Frequency data for KK analysis
         self.res_ohm_kk = None         # Ohmic resistance based on RC elements fitting
         self.res_pol_kk = None         # Polarization resistance based on RC elements fitting
         self.L_kk = None               # Inductance correction
         self.C_kk = None               # Capacitance correction
         self.num_RC = None             # Number of RC elements applied
-        self.KK_method = "standard"    # KK method applied, including "standard", "Mu_criterion", "Optimal_mu_criterion"
+        self.KK_type = "standard"      # KK method applied, including "standard", "Mu_criterion", "Optimal_mu_criterion"
 
         # Parameters for self-adaptive KK method
         self.ini_cut_low = 0           # Initial lower frequency point cut
@@ -140,6 +140,39 @@ class DRT:
         self.tknvNeg_ReIm_e_f = None   # TikhonovNeg method with extrapolated imaginary and real part data
         self.tknvNeg_ReIm_e_drt = None
 
+        if self.Re_raw is None:
+            print("[Error] Real part of impedance data is empty!")
+            return
+        elif self.Im_raw is None:
+            print("[Error] Imaginary part of impedance data is empty!")
+            return
+        elif self.frequency_raw is None:
+            print("[Error] Frequency data is empty!")
+            return
+        else:
+            if len(self.frequency_raw) != len(np.unique(self.frequency_raw)):
+                print("[Error] Duplicate frequency points found! Check the data import")
+                return
+            if self.cell_area is None:
+                print("[Error] Cell area is empty!")
+                return
+            elif self.n_cell is None:
+                print("[Error] Number of cells is empty!")
+                return
+            else:
+                sort_idx = np.argsort(self.frequency_raw)[::-1]
+                self.Re_raw = self.Re_raw[sort_idx] * self.cell_area / self.n_cell
+                self.Im_raw = self.Im_raw[sort_idx] * self.cell_area / self.n_cell
+                self.Re_trunc = self.Re_raw
+                self.Im_trunc = self.Im_raw
+                self.frequency_trunc = self.frequency_raw[sort_idx]
+                if self.Z_raw is None:
+                    self.Z_raw = self.Re_raw + 1j * self.Im_raw
+                self.Z_trunc = self.Z_raw
+                if self.significance is not None:
+                    self.significance = self.significance[sort_idx]
+                print("[Info] DRT code initialized successfully!")
+
     # Functions for data processing
     def rm_significance(self):
         """
@@ -149,39 +182,25 @@ class DRT:
             print("[Error] Significance values are empty! Check the data import")
         else:
             rm_num = np.where(self.significance < self.sig_threshold)[0]
-            self.Re_trunc = np.delete(self.Re_raw, rm_num)
-            self.Im_trunc = np.delete(self.Im_raw, rm_num)
-            self.frequency_trunc = np.delete(self.frequency_raw, rm_num)
-            self.Z_trunc = np.delete(self.Z_raw, rm_num)
+            self.Re_trunc = np.delete(self.Re_trunc, rm_num)
+            self.Im_trunc = np.delete(self.Im_trunc, rm_num)
+            self.frequency_trunc = np.delete(self.frequency_trunc, rm_num)
+            self.Z_trunc = np.delete(self.Z_trunc, rm_num)
             
     def rm_hfc_lfc(self):
         """
         Remove high-frequency and low-frequency data points from EIS data and remove outliers
         """
-        if self.frequency_raw is None or self.Re_raw is None or self.Im_raw is None:
-            print("[Error] Original data for data treatment is empty! Check the data import")
-            return
-
-        # Check if each frequency point is unique
-        if len(self.frequency_raw) != len(np.unique(self.frequency_raw)):
-            print("[Error] Duplicate frequency points found! Check the data import")
-            return
-        
         # Define the cut number of high-frequency and low-frequency points
         Nfh_cut = self.num_cut_upper
         Nfl_cut = self.num_cut_lower
 
-        idx = np.argsort(self.frequency_raw)[::-1]
-        f = self.frequency_raw[idx]
-        Re = self.Re_raw[idx]
-        Im = self.Im_raw[idx]
-
         # Cut high-frequency and low-frequency components
-        leng = len(f)
-        self.frequency_trunc = f[Nfh_cut:leng-Nfl_cut]
-        self.Re_trunc = Re[Nfh_cut:leng-Nfl_cut]
-        self.Im_trunc = Im[Nfh_cut:leng-Nfl_cut]
-        self.Z_trunc = self.Re_trunc + 1j * self.Im_trunc
+        leng = len(self.frequency_trunc)
+        self.frequency_trunc = self.frequency_trunc[Nfh_cut:leng-Nfl_cut]
+        self.Re_trunc = self.Re_trunc[Nfh_cut:leng-Nfl_cut]
+        self.Im_trunc = self.Im_trunc[Nfh_cut:leng-Nfl_cut]
+        self.Z_trunc  = self.Z_trunc[Nfh_cut:leng-Nfl_cut]
 
     def rm_outliers(self, mv_window_size=6, n_std=3):
         # Remove outliers based on the standard deviation
@@ -194,44 +213,36 @@ class DRT:
         self.frequency_trunc = self.frequency_trunc[~outliers]
         self.Z_trunc = self.Z_trunc[~outliers]
 
-    def KK_test(self, auto_kk_cut=False):
+    def KK_test(self):
         """
         Using linear KK method to characterize the data
         """
-        EIS_data = {}
-        EIS_data['Zp']  = self.Re_trunc
-        EIS_data['Zpp'] = self.Im_trunc
-        EIS_data['f']   = self.frequency_trunc
-        self.num_RC = len(EIS_data['f']) - 3
-        self.Parameters['KK']['nRC'] = self.num_RC
-        EIS_data = ConvertToASR(EIS_data, self.cell_area)
-        if self.Parameters['KK']['Type'] == "standard":
-            self.store['EIS_kk'], self.store['RC_kk'], self.store['RsLCinv_kk'] = Linear_KK(EIS_data, self.Parameters['KK'])
-        elif self.Parameters['KK']['Type'] == "Mu_criterion":
-            self.store['EIS_kk'], self.store['RC_kk'], self.store['RsLCinv_kk'] = Linear_KK_mu(EIS_data, self.Parameters['KK'])
+        self.num_RC = len(self.frequency_trunc) - 3
+        self.store['omega'], self.store['tau'] = ConvertToASR(self.frequency_trunc)
+        if self.KK_type == "standard":
+            self.store['EIS_kk'], self.store['RC_kk'], self.store['RsLCinv_kk'] = Linear_KK(self.Re_trunc, self.Im_trunc, self.frequency_trunc, self.store['tau'], self.store['omega'], self.num_RC)
+        elif self.KK_type == "Mu_criterion":
+            self.store['EIS_kk'], self.store['RC_kk'], self.store['RsLCinv_kk'] = Linear_KK_mu(self.Re_trunc, self.Im_trunc, self.frequency_trunc, self.store['tau'], self.store['omega'], self.nRCmax, self.mu_threshold)
         else:
             print("[Error] Invalid KK method type specified!")
 
         self.delta_Re_kk = self.store['EIS_kk']['dr']
         self.delta_Im_kk = self.store['EIS_kk']['di']
-        
-        if not auto_kk_cut:
-            self.Parameters['Smoothing']['fmin'] = self.frequency_trunc[0]
-            self.Parameters['Smoothing']['fmax'] = self.frequency_trunc[-1]
-            self.Parameters['Smoothing']['PointsPerDecade'] = self.points_per_decade
-
     
     def rm_auto_KK(self):
         """
         Using linear KK method to automatically remove the values with high residuals
         """
-
-        NotKK = (np.abs(self.store['EIS_kk']['di']) > self.kk_threshold) | (np.abs(self.store['EIS_kk']['dr']) > self.kk_threshold)
-        NotKK[0] = False
-        NotKK[-1] = False
-        self.Re_trunc        = np.delete(self.Re_trunc, np.where(NotKK))
-        self.Im_trunc        = np.delete(self.Im_trunc, np.where(NotKK))
-        self.frequency_trunc = np.delete(self.frequency_trunc, np.where(NotKK))
+        if 'EIS_kk' in self.store is not None:
+            NotKK = (np.abs(self.store['EIS_kk']['di']) > self.kk_threshold) | (np.abs(self.store['EIS_kk']['dr']) > self.kk_threshold)
+            NotKK[0] = False
+            NotKK[-1] = False
+            self.Re_trunc        = np.delete(self.Re_trunc, np.where(NotKK))
+            self.Im_trunc        = np.delete(self.Im_trunc, np.where(NotKK))
+            self.frequency_trunc = np.delete(self.frequency_trunc, np.where(NotKK))
+        else:
+            print("[Error] KK test is not performed yet!")
+            return
     
     # Functions for data plotting
     def KK_plot(self):

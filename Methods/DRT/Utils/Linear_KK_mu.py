@@ -1,7 +1,7 @@
 import numpy as np
 from Methods.DRT.Utils.Linear_KK import Linear_KK
 
-def Linear_KK_mu(EIS_Data, Parameters):
+def Linear_KK_mu(Re, Im, f, tau, omega, nRCmax, mu_threshold):
     """
     Optimized linear KK based on
     M. Schönleber, 10.1016/j.electacta.2014.01.034
@@ -46,14 +46,13 @@ def Linear_KK_mu(EIS_Data, Parameters):
         of the capacitance used in the linear KK fit.
     """
     
-    for nRC in range(5, Parameters['nRCmax'] + 1):  # Add RC element until the mu criterion is satisfied
-        Parameters['nRC'] = nRC
-        EIS_kk, RC_kk, RsLCinv_kk = Linear_KK(EIS_Data, Parameters)
+    for nRC in range(5, nRCmax + 1):  # Add RC element until the mu criterion is satisfied
+        EIS_kk, RC_kk, RsLCinv_kk = Linear_KK(Re, Im, f, tau, omega, nRC)
         Rk = RC_kk['R_RC']
 
         # Mu criterion M. Schönleber
         mu = 1 - np.sum(np.abs(Rk[Rk < 0])) / np.sum(Rk[Rk >= 0])
-        if mu <= Parameters['mu_threshold']:
+        if mu <= mu_threshold:
             break
 
     return EIS_kk, RC_kk, RsLCinv_kk

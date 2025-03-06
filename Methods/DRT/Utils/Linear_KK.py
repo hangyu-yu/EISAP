@@ -3,7 +3,7 @@ import pandas as pd
 from scipy.linalg import svd
 from Methods.DRT.Utils import Evaluate_Z_RC_L_C
 
-def Linear_KK(EIS_Data, Parameters):
+def Linear_KK(Re, Im, f, tau, omega, nRC):
     """
     Computed the linear KK according to 
     A Linear Kronig‐Kramers Transform Test for Immittance Data Validation,
@@ -14,31 +14,24 @@ def Linear_KK(EIS_Data, Parameters):
     Translation date: 2025-02-14
     """
 
-    Zp = EIS_Data['Zp']
-    Zpp = EIS_Data['Zpp']
-    f = EIS_Data['f']
-    tau = EIS_Data['tau']
-    omega = EIS_Data['omega']
-    nRC = Parameters['nRC']
-
     n = len(f)  # number of data points
 
     if n < nRC + 3:
         raise ValueError("Error in Linear_KK: Number of elements larger than number of data points, reduce nRC")
 
-    ww = (Zp**2 + Zpp**2)**(-1)  # weights for the least square fit
+    ww = (Re**2 + Im**2)**(-1)  # weights for the least square fit
     M = nRC + 3  # Total number of elements M = number of RC + 1xR+ 1xL+ 1xC+
     tau_RC = 1 / (2 * np.pi * np.logspace(np.log10(max(f)), np.log10(min(f)), nRC))  # Logspaced fixed time constant of for the RC elements
 
     b = np.zeros((M, 1))
     A = np.zeros((M, M))
 
-    b[0, 0] = np.sum(ww * Zp)  # dS/dRs
-    b[1, 0] = np.sum(ww * Zpp / omega)  # ds/dX2 where X2 = 1/C
-    b[2, 0] = np.sum(ww * Zpp * omega)  # dS/dL
+    b[0, 0] = np.sum(ww * Re)  # dS/dRs
+    b[1, 0] = np.sum(ww * Im / omega)  # ds/dX2 where X2 = 1/C
+    b[2, 0] = np.sum(ww * Im * omega)  # dS/dL
 
     for jj in range(nRC):
-        b[jj + 3, 0] = np.sum(ww * ((Zp - Zpp * omega * tau_RC[jj]) / (1 + (omega * tau_RC[jj])**2)))  # dS/dRk
+        b[jj + 3, 0] = np.sum(ww * ((Re - Im * omega * tau_RC[jj]) / (1 + (omega * tau_RC[jj])**2)))  # dS/dRk
 
     A[0, 0] = np.sum(ww)  # Rs
     A[0, 1] = 0  # X2
@@ -77,16 +70,16 @@ def Linear_KK(EIS_Data, Parameters):
     L = X[2, 0]
     R_RC = X[3:]
 
-    Zp_kk, Zpp_kk = Evaluate_Z_RC_L_C(R_RC, tau_RC, Rs, L, Cinv, omega)
+    Re_kk, Im_kk = Evaluate_Z_RC_L_C(R_RC, tau_RC, Rs, L, Cinv, omega)
 
-    Z = Zp + 1j * Zpp
-    dr = ((Zp - Zp_kk) / np.abs(Z)) * 100
-    di = ((Zpp - Zpp_kk) / np.abs(Z)) * 100
+    Z = Re + 1j * Im
+    dr = ((Re - Re_kk) / np.abs(Z)) * 100
+    di = ((Im - Im_kk) / np.abs(Z)) * 100
 
     EIS_kk = pd.DataFrame({
         'f': f,
-        'Zp': Zp_kk,
-        'Zpp': Zpp_kk,
+        'Re': Re_kk,
+        'Im': Im_kk,
         'tau': tau,
         'omega': omega,
         'dr': dr,
