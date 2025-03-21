@@ -9,9 +9,8 @@ Created by:
     Created date: 2025.02.12
     Last modified: 
 """
-import Methods.DRT.Utils as DRT
+import Methods.DRT.Utils as fn
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 
 class DRT:
@@ -20,6 +19,7 @@ class DRT:
         self.file_folder = file_folder # File folder path
         self.filename = filename       # File name
         self.save_name = None          # Save name for results
+        self.info = None               # Information for the test
         self.store = None              # Trash can for everything
         
         # Data classification
@@ -60,6 +60,52 @@ class DRT:
             'frequency': None          # Extrapolated frequency data
         }
 
+        # Data structure for KK results
+        self.KK_data = {
+            'Re': None,                 # Real part of KK analysis
+            'Im': None,                 # Imaginary part of KK analysis
+            'frequency_kk': None,       # Frequency data for KK analysis
+            'tau': None,                # Time constant data for KK analysis
+            'omega': None,              # Angular frequency data for KK analysis
+            'delta_Re_kk': None,        # KK residual of real part
+            'delta_Im_kk': None,        # KK residual of imaginary part
+            'res_ohm_kk': None,         # Ohmic resistance based on RC elements fitting
+            'res_pol_kk': None,         # Polarization resistance based on RC elements fitting
+            'L_kk': None,               # Inductance correction
+            'C_kk': None,               # Capacitance correction
+            'R_RC': None,               # Resistancs of RC elements
+            'tau_RC': None              # Time constants of RC elements
+        }
+
+        # Data structure for tikonov methodology
+        self.tknv_truncated = {
+            'Re': None,                # Tikhonov method with truncated real part data
+            'Im': None,                # Tikhonov method with truncated imaginary part data
+            'ReIm': None,              # Tikhonov method with truncated real and imaginary part data
+            'frequency': None          # Truncated frequency data
+        }
+
+        self.tknv_smooth = {
+            'Re': None,                # Tikhonov method with smoothed real part data
+            'Im': None,                # Tikhonov method with smoothed imaginary part data
+            'ReIm': None,              # Tikhonov method with smoothed real and imaginary part data
+            'frequency': None          # Smoothed frequency data
+        }
+
+        self.tknv_extrapolation = {
+            'Re': None,                # Tikhonov method with extrapolated real part data
+            'Im': None,                # Tikhonov method with extrapolated imaginary part data
+            'ReIm': None,              # Tikhonov method with extrapolated real and imaginary part data
+            'frequency': None          # Extrapolated frequency data
+        }
+
+        self.tknv_LCcorrect = {
+            'Re': None,                # Tikhonov method with LC corrected real part data
+            'Im': None,                # Tikhonov method with LC corrected imaginary part data
+            'ReIm': None,              # Tikhonov method with LC corrected real and imaginary part data
+            'frequency': None          # LC corrected frequency data
+        }
+
         # Data treatment parameters
         self.parameter = {
             # Sample information
@@ -73,7 +119,6 @@ class DRT:
                 'num_cut_upper': 0,    # Number of upper frequency points to be cut
                 'num_cut_lower': 0,    # Number of lower frequency points to be cut
                 'num_cut_middle': 0,   # Middle frequency cut, index of points in ''original data''
-                'ManualCut': False,    # Manual cut for EIS data
             },
             # Remove points with low significance only for Zahner data
             'RM_significance': {
@@ -140,53 +185,22 @@ class DRT:
             }
         }
 
-        # Data structure for KK results
-        self.KK_data = {
-            'Re': None,                 # Real part of KK analysis
-            'Im': None,                 # Imaginary part of KK analysis
-            'frequency_kk': None,       # Frequency data for KK analysis
-            'tau': None,                # Time constant data for KK analysis
-            'omega': None,              # Angular frequency data for KK analysis
-            'delta_Re_kk': None,        # KK residual of real part
-            'delta_Im_kk': None,        # KK residual of imaginary part
-            'res_ohm_kk': None,         # Ohmic resistance based on RC elements fitting
-            'res_pol_kk': None,         # Polarization resistance based on RC elements fitting
-            'L_kk': None,               # Inductance correction
-            'C_kk': None,               # Capacitance correction
-            'R_RC': None,               # Resistancs of RC elements
-            'tau_RC': None              # Time constants of RC elements
-        }
-
-        # Data structure for tikonov methodology
-        self.tknv_truncated = {
-            'Re': None,                # Tikhonov method with truncated real part data
-            'Im': None,                # Tikhonov method with truncated imaginary part data
-            'ReIm': None,              # Tikhonov method with truncated real and imaginary part data
-            'frequency': None          # Truncated frequency data
-        }
-
-        self.tknv_smooth = {
-            'Re': None,                # Tikhonov method with smoothed real part data
-            'Im': None,                # Tikhonov method with smoothed imaginary part data
-            'ReIm': None,              # Tikhonov method with smoothed real and imaginary part data
-            'frequency': None          # Smoothed frequency data
-        }
-
-        self.tknv_extrapolation = {
-            'Re': None,                # Tikhonov method with extrapolated real part data
-            'Im': None,                # Tikhonov method with extrapolated imaginary part data
-            'ReIm': None,              # Tikhonov method with extrapolated real and imaginary part data
-            'frequency': None          # Extrapolated frequency data
-        }
-
-        self.tknv_LCcorrect = {
-            'Re': None,                # Tikhonov method with LC corrected real part data
-            'Im': None,                # Tikhonov method with LC corrected imaginary part data
-            'ReIm': None,              # Tikhonov method with LC corrected real and imaginary part data
-            'frequency': None          # LC corrected frequency data
-        }
-
     # Functions for data processing
+    def rm_hfc_lfc(self):
+        """
+        Remove high-frequency and low-frequency data points from EIS data and remove outliers
+        """
+        # Define the cut number of high-frequency and low-frequency points
+        Nfh_cut = self.parameter['Preprocessing']['num_cut_upper']
+        Nfl_cut = self.parameter['Preprocessing']['num_cut_lower']
+
+        # Cut high-frequency and low-frequency components
+        leng = len(self.raw['frequency'])
+        self.truncated['frequency'] = self.raw['frequency'][Nfh_cut:leng-Nfl_cut]
+        self.truncated['Re'] = self.raw['Re'][Nfh_cut:leng-Nfl_cut]
+        self.truncated['Im'] = self.raw['Im'][Nfh_cut:leng-Nfl_cut]
+        self.truncated['Z']  = self.raw['Z'][Nfh_cut:leng-Nfl_cut]
+        
     def rm_significance(self):
         """
         Remove points with low significance values from EIS data
@@ -200,27 +214,13 @@ class DRT:
             self.truncated['frequency'] = np.delete(self.truncated['frequency'], rm_num)
             self.truncated['Z'] = np.delete(self.truncated['Z'], rm_num)
             
-    def rm_hfc_lfc(self):
-        """
-        Remove high-frequency and low-frequency data points from EIS data and remove outliers
-        """
-        # Define the cut number of high-frequency and low-frequency points
-        Nfh_cut = self.parameter['Preprocessing']['num_cut_upper']
-        Nfl_cut = self.parameter['Preprocessing']['num_cut_lower']
-
-        # Cut high-frequency and low-frequency components
-        leng = len(self.truncated['frequency'])
-        self.truncated['frequency'] = self.truncated['frequency'][Nfh_cut:leng-Nfl_cut]
-        self.truncated['Re'] = self.truncated['Re'][Nfh_cut:leng-Nfl_cut]
-        self.truncated['Im'] = self.truncated['Im'][Nfh_cut:leng-Nfl_cut]
-        self.truncated['Z']  = self.truncated['Z'][Nfh_cut:leng-Nfl_cut]
 
     def rm_outliers(self):
         # Remove outliers based on the standard deviation
         mv_window_size = self.parameter['Rmoutliers']['mv_window_size']
         n_std = self.parameter['Rmoutliers']['n_std']
-        _, Re_outliers = DRT.rmoutliers(self.truncated['Re'], mv_window_size, n_std)
-        _, Im_outliers = DRT.rmoutliers(self.truncated['Im'], mv_window_size, n_std)
+        _, Re_outliers = fn.rmoutliers(self.truncated['Re'], mv_window_size, n_std)
+        _, Im_outliers = fn.rmoutliers(self.truncated['Im'], mv_window_size, n_std)
         outliers = Re_outliers | Im_outliers
 
         self.truncated['Re'] = self.truncated['Re'][~outliers]
@@ -236,9 +236,9 @@ class DRT:
         self.store['omega'], self.store['tau'] = DRT.ConvertToASR(self.truncated['frequency'])
         KK_type = self.parameter['KK']['KK_type']
         if KK_type == "standard":
-            self.store['EIS_kk'], self.store['RC_kk'], self.store['RsLCinv_kk'] = DRT.Linear_KK(self.truncated['Re'], self.truncated['Im'], self.truncated['frequency'], self.store['tau'], self.store['omega'], self.num_RC)
+            self.store['EIS_kk'], self.store['RC_kk'], self.store['RsLCinv_kk'] = fn.Linear_KK(self.truncated['Re'], self.truncated['Im'], self.truncated['frequency'], self.store['tau'], self.store['omega'], self.num_RC)
         elif KK_type == "Mu_criterion":
-            self.store['EIS_kk'], self.store['RC_kk'], self.store['RsLCinv_kk'] = DRT.Linear_KK_mu(self.truncated['Re'], self.truncated['Im'], self.truncated['frequency'], self.store['tau'], self.store['omega'], self.parameter['KK']['nRCmax'], self.parameter['KK']['mu_threshold'])
+            self.store['EIS_kk'], self.store['RC_kk'], self.store['RsLCinv_kk'] = fn.Linear_KK_mu(self.truncated['Re'], self.truncated['Im'], self.truncated['frequency'], self.store['tau'], self.store['omega'], self.parameter['KK']['nRCmax'], self.parameter['KK']['mu_threshold'])
         else:
             print("[Error] Invalid KK method type specified!")
 
@@ -263,11 +263,25 @@ class DRT:
     # Functions for Tiknov regularization
     def lambdaOPT(self):
         parameter = self.parameter['LambdaOpt']
-        self.lambda_opt = DRT.LambdaOPT(self.truncated['Re'], self.truncated['Im'], self.truncated['frequency'], parameter)
+        self.lambda_opt = fn.LambdaOPT(self.truncated['Re'], self.truncated['Im'], self.truncated['frequency'], parameter)
         print(f"Optimal lambda value: {self.lambda_opt}")
 
     def tknv(self):
         pass
+
+    # Other functions
+    def Convert2ASR(self, frequency, switch_ini=False):
+        """
+        Convert frequency to angular frequency (omega) and time constant (tau)
+        Convert the original resistance in Ohm to Ohm*cm^2
+        """
+        omega = 2 * np.pi * frequency
+        tau = 1 / (2 * np.pi * frequency)
+        if switch_ini is True:
+            self.raw['Re'] = self.raw['Re'] * self.parameter['Sample']['cell_area'] * self.parameter['Sample']['n_cell']
+            self.raw['Im'] = self.raw['Im'] * self.parameter['Sample']['cell_area'] * self.parameter['Sample']['n_cell']
+            self.raw['Z'] = self.raw['Z'] * self.parameter['Sample']['cell_area'] * self.parameter['Sample']['n_cell']
+        return omega, tau
     
     # Functions for data plotting
     def KK_plot(self):
@@ -292,13 +306,13 @@ class DRT:
                 plt.figure('Truncated nyquist')
                 plt.plot(self.truncated['Re'], -self.truncated['Im'], '-bo', label='Truncated')
                 plt.plot(self.raw['Re'], -self.raw['Im'], '-rx', label='Original')
-                plt.xlabel("$Z' \, [\Omega*cm^2]$")
-                plt.ylabel("$-Z'' \, [\Omega*cm^2]$")
+                plt.xlabel(r"$Z' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega*cm^2]$")
                 plt.figure('Truncated nyquist')
                 plt.plot(self.Re, -self.Im, '-bo', label='Truncated')
                 plt.plot(self.Re_raw, -self.Im_raw, '-rx', label='Original')
-                plt.xlabel("$Z' \, [\Omega*cm^2]$")
-                plt.ylabel("$-Z'' \, [\Omega*cm^2]$")
+                plt.xlabel(r"$Z' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega*cm^2]$")
                 plt.grid(True)
                 plt.legend()
             elif plot_type == 'Re':
@@ -309,26 +323,26 @@ class DRT:
                 plt.semilogx(self.truncated['frequency'], -self.truncated['Im'], '-bo', label='Truncated')
                 plt.semilogx(self.raw['frequency'], -self.raw['Im'], '-rx', label='Original')
                 plt.xlabel('f [Hz]')
-                plt.ylabel("$-Z'' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega*cm^2]$")
                 plt.grid(True)
                 plt.legend()
             elif plot_type == 'ReIm_LC':
                 plt.figure('L/C corrected Nyquist')
                 plt.plot(self.truncated['Re'], -self.truncated['Im'], 'ok', self.LCcorrect['Re'], -self.LCcorrect['Im'], 'r', markersize=2, linewidth=1.5)
-                plt.xlabel("$Z' \, [\Omega*cm^2]$")
+                plt.xlabel(r"$Z' \, [\Omega*cm^2]$")
                 plt.legend()
             elif plot_type == 'ReIm_LC':
                 plt.figure('L/C corrected Nyquist')
                 plt.plot(self.Re, -self.Im, 'ok', self.Re_crct, -self.Im_crct, 'r', markersize=2, linewidth=1.5)
-                plt.xlabel("$Z' \, [\Omega*cm^2]$")
-                plt.ylabel("$-Z'' \, [\Omega*cm^2]$")
+                plt.xlabel(r"$Z' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega*cm^2]$")
                 plt.grid(True)
             elif plot_type == 'Re_LC':
                 plt.figure('LC corrected Bode real')
                 plt.semilogx(self.frequency, self.Re_crct, '-bo', label='Corrected')
                 plt.semilogx(self.frequency_raw, self.Re_raw, '-rx', label='Original')
                 plt.xlabel('f [Hz]')
-                plt.ylabel("$Z' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$Z' \, [\Omega*cm^2]$")
                 plt.grid(True)
                 plt.legend()
             elif plot_type == 'Im_LC':
@@ -336,43 +350,43 @@ class DRT:
                 plt.semilogx(self.frequency, -self.Im_crct, '-bo', label='Corrected')
                 plt.semilogx(self.frequency_raw, -self.Im_raw, '-rx', label='Original')
                 plt.xlabel('f [Hz]')
-                plt.ylabel("$-Z'' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega*cm^2]$")
                 plt.grid(True)
                 plt.legend()
             elif plot_type == 'Re_s':
                 plt.figure('Smoothed Re')
                 plt.semilogx(self.frequency, self.Re, 'ok', self.frequency_smooth, self.Re_smooth, 'r', markersize=2, linewidth=1.5)
                 plt.xlabel('f [Hz]')
-                plt.ylabel("$Z' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$Z' \, [\Omega*cm^2]$")
                 plt.grid(True)
             elif plot_type == 'Im_s':
                 plt.figure('Smoothed Im')
                 plt.semilogx(self.frequency, -self.Im, 'ok', self.frequency_smooth, -self.Im_smooth, 'r', markersize=2, linewidth=1.5)
                 plt.xlabel('f [Hz]')
-                plt.ylabel("$-Z'' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega*cm^2]$")
                 plt.grid(True)
             elif plot_type == 'ReIm_s':
                 plt.figure('Smoothed ReIm')
                 plt.plot(self.Re, -self.Im, 'ok', self.Re_smooth, -self.Im_smooth, 'r', markersize=2, linewidth=1.5)
-                plt.xlabel("$Z' \, [\Omega*cm^2]$")
-                plt.ylabel("$-Z'' \, [\Omega*cm^2]$")
+                plt.xlabel(r"$Z' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega*cm^2]$")
                 plt.grid(True)
             elif plot_type == 'Re_e':
                 plt.figure('Extrapolated Re')
                 plt.semilogx(self.frequency, self.Re, 'ok', self.frequency_extra, self.Re_extra, 'r', markersize=2, linewidth=1.5)
                 plt.xlabel('f [Hz]')
-                plt.ylabel("$Z' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$Z' \, [\Omega*cm^2]$")
                 plt.grid(True)
             elif plot_type == 'Im_e':
                 plt.figure('Extrapolated Im')
                 plt.semilogx(self.frequency, -self.Im, 'ok', self.frequency_extra, -self.Im_extra, 'r', markersize=2, linewidth=1.5)
                 plt.xlabel('f [Hz]')
-                plt.ylabel("$-Z'' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega*cm^2]$")
                 plt.grid(True)
             elif plot_type == 'ReIm_e':
                 plt.figure('Extrapolated ReIm')
                 plt.plot(self.Re, -self.Im, 'ok', self.Re_extra, -self.Im_extra, 'r', markersize=2, linewidth=1.5)
-                plt.xlabel("$Z' \, [\Omega*cm^2]$")
-                plt.ylabel("$-Z'' \, [\Omega*cm^2]$")
+                plt.xlabel(r"$Z' \, [\Omega*cm^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega*cm^2]$")
                 plt.grid(True)
         plt.show()
