@@ -9,13 +9,7 @@ Created by:
     Created date: 2025.02.12
     Last modified: 
 """
-# from Methods.DRT.Utils import rmoutliers
-# from Methods.DRT.Utils import ConvertToASR
-# from Methods.DRT.Utils import Linear_KK
-# from Methods.DRT.Utils import Linear_KK_mu
-# from Methods.DRT.Utils import Linear_KK_opt_mu_cut
-# from Methods.DRT.Utils import LambdaOPT
-import Utils as DRT
+import Methods.DRT.Utils as DRT
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -213,8 +207,8 @@ class DRT:
                 return
             else:
                 sort_idx = np.argsort(self.raw['frequency'])[::-1]
-                self.raw['Re'] = self.raw['Re'][sort_idx] * self.cell_area / self.n_cell
-                self.raw['Im'] = self.raw['Im'][sort_idx] * self.cell_area / self.n_cell
+                self.raw['Re'] = self.raw['Re'][sort_idx] * self.cell_area * self.n_cell
+                self.raw['Im'] = self.raw['Im'][sort_idx] * self.cell_area * self.n_cell
                 self.truncated['Re'] = self.raw['Re']
                 self.truncated['Im'] = self.raw['Im']
                 self.truncated['frequency'] = self.raw['frequency'][sort_idx]
