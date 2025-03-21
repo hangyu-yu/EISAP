@@ -186,39 +186,6 @@ class DRT:
             'frequency': None          # LC corrected frequency data
         }
 
-        if self.raw['Re'] is None:
-            print("[Error] Real part of impedance data is empty!")
-            return
-        elif self.raw['Im'] is None:
-            print("[Error] Imaginary part of impedance data is empty!")
-            return
-        elif self.raw['frequency'] is None:
-            print("[Error] Frequency data is empty!")
-            return
-        else:
-            if len(self.raw['frequency']) != len(np.unique(self.raw['frequency'])):
-                print("[Error] Duplicate frequency points found! Check the data import")
-                return
-            if self.cell_area is None:
-                print("[Error] Cell area is empty!")
-                return
-            elif self.n_cell is None:
-                print("[Error] Number of cells is empty!")
-                return
-            else:
-                sort_idx = np.argsort(self.raw['frequency'])[::-1]
-                self.raw['Re'] = self.raw['Re'][sort_idx] * self.cell_area * self.n_cell
-                self.raw['Im'] = self.raw['Im'][sort_idx] * self.cell_area * self.n_cell
-                self.truncated['Re'] = self.raw['Re']
-                self.truncated['Im'] = self.raw['Im']
-                self.truncated['frequency'] = self.raw['frequency'][sort_idx]
-                if self.raw['Z'] is None:
-                    self.raw['Z'] = self.raw['Re'] + 1j * self.raw['Im']
-                self.truncated['Z'] = self.raw['Z']
-                if self.raw['significance'] is not None:
-                    self.raw['significance'] = self.raw['significance'][sort_idx]
-                print("[Info] DRT code initialized successfully!")
-
     # Functions for data processing
     def rm_significance(self):
         """
