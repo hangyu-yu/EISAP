@@ -1,11 +1,13 @@
+import os
+import glob
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import platform
 import numpy as np
 import pandas as pd
 import Functions as fn
 from Methods.DRT.DRT import DRT
 import cmcrameri as cm
-import os
-import glob
 
 # 01 - Initialization
 if platform.system() == 'Darwin':  # macOS
