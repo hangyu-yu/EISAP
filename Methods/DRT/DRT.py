@@ -268,20 +268,6 @@ class DRT:
 
     def tknv(self):
         pass
-
-    # Other functions
-    def Convert2ASR(self, frequency, switch_ini=False):
-        """
-        Convert frequency to angular frequency (omega) and time constant (tau)
-        Convert the original resistance in Ohm to Ohm*cm^2
-        """
-        omega = 2 * np.pi * frequency
-        tau = 1 / (2 * np.pi * frequency)
-        if switch_ini is True:
-            self.raw['Re'] = self.raw['Re'] * self.parameter['Sample']['cell_area'] * self.parameter['Sample']['n_cell']
-            self.raw['Im'] = self.raw['Im'] * self.parameter['Sample']['cell_area'] * self.parameter['Sample']['n_cell']
-            self.raw['Z'] = self.raw['Z'] * self.parameter['Sample']['cell_area'] * self.parameter['Sample']['n_cell']
-        return omega, tau
     
     # Functions for data plotting
     def KK_plot(self):

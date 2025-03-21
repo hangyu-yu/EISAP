@@ -42,7 +42,6 @@ for file in txt_files:
     EIS.raw['frequency'] = data['Frequency/Hz']
     EIS.raw['significance'] = data['Significance']
     EIS.info = metadata
-    EIS.Convert2ASR(EIS.raw['frequency'], switch_ini=True)
 
     # 032 - Data cut based on the significance values
     EIS.rm_hfc_lfc()
