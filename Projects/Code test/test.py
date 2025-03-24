@@ -8,6 +8,8 @@ import pandas as pd
 import Functions as fn
 from Methods.DRT.DRT import DRT
 import cmcrameri as cm
+import matplotlib.pyplot as plt
+import mplcursors
 
 # 01 - Initialization
 if platform.system() == 'Darwin':  # macOS
@@ -28,28 +30,46 @@ EIS.parameter['RM_significance']['sig_threshold'] = 0.995  # significance thresh
 
 EIS.parameter['Rmoutliers']['RMoutliers'] = True           # remove outliers
 EIS.parameter['RM_significance']['rm_significance'] = True # remove data with low significance
+EIS.parameter['KKpreprocess']['OptimalCut'] = True        # remove data based on KK criterion
 
-
-# 03 - Data processing
+# Data processing
 for file in txt_files:
-    # 031 - Data load
+    # 03 - Data load
     if file is None:
         raise FileNotFoundError('The specified file does not exist.')
     else: 
         metadata,data = fn.read_zahner_txt(file)
     
-    EIS.raw['Re'] = data['Re/Ohm']
-    EIS.raw['Im'] = data['Im/Ohm']
-    EIS.raw['Z'] = data['impedance/Ohm']
-    EIS.raw['frequency'] = data['Frequency/Hz']
-    EIS.raw['significance'] = data['Significance']
+    EIS.raw['Re'] = data['Re/Ohm'].to_numpy()
+    EIS.raw['Im'] = data['Im/Ohm'].to_numpy()
+    EIS.raw['Z'] = data['impedance/Ohm'].to_numpy()
+    EIS.raw['frequency'] = data['Frequency/Hz'].to_numpy()
+    EIS.raw['significance'] = data['Significance'].to_numpy()
     EIS.info = metadata
 
-    # 032 - Data cut based on the significance values
+    # 04 - Data cut based on the upper and lower numbers
     EIS.rm_hfc_lfc()
-    
+
+    # 05 - Data cut due to outliers
     if EIS.parameter['Rmoutliers']['RMoutliers']:
         EIS.rm_outliers()
-    
+    # 06 - Data cut based on the significance values
     if EIS.parameter['RM_significance']['rm_significance']:
         EIS.rm_significance()
+
+    # 07 - Data cut based on KK criterion
+    if EIS.parameter['KKpreprocess']['OptimalCut']:
+        EIS.Linear_KK_opt_mu_cut()
+    
+    # plt.figure(figsize=(8, 6))
+    # plt.plot(EIS.raw['Re'], -EIS.raw['Im'], 'o-', label='Original Data')
+    # plt.plot(EIS.truncated['Re'], -EIS.truncated['Im'], 'o-', label='Cleaned Data')  
+    # plt.xlabel(r"$Z' \, [\Omega]$", fontsize=14)
+    # plt.ylabel(r"$-Z'' \, [\Omega]$", fontsize=14)
+    # plt.title("Nyquist Plot", fontsize=16)
+    # plt.grid(True)
+    # plt.legend()
+    # cursor = mplcursors.cursor(hover=True)
+    # cursor.connect("add", lambda sel: sel.annotation.set_text(
+    #     f"Re: {sel.target[0]:.5f}\n-Im: {sel.target[1]:.5f}"))
+    # plt.show()

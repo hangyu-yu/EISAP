@@ -24,40 +24,41 @@ class DRT:
         
         # Data classification
         self.raw = {
+            'frequency': f_raw,         # Raw frequency data [Hz]
+            'Z': None,                  # Raw impedance data [Ω]
             'Re': Re_raw,               # Real part of raw impedance data [Ω]
             'Im': Im_raw,               # Imaginary part of raw impedance data [Ω]
-            'Z': None,                  # Raw impedance data [Ω]
-            'frequency': f_raw,         # Raw frequency data
             'significance': None        # Significance values for EIS data, mostly applicable in Zahner data
         }
 
         self.truncated = {
+            'frequency': None,         # Truncated frequency data [Hz]
+            'Z': None,                 # Truncated impedance data [Ω]
             'Re': None,                # Truncated real part of impedance data [Ω]
-            'Im': None,                # Truncated imaginary part of impedance data
-            'Z': None,                 # Truncated impedance data
-            'frequency': None          # Truncated frequency data
+            'Im': None,                # Truncated imaginary part of impedance data [Ω]
+            'significance': None       # Truncated significance values for EIS data
         }
 
         self.LCcorrect = {
+            'frequency': None,         # L/C Corrected frequency data [Hz]
+            'Z': None,                 # L/C Corrected impedance data [Ω]
             'Re': None,                # L/C Corrected real part of impedance data [Ω]
-            'Im': None,                # L/C Corrected imaginary part of impedance data
-            'Z': None,                 # L/C Corrected impedance data
-            'frequency': None          # L/C Corrected frequency data
+            'Im': None                 # L/C Corrected imaginary part of impedance data [Ω]
         }
 
         self.smooth = {
+            'frequency': None,         # Smoothed frequency data [Hz]
+            'Z': None,                 # Smoothed impedance data [Ω]
             'Re': None,                # Smoothed real part of impedance data [Ω]
-            'Im': None,                # Smoothed imaginary part of impedance data
-            'Z': None,                 # Smoothed impedance data
-            'frequency': None,         # Smoothed frequency data
+            'Im': None,                # Smoothed imaginary part of impedance data [Ω]
             'points_per_decade': 30    # Points per decade for smoothing
         }
 
         self.extrapolation = {
-            'Re': None,                # Extrapolated real part of impedance data [Ω]
-            'Im': None,                # Extrapolated imaginary part of impedance data
+            'frequency': None,         # Extrapolated frequency data [Hz]
             'Z': None,                 # Extrapolated impedance data
-            'frequency': None          # Extrapolated frequency data
+            'Re': None,                # Extrapolated real part of impedance data [Ω]
+            'Im': None                 # Extrapolated imaginary part of impedance data
         }
 
         # Data structure for KK results
@@ -127,8 +128,8 @@ class DRT:
             },
             # Remove outliers
             'Rmoutliers': {
-                'mv_window_size': 6,   # Moving window size for outlier removal
-                'n_std': 3,            # Number of standard deviations for outlier removal
+                'mv_window_size': 5,   # Moving window size for outlier removal
+                'n_std': 5,            # Number of standard deviations for outlier removal
                 'Rmoutliers': True    # Remove outliers from EIS data
             },
             # Self-adaptive KK method
@@ -199,7 +200,9 @@ class DRT:
         self.truncated['frequency'] = self.raw['frequency'][Nfh_cut:leng-Nfl_cut]
         self.truncated['Re'] = self.raw['Re'][Nfh_cut:leng-Nfl_cut]
         self.truncated['Im'] = self.raw['Im'][Nfh_cut:leng-Nfl_cut]
-        self.truncated['Z']  = self.raw['Z'][Nfh_cut:leng-Nfl_cut]
+        self.truncated['Z'] = self.raw['Z'][Nfh_cut:leng-Nfl_cut]
+        if self.raw['significance'] is not None:
+            self.truncated['significance'] = self.raw['significance'][Nfh_cut:leng-Nfl_cut]
         
     def rm_significance(self):
         """
@@ -207,12 +210,15 @@ class DRT:
         """
         if self.raw['significance'] is None:
             print("[Error] Significance values are empty! Check the data import")
+        elif self.truncated['significance'] is None:
+            print("[Error] Significance values are empty! Check the data import")
         else:
-            rm_num = np.where(self.raw['significance'] < self.parameter['RM_significance']['sig_threshold'])[0]
+            rm_num = np.where(self.truncated['significance'] < self.parameter['RM_significance']['sig_threshold'])[0]
             self.truncated['Re'] = np.delete(self.truncated['Re'], rm_num)
             self.truncated['Im'] = np.delete(self.truncated['Im'], rm_num)
             self.truncated['frequency'] = np.delete(self.truncated['frequency'], rm_num)
             self.truncated['Z'] = np.delete(self.truncated['Z'], rm_num)
+            self.truncated['significance'] = np.delete(self.truncated['significance'], rm_num)
             
 
     def rm_outliers(self):
@@ -227,6 +233,8 @@ class DRT:
         self.truncated['Im'] = self.truncated['Im'][~outliers]
         self.truncated['frequency'] = self.truncated['frequency'][~outliers]
         self.truncated['Z'] = self.truncated['Z'][~outliers]
+        if self.raw['significance'] is not None:
+            self.truncated['significance'] = self.truncated['significance'][~outliers]
 
     def KK_test(self):
         """
