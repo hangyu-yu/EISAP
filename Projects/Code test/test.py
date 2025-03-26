@@ -41,8 +41,7 @@ switch_plot_EIS = True
 plot_EIS_list = {'ReIm', 'ReIm_s', 'ReIm_e', 'ReIm_LC'}
 
 # Data processing
-for file in [1]:
-    file = txt_files[0]
+for file in txt_files:
 # 03 - EIS Data processing
     if file is None:
         raise FileNotFoundError('The specified file does not exist.')
@@ -96,6 +95,8 @@ for file in [1]:
 # 04 - DRT treatment
     # 041 - Solve the optimum lambda or not
     plt.show()
+
+    break
 
     # plt.figure(figsize=(8, 6))
     # plt.plot(EIS.raw['Re'], -EIS.raw['Im'], 'o-', label='Original Data')
