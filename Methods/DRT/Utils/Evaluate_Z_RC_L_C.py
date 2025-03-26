@@ -1,6 +1,6 @@
 import numpy as np
 
-def evaluate_z_rc_l_c(R_RC, tau_RC, Rs, L, Cinv, omega):
+def Evaluate_Z_RC_L_C(R_RC, tau_RC, Rs, L, Cinv, omega):
     """
     Evaluate the impedance of a number of R//C elements in series connected in
     series with an inductance L and a capacitor C
@@ -21,27 +21,27 @@ def evaluate_z_rc_l_c(R_RC, tau_RC, Rs, L, Cinv, omega):
 
     Returns
     -------
-    Zp : ndarray
+    Re : ndarray
         Vector of the same length as omega containing the real part of the circuit impedance
-    Zpp : ndarray
+    Im : ndarray
         Vector of the same length as omega containing the imaginary part of the circuit impedance
     """
 
     n = len(omega)  # number of frequency points
 
-    Zp = np.zeros(n)  # Real part of the circuit impedance
-    Zpp = np.zeros(n)  # Imaginary part of the circuit impedance
+    Re = np.zeros(n)  # Real part of the circuit impedance
+    Im = np.zeros(n)  # Imaginary part of the circuit impedance
 
     for i in range(n):  # for each frequency
         RealContribution = R_RC / (1 + (omega[i] * tau_RC) ** 2)
         ImaginaryContribution = (omega[i] * tau_RC * R_RC) / (1 + (omega[i] * tau_RC) ** 2)
 
-        Zp[i] = np.sum(RealContribution)  # Sum of the real part of the RC element contribution
-        Zpp[i] = -np.sum(ImaginaryContribution)  # Sum of the imaginary part of the RC element contribution, added - sign
+        Re[i] = np.sum(RealContribution)  # Sum of the real part of the RC element contribution
+        Im[i] = -np.sum(ImaginaryContribution)  # Sum of the imaginary part of the RC element contribution, added - sign
 
-    Zp = Zp + Rs  # add Rs
-    Zpp = Zpp + omega * L - (Cinv / omega)  # add L and C
+    Re = Re + Rs  # add Rs
+    Im = Im + omega * L - (Cinv / omega)  # add L and C
 
-    return Zp, Zpp
+    return Re, Im
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from Methods.DRT.Utils import Evaluate_Z_RC_L_C, ConvertToASR
+import Methods.DRT.Utils as fn
 
 def ResampleEIS(RC, RsLCinv, Parameters):
     """
@@ -36,20 +36,22 @@ def ResampleEIS(RC, RsLCinv, Parameters):
     # Output
     # EIS_resampled     is a table containing: 
     #                       f = frequency of the resampled impedance
-    #                       Zp = the real part of the resampled impedance
-    #                       Zpp = the imaginary part of the resampled impedance
+    #                       Re = the real part of the resampled impedance
+    #                       Im = the imaginary part of the resampled impedance
     #                       tau = the time constant of the resampled impedance
     #                       omega = the pulsation of the resampled impedance
 
-    lf = np.log10(min(Parameters['fmin']))
-    hf = np.log10(max(Parameters['fmax']))
+    lf = np.log10(Parameters['fmin'])
+    hf = np.log10(Parameters['fmax'])
 
     f = np.logspace(hf, lf, int((hf - lf) * Parameters['PointsPerDecade'] + 1))
     omega = 2 * np.pi * f
 
-    Zp, Zpp = Evaluate_Z_RC_L_C(RC['R_RC'], RC['tau_RC'], RsLCinv['Rs'], RsLCinv['L'], RsLCinv['Cinv'], omega)
+    Re, Im = fn.Evaluate_Z_RC_L_C(np.array(RC['R_RC']), np.array(RC['tau_RC']), np.array(RsLCinv['Rs']), np.array(RsLCinv['L']), np.array(RsLCinv['Cinv']), omega)
 
-    EIS_resampled = pd.DataFrame({'f': f, 'Zp': Zp, 'Zpp': Zpp})
-    EIS_resampled = ConvertToASR(EIS_resampled, 1)  # ConvertToASR only used to add tau and omega
+    parameters_dummy = {'CellArea': 1}  # dummy cell area for ConvertToASR
+    Z = Re + 1j * Im
+    EIS_resampled = pd.DataFrame({'f': f, 'Z': Z, 'Re': Re, 'Im': Im})
+    EIS_resampled = fn.ConvertToASR(EIS_resampled, parameters_dummy)  # ConvertToASR only used to add tau and omega
 
     return EIS_resampled
