@@ -12,7 +12,9 @@ Created by:
 import Methods.DRT.Utils as fn
 import numpy as np
 import matplotlib.pyplot as plt
-from cmcrameri import cm
+import time
+import os
+import pandas as pd
 
 class DRT:
     def __init__(self, Re_raw=None, Im_raw=None, f_raw=None, CellArea=None, n_cell=None, file_folder=None, filename=None):
@@ -89,33 +91,13 @@ class DRT:
         }
 
         # Data structure for tikonov methodology
-        self.tknv_truncated = {
-            'Re': None,                # Tikhonov method with truncated real part data
-            'Im': None,                # Tikhonov method with truncated imaginary part data
-            'ReIm': None,              # Tikhonov method with truncated real and imaginary part data
-            'f': None                  # Truncated frequency data
-        }
+        self.tknv_truncated = None
 
-        self.tknv_smooth = {
-            'Re': None,                # Tikhonov method with smoothed real part data
-            'Im': None,                # Tikhonov method with smoothed imaginary part data
-            'ReIm': None,              # Tikhonov method with smoothed real and imaginary part data
-            'f': None                  # Smoothed frequency data
-        }
+        self.tknv_smooth = None
 
-        self.tknv_extrapolation = {
-            'Re': None,                # Tikhonov method with extrapolated real part data
-            'Im': None,                # Tikhonov method with extrapolated imaginary part data
-            'ReIm': None,              # Tikhonov method with extrapolated real and imaginary part data
-            'f': None          # Extrapolated frequency data
-        }
+        self.tknv_extrapolation = None
 
-        self.tknv_LCcorrect = {
-            'Re': None,                # Tikhonov method with LC corrected real part data
-            'Im': None,                # Tikhonov method with LC corrected imaginary part data
-            'ReIm': None,              # Tikhonov method with LC corrected real and imaginary part data
-            'f': None                  # LC corrected frequency data
-        }
+        self.tknv_LCcorrect = None
 
         # Data treatment parameters
         self.parameter = {
@@ -185,14 +167,15 @@ class DRT:
                 'lambda_min': 1e-7,     # Minimal lambda value for Tikhonov regularization
                 'lambda_max': 0.2,      # Maximal lambda value for Tikhonov regularization
                 'n': 100,               # Number of lambda values to be tested
-                'lambda_plot': True,    # Display the lambda plot or not
-                'PlotFig': False        # Display the lambda plot or not
+                'lampda_opt': True,     # Perform optimal lambda selection or not
+                'PlotFig': True,        # Plot the L-curve or not
             },
             # Tikonov regularization
             'DRT': {
                 'Lambda_selection': 'Manual',  # Lambda selection method, including 'Manual' and 'Optimal'
-                'Lambda': 0.15,                # Regularization parameter
-                'tknv_legend': None            # Legend for Tikhonov regularization plot
+                'Lambda': 5e-5,                # Regularization parameter
+                'tknv_legend': None,           # Legend for Tikhonov regularization plot
+                'DRT_switch': True,            # Switch on Tikhonov regularization or not
             }
         }
 
@@ -320,13 +303,30 @@ class DRT:
         return EIS_data
     
     # Functions for Tiknov regularization
-    def lambdaOPT(self):
+    def lambdaOPT(self, EIS_data):
         parameter = self.parameter['LambdaOpt']
-        self.lambda_opt = fn.LambdaOPT(self.truncated['Re'], self.truncated['Im'], self.truncated['f'], parameter)
-        print(f"Optimal lambda value: {self.lambda_opt}")
+        self.lambda_opt = fn.LambdaOPT(EIS_data, parameter)
+        print(f"---- Optimal lambda value: {self.lambda_opt}")
 
     def tknv(self):
-        pass
+        # Start timing the Tikhonov regularization process
+        start_time = time.time()
+
+        # Perform Tikhonov regularization on truncated data
+        self.tknv_truncated = fn.DRT_tikhonov(self.truncated, self.parameter['DRT'])
+
+        # Perform Tikhonov regularization on smoothed data
+        self.tknv_smooth = fn.DRT_tikhonov(self.smooth, self.parameter['DRT'])
+
+        # Perform Tikhonov regularization on extrapolated data
+        self.tknv_extrapolation = fn.DRT_tikhonov(self.extrapolation, self.parameter['DRT'])
+
+        # Perform Tikhonov regularization on L/C corrected data
+        self.tknv_LCcorrect = fn.DRT_tikhonov(self.LCcorrect, self.parameter['DRT'])
+
+        # Calculate and print the total execution time
+        elapsed_time = time.time() - start_time
+        print(f"---- Tikhonov regularization completed in {elapsed_time:.2f} seconds.")
     
     # Functions for data plotting
     def KK_plot(self, figure_name = ''):
@@ -358,6 +358,7 @@ class DRT:
                 plt.grid(True)
                 plt.legend()
                 plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Re':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.semilogx(self.truncated['f'], self.truncated['Re'], '-', label='Truncated', color=cmap(0.3))
@@ -366,6 +367,8 @@ class DRT:
                 plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
                 plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Im':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.semilogx(self.truncated['f'], -self.truncated['Im'], '-', label='Truncated', color=cmap(0.3))
@@ -374,6 +377,8 @@ class DRT:
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
                 plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'ReIm_LC':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.plot(self.LCcorrect['Re'], -self.LCcorrect['Im'], '-', label='Corrected', color=cmap(0.3))
@@ -383,6 +388,7 @@ class DRT:
                 plt.grid(True)
                 plt.legend()
                 plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Re_LC':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.semilogx(self.LCcorrect['f'], self.LCcorrect['Re'], '-', label='Corrected', color=cmap(0.3))
@@ -391,6 +397,8 @@ class DRT:
                 plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
                 plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Im_LC':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.semilogx(self.LCcorrect['f'], -self.LCcorrect['Im'], '-', label='Corrected', color=cmap(0.3))
@@ -399,6 +407,8 @@ class DRT:
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
                 plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Re_s':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.semilogx(self.smooth['f'], self.smooth['Re'], '-', label='Smoothed', color=cmap(0.3))
@@ -407,6 +417,8 @@ class DRT:
                 plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
                 plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Im_s':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.semilogx(self.smooth['f'], -self.smooth['Im'], '-', label='Smoothed', color=cmap(0.3))
@@ -415,6 +427,8 @@ class DRT:
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
                 plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'ReIm_s':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.plot(self.smooth['Re'], -self.smooth['Im'], '-', label='Smoothed', color=cmap(0.3))
@@ -424,6 +438,7 @@ class DRT:
                 plt.grid(True)
                 plt.legend()
                 plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Re_e':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.semilogx(self.extrapolation['f'], self.extrapolation['Re'], '-', label='Extrapolated', color=cmap(0.3))
@@ -432,6 +447,8 @@ class DRT:
                 plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
                 plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Im_e':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.semilogx(self.extrapolation['f'], -self.extrapolation['Im'], '-', label='Extrapolated', color=cmap(0.3))
@@ -440,6 +457,8 @@ class DRT:
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
                 plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'ReIm_e':
                 plt.figure(plot_type + '--' + figure_name)
                 plt.plot(self.extrapolation['Re'], -self.extrapolation['Im'], '-', label='Extrapolated', color=cmap(0.3))
@@ -449,4 +468,227 @@ class DRT:
                 plt.grid(True)
                 plt.legend()
                 plt.gca().set_aspect('equal', adjustable='box')
-        # plt.show()
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+
+    def DRT_plot(self, plot_type, figure_name = ''):
+        """
+        Plot Tikhonov regularization results based on the specified type.
+        """
+        cmap = plt.cm.get_cmap(plt.rcParams['image.cmap'])
+        plt.figure(plot_type)
+        if plot_type == 'Im':
+            plt.semilogx(self.tknv_truncated['Im']['f'], self.tknv_truncated['Im']['g'], linewidth=3, label=f"TKNV_Im - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'Im_s':
+            plt.semilogx(self.tknv_smooth['Im']['f'], self.tknv_smooth['Im']['g'], linewidth=3, label=f"TKNV_Im_s - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'Im_e':
+            plt.semilogx(self.tknv_extrapolation['Im']['f'], self.tknv_extrapolation['Im']['g'], linewidth=3, label=f"TKNV_Im_e - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'Im_crct':
+            plt.semilogx(self.tknv_LCcorrect['Im']['f'], self.tknv_LCcorrect['Im']['g'], linewidth=3, label=f"TKNV_Im_crct - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'Re':
+            plt.semilogx(self.tknv_truncated['Re']['f'], self.tknv_truncated['Re']['g'], linewidth=3, label=f"TKNV_Re - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'Re_s':
+            plt.semilogx(self.tknv_smooth['Re']['f'], self.tknv_smooth['Re']['g'], linewidth=3, label=f"TKNV_Re_s - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'Re_e':
+            plt.semilogx(self.tknv_extrapolation['Re']['f'], self.tknv_extrapolation['Re']['g'], linewidth=3, label=f"TKNV_Re_e - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'Re_crct':
+            plt.semilogx(self.tknv_LCcorrect['Re']['f'], self.tknv_LCcorrect['Re']['g'], linewidth=3, label=f"TKNV_Re_crct - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'ReIm':
+            plt.semilogx(self.tknv_truncated['ReIm']['f'], self.tknv_truncated['ReIm']['g'], linewidth=3, label=f"TKNV_ReIm - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'ReIm_s':
+            plt.semilogx(self.tknv_smooth['ReIm']['f'], self.tknv_smooth['ReIm']['g'], linewidth=3, label=f"TKNV_ReIm_s - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'ReIm_e':
+            plt.semilogx(self.tknv_extrapolation['ReIm']['f'], self.tknv_extrapolation['ReIm']['g'], linewidth=3, label=f"TKNV_ReIm_e - {figure_name.replace('_', ' ')}")
+        elif plot_type == 'ReIm_crct':
+            plt.semilogx(self.tknv_LCcorrect['ReIm']['f'], self.tknv_LCcorrect['ReIm']['g'], linewidth=3, label=f"TKNV_ReIm_crct - {figure_name.replace('_', ' ')}")
+        else:
+            print("[Error] Invalid TKNV type specified!")
+            return
+
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel(r'$\gamma \, [\Omega \cdot cm^2 \cdot s]$')
+        plt.legend()
+        plt.xlim([1e-2, 1e6])
+        plt.ylim(bottom=0)  # Set y-axis to start from 0
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)  # Add subgrid for each decade
+        plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+
+    # Functions for saving data
+    def save_data(self):
+        """
+        Save EIS and DRT data to Excel files.
+
+        Parameters:
+        - EIS: An object containing EIS and DRT data, following the structure defined in DRT.py.
+        """
+        # Define file paths
+        ext_save = '.xlsx'
+        folder_eis = os.path.join(self.file_folder, 'EIS')
+        folder_drt = os.path.join(self.file_folder, 'DRT')
+        eis_file = os.path.join(folder_eis, f"{self.filename}{ext_save}")
+        drt_file = os.path.join(folder_drt, f"{self.filename}{ext_save}")
+
+        # Ensure directories exist
+        os.makedirs(folder_eis, exist_ok=True)
+        os.makedirs(folder_drt, exist_ok=True)
+
+        # Remove existing files
+        if os.path.exists(eis_file):
+            os.remove(eis_file)
+            print(f"---- {eis_file}: already existed, deleted and created a new one.")
+        if os.path.exists(drt_file):
+            os.remove(drt_file)
+            print(f"---- {drt_file}: already existed, deleted and created a new one.")
+
+        # Save EIS data
+        print("---- Saving EIS data...")
+        with pd.ExcelWriter(eis_file, engine='openpyxl') as writer:
+            # Info of measurement
+            if self.info is not None:
+                # Convert self.info to a DataFrame if it's not already
+                if not isinstance(self.info, pd.DataFrame):
+                    self.info = pd.DataFrame([self.info])
+                self.info.to_excel(writer, sheet_name='Info of measurement', index=False)
+
+            # Original data
+            pd.DataFrame({
+                'Frequency/Hz': self.raw['f'],
+                'Re/ohm·cm2': self.raw['Re'],
+                'Im/ohm·cm2': self.raw['Im']
+            }).to_excel(writer, sheet_name='Original', index=False)
+
+            # Truncated data
+            pd.DataFrame({
+                'Frequency/Hz': self.truncated['f'],
+                'Re/ohm·cm2': self.truncated['Re'],
+                'Im/ohm·cm2': self.truncated['Im']
+            }).to_excel(writer, sheet_name='Truncated', index=False)
+
+            # LC corrected data
+            pd.DataFrame({
+                'Frequency/Hz': self.LCcorrect['f'],
+                'Re/ohm·cm2': self.LCcorrect['Re'],
+                'Im/ohm·cm2': self.LCcorrect['Im']
+            }).to_excel(writer, sheet_name='LC corrected', index=False)
+
+            # Linear Kramers-Kronig data
+            pd.DataFrame({
+                'Frequency/Hz': self.KK_data['f'],
+                'Re/ohm·cm2': self.KK_data['Re'],
+                'Im/ohm·cm2': self.KK_data['Im'],
+                'dr_kkl': self.KK_data['delta_Re_kk'],
+                'di_kkl': self.KK_data['delta_Im_kk']
+            }).to_excel(writer, sheet_name='Linear Kramers-Kroning', index=False)
+
+            # Smoothed data
+            pd.DataFrame({
+                'Frequency/Hz': self.smooth['f'],
+                'Re/ohm·cm2': self.smooth['Re'],
+                'Im/ohm·cm2': self.smooth['Im']
+            }).to_excel(writer, sheet_name='Smooth', index=False)
+
+            # Extrapolated data
+            pd.DataFrame({
+                'Frequency/Hz': self.extrapolation['f'],
+                'Re/ohm·cm2': self.extrapolation['Re'],
+                'Im/ohm·cm2': self.extrapolation['Im']
+            }).to_excel(writer, sheet_name='Extended', index=False)
+
+            # Resistance data
+            pd.DataFrame({
+                'Rohm/ohm·cm2 - KK': self.KK_data['res_ohm_kk'],
+                'Rp/ohm·cm2 - KK': self.KK_data['res_pol_kk'],
+                'L/ohm·cm2 - Tikhnov': self.tknv_truncated['RL']['L_ImRe'],
+                'Rohm/ohm·cm2 - Tikhnov': self.tknv_truncated['RL']['Rs_ImRe'],
+                'Rp/ohm·cm2 - Tikhnov': self.tknv_truncated['RL']['Rp_ImRe']
+            }).to_excel(writer, sheet_name='Resistance', index=False)
+
+        print("-- EIS data saved.")
+
+        # Save DRT data
+        print("---- Saving DRT data...")
+        with pd.ExcelWriter(drt_file, engine='openpyxl') as writer:
+            # Info of measurement
+            if self.info is not None:
+                # Convert self.info to a DataFrame if it's not already
+                if not isinstance(self.info, pd.DataFrame):
+                    self.info = pd.DataFrame([self.info])
+                self.info.to_excel(writer, sheet_name='Info of measurement', index=False)
+
+            # DRT parameters
+            pd.DataFrame({
+                'Nfh_cut': [self.parameter['Preprocessing']['num_cut_upper']],
+                'Nfl_cut': [self.parameter['Preprocessing']['num_cut_lower']],
+                'fl': [min(self.truncated['f'])],
+                'fh': [max(self.truncated['f'])],
+                'lambda': [self.parameter['DRT']['Lambda']],
+                'CellArea/cm2': [self.parameter['Sample']['CellArea']]
+            }).to_excel(writer, sheet_name='DRT_Parameters', index=False)
+
+            # Tikhonov regularization data
+            if hasattr(self, 'tknv_truncated') and self.tknv_truncated is not None:
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_truncated['Re']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_truncated['Re']['g']
+                }).to_excel(writer, sheet_name='Tknv_Re', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_truncated['Im']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_truncated['Im']['g']
+                }).to_excel(writer, sheet_name='Tknv_Im', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_truncated['ReIm']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_truncated['ReIm']['g']
+                }).to_excel(writer, sheet_name='Tknv_ReIm', index=False)
+
+            # Smoothed Tikhonov regularization data
+            if hasattr(self, 'tknv_smooth') and self.tknv_smooth is not None:
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_smooth['Re']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_smooth['Re']['g']
+                }).to_excel(writer, sheet_name='Tknv_Re_s', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_smooth['Im']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_smooth['Im']['g']
+                }).to_excel(writer, sheet_name='Tknv_Im_s', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_smooth['ReIm']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_smooth['ReIm']['g']
+                }).to_excel(writer, sheet_name='Tknv_ReIm_s', index=False)
+
+            # Extrapolated Tikhonov regularization data
+            if hasattr(self, 'tknv_extrapolation') and self.tknv_extrapolation is not None:
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_extrapolation['Re']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_extrapolation['Re']['g']
+                }).to_excel(writer, sheet_name='Tknv_Re_e', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_extrapolation['Im']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_extrapolation['Im']['g']
+                }).to_excel(writer, sheet_name='Tknv_Im_e', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_extrapolation['ReIm']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_extrapolation['ReIm']['g']
+                }).to_excel(writer, sheet_name='Tknv_ReIm_e', index=False)
+
+            # L/C corrected Tikhonov regularization data
+            if hasattr(self, 'tknv_LCcorrect') and self.tknv_LCcorrect is not None:
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_LCcorrect['Re']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_LCcorrect['Re']['g']
+                }).to_excel(writer, sheet_name='Tknv_Re_crct', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_LCcorrect['Im']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_LCcorrect['Im']['g']
+                }).to_excel(writer, sheet_name='Tknv_Im_crct', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_LCcorrect['ReIm']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_LCcorrect['ReIm']['g']
+                }).to_excel(writer, sheet_name='Tknv_ReIm_crct', index=False)
+        print("-- DRT data saved.")

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from cmcrameri import cm
 import matplotlib.pyplot as plt
 
@@ -54,6 +55,5 @@ def figure_initialization(width=1920, height=1080, font_size=42, colormap_name='
     # Set default figure window size
     plt.rcParams['figure.dpi'] = dpi
 
-    print("Figure initialization complete with the following settings:")
-    print(f"Size: {width}x{height} pixels, Font size: {font_size}, Font family: {font_family}, Line width: {line_width}, Marker edge width: {marker_edge_width}, Colormap: {colormap_name}, DPI: {dpi}")
-    print(f"Marker size: {plt.rcParams['lines.markersize']}")
+    print("---- Figure initialization complete with the following settings:")
+    print(f"-- Size: {width}x{height} pixels, Font size: {font_size}, Font family: {font_family}, Line width: {line_width}, Marker edge width: {marker_edge_width}, Colormap: {colormap_name}, DPI: {dpi}, Marker size: {plt.rcParams['lines.markersize']}")

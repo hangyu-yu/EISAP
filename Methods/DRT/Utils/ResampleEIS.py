@@ -51,7 +51,7 @@ def ResampleEIS(RC, RsLCinv, Parameters):
 
     parameters_dummy = {'CellArea': 1}  # dummy cell area for ConvertToASR
     Z = Re + 1j * Im
-    EIS_resampled = pd.DataFrame({'f': f, 'Z': Z, 'Re': Re, 'Im': Im})
+    EIS_resampled = {'f': f, 'Z': Z, 'Re': Re, 'Im': Im}
     EIS_resampled = fn.ConvertToASR(EIS_resampled, parameters_dummy)  # ConvertToASR only used to add tau and omega
 
     return EIS_resampled

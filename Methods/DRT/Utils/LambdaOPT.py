@@ -3,109 +3,102 @@ from scipy.linalg import norm
 from scipy.interpolate import interp1d
 
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import Methods.DRT.Utils as fn
 
-def LambdaOPT(EIS_Data, Parameters):
+def LambdaOPT(EIS_data, parameters):
     """
-    LAMBDAOPT compute the optimal Tikhonov regularization parameters based on
-    the turning point of the L-curve. The turning point is found using the
-    maximum curvature.
+    Compute the optimal Tikhonov regularization parameter based on the turning point of the L-curve.
+    The turning point is found using the maximum curvature.
 
-    Ref: Per Christian Hansen and Dianne Prost O Leary. The Use of the L-Curve in the Regularization
-    of Discrete Ill-Posed Problems. SIAM Journal on Scientific Computing, 14(6):
-    1487–1503, nov 1993. ISSN 1064-8275. doi: 10.1137/0914086.
+    Parameters:
+    EIS_data (pd.DataFrame): DataFrame containing at least 'f', 'Re', 'Im', 'omega'
+                             'Im' should not have been multiplied by -1 (i.e., imag(Z_RC) < 0)
+                             Frequency should be ordered from highest to lowest
+    parameters (dict): Dictionary containing:
+                       'lambda_min' = minimum value of the regularization parameter
+                       'lambda_max' = maximum value of the regularization parameter
+                       'n' = number of lambda values to be tested
+                       'PlotFig' = boolean for displaying figure or not
+                       'TextOutput' = boolean for displaying text or not
 
-    Created by Guillaume Jeanmonod
-    Translated to Python by Hangyu Yu
-
-    Parameters
-    ----------
-    EIS_Data : DataFrame
-        A table containing at least f, Zp, Zpp, omega.
-    Parameters : dict
-        A dictionary containing:
-            lambda_min : float
-                The minimum value of the regularization parameter.
-            lambda_max : float
-                The maximum value of the regularization parameter.
-            n : int
-                Number of lambda values to be tested.
-            lambda_plot : bool
-                Boolean for displaying figure or not.
-            TextOutput : bool
-                Boolean for displaying text or not.
-
-    Returns
-    -------
-    lambda_optimal : float
-        The optimal value of the Tikhonov regularization parameter.
+    Returns:
+    float: The optimal value of the Tikhonov regularization parameter
     """
+    if parameters['PlotFig']:
+        cmap = plt.cm.get_cmap(plt.rcParams['image.cmap'])
+        color = cmap(np.linspace(0, 1, parameters['n']))
+        cm_tmp = plt.rcParams['image.cmap']
+        plt.rcParams['image.cmap'] = 'autumn'
+        fig = plt.figure(figsize=(15, 5))
+        gs = gridspec.GridSpec(1, 4, width_ratios=[25,25,25, 1], wspace=0.6, hspace=0.3)
 
-    if Parameters['lambda_plot']:
-        fig, axs = plt.subplots(1, 3, figsize=(12, 3))
-        color_map = plt.cm.autumn(np.linspace(0, 1, Parameters['n']))
+    axs=[]
+    axs.append(fig.add_subplot(gs[0, 0]))
+    axs.append(fig.add_subplot(gs[0, 1]))
+    axs.append(fig.add_subplot(gs[0, 2]))
+    axs.append(fig.add_subplot(gs[0, 3]))
 
-    lambda_values = np.logspace(np.log10(Parameters['lambda_min']), np.log10(Parameters['lambda_max']), Parameters['n'])
+    lambda_values = np.logspace(np.log10(parameters['lambda_min']), np.log10(parameters['lambda_max']), parameters['n'])
 
-    NormRes = []
-    NormDRT = []
+    norm_res = []
+    norm_drt = []
 
     for counter, lambda_val in enumerate(lambda_values):
-        Parameters_DRT = Parameters.copy()
-        Parameters_DRT['lambda'] = lambda_val
+        parameters_drt = parameters.copy()
+        parameters_drt['lambda'] = lambda_val
 
-        DRT = DRT_tikonov(EIS_Data, Parameters_DRT)
+        drt = fn.DRT_tikhonov(EIS_data, parameters_drt)
 
-        NormRes.append(norm(DRT['Re']['Residuals']))
-        NormDRT.append(norm(DRT['Re']['g']))
+        norm_res.append(np.linalg.norm(drt['Re']['Residuals']))
+        norm_drt.append(np.linalg.norm(drt['Re']['g']))
 
-        if Parameters['lambda_plot']:
-            axs[0].semilogx(DRT['Im']['f'], DRT['Im']['g'], color=color_map[counter])
-            axs[0].set_xlabel('f (Hz)')
-            axs[0].set_ylabel(r'$\gamma [\Omega \cdot cm^2 \cdot s]$')
-            axs[0].legend([f'{val:.2e}' for val in lambda_values], loc='best', fontsize='small')
+        if parameters['PlotFig']:
+            axs[0].semilogx(drt['Im']['f'], drt['Im']['g'], color=color[counter])
+        
 
-    NormRes = np.array(NormRes)
-    NormDRT = np.array(NormDRT)
+    if parameters['PlotFig']:
+        # axs[0].legend([f"{val:.3g}" for val in lambda_values], loc='best')
+        axs[0].set_xlabel('f (Hz)')
+        axs[0].set_ylabel(r'$\gamma\, [\Omega \cdot cm^2 \cdot s]$')
 
     # Curvature
-    logx = np.log(NormRes**2)
-    logy = np.log(NormDRT**2)
+    logx = np.log(np.array(norm_res) ** 2)
+    logy = np.log(np.array(norm_drt) ** 2)
     dlogx = np.gradient(logx)
     dlogy = np.gradient(logy)
     ddlogx = np.gradient(dlogx)
     ddlogy = np.gradient(dlogy)
 
-    k = np.abs((dlogx * ddlogy - dlogy * ddlogx)) / (dlogx**2 + dlogy**2)**1.5
+    k = np.abs((dlogx * ddlogy - dlogy * ddlogx)) / (dlogx ** 2 + dlogy ** 2) ** 1.5
 
-    if Parameters['lambda_plot']:
+    if parameters['PlotFig']:
         axs[1].semilogx(lambda_values, k, 'k')
-        axs[1].scatter(lambda_values, k, c=color_map, s=25)
+        axs[1].scatter(lambda_values, k, s=25, color=color[counter])
         axs[1].set_xlabel(r'$\lambda$')
         axs[1].set_ylabel('curvature')
 
-    lambda_optimal = lambda_values[np.argmax(k)]
+    max_curvature_index = np.argmax(k)
+    lambda_optimal = lambda_values[max_curvature_index]
 
-    if Parameters['lambda_plot']:
-        axs[2].loglog(NormRes, NormDRT, 'k-')
-        axs[2].scatter(NormRes, NormDRT, c=color_map, s=25)
-        axs[2].set_xlabel(r'$||A\gamma - b||$')
-        axs[2].set_ylabel(r'$||\gamma||$')
+    if parameters['PlotFig']:
+        axs[2].loglog(norm_res, norm_drt, 'k-')
+        axs[2].scatter(norm_res, norm_drt, color=color, s=25)
+        axs[2].set_xlabel(r'||A$\gamma$ - b||')
+        axs[2].set_ylabel(r'||$\gamma$||')
 
-        sm = plt.cm.ScalarMappable(cmap=plt.cm.autumn, norm=plt.Normalize(vmin=Parameters['lambda_min'], vmax=Parameters['lambda_max']))
+        # Create a ScalarMappable for the colorbar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=np.log10(parameters['lambda_min']), vmax=np.log10(parameters['lambda_max'])))
         sm.set_array([])
-        cbar = plt.colorbar(sm, ax=axs, orientation='vertical', fraction=0.02, pad=0.04)
-        cbar.set_label(r'$\lambda$', rotation=0, labelpad=10)
-        cbar.ax.tick_params(labelsize=10)
 
-        plt.show()
+        # Add a fourth subplot for the colorbar
+        cb = fig.colorbar(sm, cax=axs[3], orientation='vertical')
+        cb.set_ticks(np.linspace(np.log10(parameters['lambda_min']), np.log10(parameters['lambda_max']), 11))
+        cb.set_ticklabels([f"{val:.3g}" for val in np.logspace(np.log10(parameters['lambda_min']), np.log10(parameters['lambda_max']), 11)])
+        cb.set_label(r'$\lambda$', rotation=0, labelpad=20, fontsize=14)
+        plt.rcParams['image.cmap'] = cm_tmp
 
-    if Parameters['TextOutput']:
-        print(f"lambda optimal is {lambda_optimal}")
+        # Show plot
+        #plt.show(block=False)
 
     return lambda_optimal
-
-def DRT_tikonov(EIS_Data, Parameters_DRT):
-    # Placeholder function for DRT_tikonov
-    # This function should be implemented based on the specific requirements
-    # and data structure of EIS_Data and Parameters_DRT.
-    pass

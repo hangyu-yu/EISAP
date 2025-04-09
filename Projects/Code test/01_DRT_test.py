@@ -29,16 +29,22 @@ EIS.parameter['Preprocessing']['num_cut_lower'] = 10       # low frequency cut
 EIS.parameter['RM_significance']['sig_threshold'] = 0.995  # significance threshold
 EIS.parameter['Smoothing']['PointsPerDecade'] = 30         # number of points per decade
 EIS.parameter['Extrapolation']['PointsPerDecade'] = 20     # number of points per decade
+EIS.parameter['DRT']['Lambda'] = 5e-4                      # regularization parameter
 
-EIS.parameter['Rmoutliers']['RMoutliers'] = False           # remove outliers
+EIS.parameter['Rmoutliers']['RMoutliers']           = False # remove outliers
 EIS.parameter['RM_significance']['rm_significance'] = False # remove data with low significance
-EIS.parameter['KKpreprocess']['OptimalCut'] = False         # remove data based on KK criterion
-EIS.parameter['KK']['KK_test'] = True                       # KK test
-EIS.parameter['KK']['KK_type'] = 'Mu_criterion'             # KK type
+EIS.parameter['KKpreprocess']['OptimalCut']         = False # remove data based on KK criterion
+EIS.parameter['KK']['KK_test']                      = True  # KK test
+EIS.parameter['KK']['KK_type']             = 'Mu_criterion' # KK type
+EIS.parameter['LambdaOpt']['lambda_opt']            = False # solve the optimum lambda
+EIS.parameter['DRT']['DRT_switch']                  = True  # DRT switch
 
-switch_plot_KK = True
+switch_data_save = True
+switch_plot_KK  = True
 switch_plot_EIS = True
-plot_EIS_list = {'ReIm', 'ReIm_s', 'ReIm_e', 'ReIm_LC'}
+switch_plot_DRT = True
+plot_EIS_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
+plot_DRT_list = {'ReIm'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
 
 # Data processing
 for file in txt_files:
@@ -46,9 +52,11 @@ for file in txt_files:
     if file is None:
         raise FileNotFoundError('The specified file does not exist.')
     else: 
-        print('File loaded:', file)
         metadata,data = fn.read_zahner_txt(file)
         filename = os.path.basename(file)
+        EIS.filename = filename
+        print('---- File loaded:', file)
+        print('-- file name:', filename)
     
     EIS.raw['Re'] = data['Re/Ohm'].to_numpy()
     EIS.raw['Im'] = data['Im/Ohm'].to_numpy()
@@ -86,17 +94,32 @@ for file in txt_files:
     EIS.LCcorrect = EIS.ResampleEIS(EIS.truncated, EIS.parameter['Smoothing'])
     EIS.extrapolation = EIS.ResampleEIS(EIS.truncated, EIS.parameter['Extrapolation'])
 
-    # Plot KK and EIS data
+    # 37 - Plot KK and EIS data
     if switch_plot_KK:
         EIS.KK_plot(filename)
 
-    EIS.EIS_plot(plot_EIS_list, filename)
-
+    if switch_plot_EIS:
+        EIS.EIS_plot(plot_EIS_list, filename)
+    
 # 04 - DRT treatment
     # 041 - Solve the optimum lambda or not
-    plt.show()
+    if EIS.parameter['LambdaOpt']['lambda_opt']:
+        EIS.lambdaOPT(EIS.truncated)
 
-    break
+    # 042 - Run the DRT code to get all the results
+    if EIS.parameter['DRT']['DRT_switch']:
+        EIS.tknv()
+    
+    # 043 - Plot the DRT results
+    if switch_plot_DRT:
+        for plot_type in plot_DRT_list:
+            EIS.DRT_plot(plot_type, filename)
+# 05 - Data save
+    if switch_data_save:
+        EIS.save_data()
+
+plt.show(block=True)
+
 
     # plt.figure(figsize=(8, 6))
     # plt.plot(EIS.raw['Re'], -EIS.raw['Im'], 'o-', label='Original Data')
