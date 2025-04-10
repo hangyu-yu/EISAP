@@ -40,11 +40,13 @@ EIS.parameter['LambdaOpt']['lambda_opt']            = False # solve the optimum 
 EIS.parameter['DRT']['DRT_switch']                  = True  # DRT switch
 
 switch_data_save = True
-switch_plot_KK  = True
-switch_plot_EIS = True
+switch_plot_KK  = False
+switch_plot_EIS = False
 switch_plot_DRT = True
+switch_Plot_DRT_EIS = True
 plot_EIS_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
-plot_DRT_list = {'ReIm'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
+plot_DRT_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
+plot_DRT_EIS_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
 
 # Data processing
 for file in txt_files:
@@ -114,9 +116,15 @@ for file in txt_files:
     if switch_plot_DRT:
         for plot_type in plot_DRT_list:
             EIS.DRT_plot(plot_type, filename)
+
+    # 044 - Plot the EIS data based on DRT results
+    if switch_Plot_DRT_EIS:
+        EIS.DRT_EIS_plot(plot_DRT_EIS_list, filename)
+        
 # 05 - Data save
     if switch_data_save:
         EIS.save_data()
+    break
 
 plt.show(block=True)
 

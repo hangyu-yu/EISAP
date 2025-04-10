@@ -78,24 +78,16 @@ def DRT_tikhonov(EIS_data, parameters):
     A_im_re = np.vstack([A_im, A_re])
     Im_Re = np.hstack([Im, Re])
 
-    DRT_ImRe = np.linalg.inv(A_im_re.T @ A_im_re + parameters['Lambda'] * np.eye(A_im_re.shape[1])) @ A_im_re.T @ Im_Re
-    Residuals_ImRe = A_im_re @ DRT_ImRe - Im_Re  # useful for Lambda optimization
-    Z_ImRe = A_re @ DRT_ImRe + 1j * A_im @ DRT_ImRe  # Compute Z back from DRT
-    Rs_ImRe = DRT_ImRe[-2]  # Get R
-    L_ImRe = DRT_ImRe[-1]  # Get L
-    DRT_ImRe = DRT_ImRe[:-2]  # Remove R and L from the DRT
-    Rp_ImRe = -np.trapz(DRT_ImRe, np.log(f))  # Estimated polarization resistance
+    DRT_ReIm = np.linalg.inv(A_im_re.T @ A_im_re + parameters['Lambda'] * np.eye(A_im_re.shape[1])) @ A_im_re.T @ Im_Re
+    Residuals_ReIm = A_im_re @ DRT_ReIm - Im_Re  # useful for Lambda optimization
+    Z_ReIm = A_re @ DRT_ReIm + 1j * A_im @ DRT_ReIm  # Compute Z back from DRT
+    Rs_ReIm = DRT_ReIm[-2]  # Get R
+    L_ReIm = DRT_ReIm[-1]  # Get L
+    DRT_ReIm = DRT_ReIm[:-2]  # Remove R and L from the DRT
+    Rp_ReIm = -np.trapz(DRT_ReIm, np.log(f))  # Estimated polarization resistance
 
     # Create output structure of DataFrames
     DRT = {
-        'Im': {  # Results for the imaginary part only
-            'f': f,                  # Frequency array corresponding to tau
-            'tau': tau,              # Relaxation times
-            'g': DRT_Im,             # Distribution of relaxation times (DRT) for imaginary part
-            'Re': np.real(Z_Im),     # Real part of the reconstructed impedance
-            'Im': -np.imag(Z_Im),    # Imaginary part of the reconstructed impedance
-            'Residuals': Residuals_Im  # Residuals for the imaginary part
-        },
         'Re': {  # Results for the real part only
             'f': f,                  # Frequency array corresponding to tau
             'tau': tau,              # Relaxation times
@@ -104,12 +96,21 @@ def DRT_tikhonov(EIS_data, parameters):
             'Im': -np.imag(Z_Re),    # Imaginary part of the reconstructed impedance
             'Residuals': Residuals_Re  # Residuals for the real part
         },
+        'Im': {  # Results for the imaginary part only
+            'f': f,                  # Frequency array corresponding to tau
+            'tau': tau,              # Relaxation times
+            'g': DRT_Im,             # Distribution of relaxation times (DRT) for imaginary part
+            'Re': np.real(Z_Im),     # Real part of the reconstructed impedance
+            'Im': -np.imag(Z_Im),    # Imaginary part of the reconstructed impedance
+            'Residuals': Residuals_Im  # Residuals for the imaginary part
+        },
         'ReIm': {  # Results for the combined imaginary and real parts
             'f': f,                  # Frequency array corresponding to tau
             'tau': tau,              # Relaxation times
-            'g': DRT_ImRe,           # Distribution of relaxation times (DRT) for combined parts
-            'Re': np.real(Z_ImRe),   # Real part of the reconstructed impedance
-            'Im': -np.imag(Z_ImRe)   # Imaginary part of the reconstructed impedance
+            'g': DRT_ReIm,           # Distribution of relaxation times (DRT) for combined parts
+            'Re': np.real(Z_ReIm),   # Real part of the reconstructed impedance
+            'Im': -np.imag(Z_ReIm),  # Imaginary part of the reconstructed impedance
+            'Residuals': (Residuals_ReIm[:len(Residuals_ReIm)//2] + Residuals_ReIm[len(Residuals_ReIm)//2:]) / 2  # Residuals for the imaginary part
         },
         'RL': {  # Extracted resistance and inductance values
             'Rs_Im': Rs_Im,          # Series resistance from imaginary part
@@ -118,9 +119,9 @@ def DRT_tikhonov(EIS_data, parameters):
             'Rs_Re': Rs_Re,          # Series resistance from real part
             'Rp_Re': Rp_Re,          # Polarization resistance from real part
             'L_Re': L_Re,            # Inductance from real part
-            'Rs_ImRe': Rs_ImRe,      # Series resistance from combined parts
-            'Rp_ImRe': Rp_ImRe,      # Polarization resistance from combined parts
-            'L_ImRe': L_ImRe         # Inductance from combined parts
+            'Rs_ReIm': Rs_ReIm,      # Series resistance from combined parts
+            'Rp_ReIm': Rp_ReIm,      # Polarization resistance from combined parts
+            'L_ReIm': L_ReIm         # Inductance from combined parts
         }
     }
 

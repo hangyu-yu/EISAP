@@ -29,10 +29,10 @@ def figure_initialization(width=1920, height=1080, font_size=42, colormap_name='
     plt.rcParams['xtick.labelsize'] = font_size
     plt.rcParams['ytick.labelsize'] = font_size
     plt.rcParams['font.family'] = font_family
-    plt.rcParams['mathtext.fontset'] = 'custom'  # 使用自定义字体
-    plt.rcParams['mathtext.rm'] = font_family    # 数学公式中的普通文本字体
-    plt.rcParams['mathtext.it'] = font_family    # 数学公式中的斜体字体
-    plt.rcParams['mathtext.bf'] = font_family    # 数学公式中的粗体字体
+    plt.rcParams['mathtext.fontset'] = 'custom'  # Customoize the font
+    plt.rcParams['mathtext.rm'] = font_family    # font for regular text in math
+    plt.rcParams['mathtext.it'] = font_family    # font for italic text in math
+    plt.rcParams['mathtext.bf'] = font_family    # font for bold text in math
     plt.rcParams['mathtext.sf'] = font_family    # Sans-serif text in math
     plt.rcParams['mathtext.tt'] = font_family    # Monospace text in math
     

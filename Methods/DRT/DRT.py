@@ -335,8 +335,8 @@ class DRT:
         """
         cmap = plt.cm.get_cmap(plt.rcParams['image.cmap'])
         plt.figure('KK_results -- '+figure_name)
-        plt.semilogx(self.KK_data['f'], self.KK_data['delta_Re_kk'], '-o', label='Residual Re', color=cmap(0.3))  # Linear KK real
-        plt.semilogx(self.KK_data['f'], self.KK_data['delta_Im_kk'], '-o', label='Residual Im', color=cmap(0.7))  # Linear KK imag
+        plt.semilogx(self.KK_data['f'], self.KK_data['delta_Re_kk'], '-o', label='Residual Re', color=cmap(0.2))  # Linear KK real
+        plt.semilogx(self.KK_data['f'], self.KK_data['delta_Im_kk'], '-o', label='Residual Im', color=cmap(0.8))  # Linear KK imag
         plt.xlabel('frequency [Hz]')
         plt.ylabel('Residuals [%]')
         plt.axhline(y=self.parameter['KK']['kk_threshold'], linestyle='--', linewidth=1.5)  # Line to indicate threshold
@@ -351,8 +351,8 @@ class DRT:
         for plot_type in EIS_list:
             if plot_type == 'ReIm':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.plot(self.truncated['Re'], -self.truncated['Im'], '-', label='Truncated', color=cmap(0.3))
-                plt.plot(self.raw['Re'], -self.raw['Im'], 'o', markerfacecolor='none', label='Original', color=cmap(0.7))
+                plt.plot(self.truncated['Re'], -self.truncated['Im'], '-', label='Truncated', color=cmap(0.2))
+                plt.plot(self.raw['Re'], -self.raw['Im'], 'o', markerfacecolor='none', label='Original', color=cmap(0.8))
                 plt.xlabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -361,8 +361,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Re':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.semilogx(self.truncated['f'], self.truncated['Re'], '-', label='Truncated', color=cmap(0.3))
-                plt.semilogx(self.raw['f'], self.raw['Re'], 'o', markerfacecolor='none', label='Original', color=cmap(0.7))
+                plt.semilogx(self.truncated['f'], self.truncated['Re'], '-', label='Truncated', color=cmap(0.2))
+                plt.semilogx(self.raw['f'], self.raw['Re'], 'o', markerfacecolor='none', label='Original', color=cmap(0.8))
                 plt.xlabel('f [Hz]')
                 plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -371,8 +371,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Im':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.semilogx(self.truncated['f'], -self.truncated['Im'], '-', label='Truncated', color=cmap(0.3))
-                plt.semilogx(self.raw['f'], -self.raw['Im'], 'o', markerfacecolor='none', label='Original', color=cmap(0.7))
+                plt.semilogx(self.truncated['f'], -self.truncated['Im'], '-', label='Truncated', color=cmap(0.2))
+                plt.semilogx(self.raw['f'], -self.raw['Im'], 'o', markerfacecolor='none', label='Original', color=cmap(0.8))
                 plt.xlabel('f [Hz]')
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -381,8 +381,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'ReIm_LC':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.plot(self.LCcorrect['Re'], -self.LCcorrect['Im'], '-', label='Corrected', color=cmap(0.3))
-                plt.plot(self.truncated['Re'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.7))
+                plt.plot(self.LCcorrect['Re'], -self.LCcorrect['Im'], '-', label='Corrected', color=cmap(0.2))
+                plt.plot(self.truncated['Re'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
                 plt.xlabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -391,8 +391,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Re_LC':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.semilogx(self.LCcorrect['f'], self.LCcorrect['Re'], '-', label='Corrected', color=cmap(0.3))
-                plt.semilogx(self.truncated['f'], self.truncated['Re'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.7))
+                plt.semilogx(self.LCcorrect['f'], self.LCcorrect['Re'], '-', label='Corrected', color=cmap(0.2))
+                plt.semilogx(self.truncated['f'], self.truncated['Re'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
                 plt.xlabel('f [Hz]')
                 plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -401,8 +401,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Im_LC':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.semilogx(self.LCcorrect['f'], -self.LCcorrect['Im'], '-', label='Corrected', color=cmap(0.3))
-                plt.semilogx(self.truncated['f'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.7))
+                plt.semilogx(self.LCcorrect['f'], -self.LCcorrect['Im'], '-', label='Corrected', color=cmap(0.2))
+                plt.semilogx(self.truncated['f'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
                 plt.xlabel('f [Hz]')
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -411,8 +411,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Re_s':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.semilogx(self.smooth['f'], self.smooth['Re'], '-', label='Smoothed', color=cmap(0.3))
-                plt.semilogx(self.truncated['f'], self.truncated['Re'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.7))
+                plt.semilogx(self.smooth['f'], self.smooth['Re'], '-', label='Smoothed', color=cmap(0.2))
+                plt.semilogx(self.truncated['f'], self.truncated['Re'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
                 plt.xlabel('f [Hz]')
                 plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -421,8 +421,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Im_s':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.semilogx(self.smooth['f'], -self.smooth['Im'], '-', label='Smoothed', color=cmap(0.3))
-                plt.semilogx(self.truncated['f'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.7))
+                plt.semilogx(self.smooth['f'], -self.smooth['Im'], '-', label='Smoothed', color=cmap(0.2))
+                plt.semilogx(self.truncated['f'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
                 plt.xlabel('f [Hz]')
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -431,8 +431,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'ReIm_s':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.plot(self.smooth['Re'], -self.smooth['Im'], '-', label='Smoothed', color=cmap(0.3))
-                plt.plot(self.truncated['Re'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.7))
+                plt.plot(self.smooth['Re'], -self.smooth['Im'], '-', label='Smoothed', color=cmap(0.2))
+                plt.plot(self.truncated['Re'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
                 plt.xlabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -441,8 +441,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Re_e':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.semilogx(self.extrapolation['f'], self.extrapolation['Re'], '-', label='Extrapolated', color=cmap(0.3))
-                plt.semilogx(self.truncated['f'], self.truncated['Re'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.7))
+                plt.semilogx(self.extrapolation['f'], self.extrapolation['Re'], '-', label='Extrapolated', color=cmap(0.2))
+                plt.semilogx(self.truncated['f'], self.truncated['Re'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
                 plt.xlabel('f [Hz]')
                 plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -451,8 +451,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'Im_e':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.semilogx(self.extrapolation['f'], -self.extrapolation['Im'], '-', label='Extrapolated', color=cmap(0.3))
-                plt.semilogx(self.truncated['f'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.7))
+                plt.semilogx(self.extrapolation['f'], -self.extrapolation['Im'], '-', label='Extrapolated', color=cmap(0.2))
+                plt.semilogx(self.truncated['f'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
                 plt.xlabel('f [Hz]')
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -461,8 +461,8 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
             elif plot_type == 'ReIm_e':
                 plt.figure(plot_type + '--' + figure_name)
-                plt.plot(self.extrapolation['Re'], -self.extrapolation['Im'], '-', label='Extrapolated', color=cmap(0.3))
-                plt.plot(self.truncated['Re'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.7))
+                plt.plot(self.extrapolation['Re'], -self.extrapolation['Im'], '-', label='Extrapolated', color=cmap(0.2))
+                plt.plot(self.truncated['Re'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
                 plt.xlabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
                 plt.grid(True)
@@ -512,6 +512,130 @@ class DRT:
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)  # Add subgrid for each decade
         plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
 
+    def DRT_EIS_plot(self, EIS_list, figure_name = ''):
+        cmap = plt.cm.get_cmap(plt.rcParams['image.cmap'])
+        for plot_type in EIS_list:
+            if plot_type == 'ReIm':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.plot(self.tknv_truncated['Re']['Re'], -self.tknv_truncated['Re']['Im'], '-', label='DRT-Truncated', color=cmap(0.2))
+                plt.plot(self.truncated['Re'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
+                plt.xlabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'Re':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.semilogx(self.tknv_truncated['Re']['f'], self.tknv_truncated['Re']['Re'], '-', label='DRT-Truncated', color=cmap(0.2))
+                plt.semilogx(self.truncated['f'], self.truncated['Re'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
+                plt.xlabel('f [Hz]')
+                plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'Im':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.semilogx(self.tknv_truncated['Im']['f'], -self.tknv_truncated['Im']['Im'], '-', label='DRT-Truncated', color=cmap(0.2))
+                plt.semilogx(self.truncated['f'], -self.truncated['Im'], 'o', markerfacecolor='none', label='Truncated', color=cmap(0.8))
+                plt.xlabel('f [Hz]')
+                plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'ReIm_LC':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.plot(self.tknv_LCcorrect['Re']['Re'], -self.tknv_LCcorrect['Re']['Im'], '-', label='DRT-Corrected', color=cmap(0.2))
+                plt.plot(self.LCcorrect['Re'], -self.LCcorrect['Im'], 'o', markerfacecolor='none', label='Corrected', color=cmap(0.8))
+                plt.xlabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'Re_LC':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.semilogx(self.tknv_LCcorrect['Re']['f'], self.tknv_LCcorrect['Re']['Re'], '-', label='DRT-Corrected', color=cmap(0.2))
+                plt.semilogx(self.LCcorrect['f'], self.LCcorrect['Re'], 'o', markerfacecolor='none', label='Corrected', color=cmap(0.8))
+                plt.xlabel('f [Hz]')
+                plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'Im_LC':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.semilogx(self.tknv_LCcorrect['Im']['f'], -self.tknv_LCcorrect['Im']['Im'], '-', label='DRT-Corrected', color=cmap(0.2))
+                plt.semilogx(self.LCcorrect['f'], -self.LCcorrect['Im'], 'o', markerfacecolor='none', label='Corrected', color=cmap(0.8))
+                plt.xlabel('f [Hz]')
+                plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'Re_s':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.semilogx(self.tknv_smooth['Re']['f'], self.tknv_smooth['Re']['Re'], '-', label='DRT-Smoothed', color=cmap(0.2))
+                plt.semilogx(self.smooth['f'], self.smooth['Re'], 'o', markerfacecolor='none', label='Smoothed', color=cmap(0.8))
+                plt.xlabel('f [Hz]')
+                plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'Im_s':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.semilogx(self.tknv_smooth['Im']['f'], -self.tknv_smooth['Im']['Im'], '-', label='DRT-Smoothed', color=cmap(0.2))
+                plt.semilogx(self.smooth['f'], -self.smooth['Im'], 'o', markerfacecolor='none', label='Smoothed', color=cmap(0.8))
+                plt.xlabel('f [Hz]')
+                plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'ReIm_s':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.plot(self.tknv_smooth['Re']['Re'], -self.tknv_smooth['Re']['Im'], '-', label='DRT-Smoothed', color=cmap(0.2))
+                plt.plot(self.smooth['Re'], -self.smooth['Im'], 'o', markerfacecolor='none', label='Smoothed', color=cmap(0.8))
+                plt.xlabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'Re_e':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.semilogx(self.tknv_extrapolation['Re']['f'], self.tknv_extrapolation['Re']['Re'], '-', label='DRT-Extrapolated', color=cmap(0.2))
+                plt.semilogx(self.extrapolation['f'], self.extrapolation['Re'], 'o', markerfacecolor='none', label='Extrapolated', color=cmap(0.8))
+                plt.xlabel('f [Hz]')
+                plt.ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'Im_e':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.semilogx(self.tknv_extrapolation['Im']['f'], -self.tknv_extrapolation['Im']['Im'], '-', label='DRT-Extrapolated', color=cmap(0.2))
+                plt.semilogx(self.extrapolation['f'], -self.extrapolation['Im'], 'o', markerfacecolor='none', label='Extrapolated', color=cmap(0.8))
+                plt.xlabel('f [Hz]')
+                plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+            elif plot_type == 'ReIm_e':
+                plt.figure('DRT' + plot_type + '--' + figure_name)
+                plt.plot(self.tknv_extrapolation['Re']['Re'], -self.tknv_extrapolation['Re']['Im'], '-', label='DRT-Extrapolated', color=cmap(0.2))
+                plt.plot(self.extrapolation['Re'], -self.extrapolation['Im'], 'o', markerfacecolor='none', label='Extrapolated', color=cmap(0.8))
+                plt.xlabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+                plt.grid(True)
+                plt.legend()
+                plt.gca().set_aspect('equal', adjustable='box')
+                plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
+
     # Functions for saving data
     def save_data(self):
         """
@@ -553,7 +677,7 @@ class DRT:
             pd.DataFrame({
                 'Frequency/Hz': self.raw['f'],
                 'Re/ohm·cm2': self.raw['Re'],
-                'Im/ohm·cm2': self.raw['Im']
+                'Im/ohm·cm2': self.raw['Im'],
             }).to_excel(writer, sheet_name='Original', index=False)
 
             # Truncated data
@@ -597,9 +721,15 @@ class DRT:
             pd.DataFrame({
                 'Rohm/ohm·cm2 - KK': self.KK_data['res_ohm_kk'],
                 'Rp/ohm·cm2 - KK': self.KK_data['res_pol_kk'],
-                'L/ohm·cm2 - Tikhnov': self.tknv_truncated['RL']['L_ImRe'],
-                'Rohm/ohm·cm2 - Tikhnov': self.tknv_truncated['RL']['Rs_ImRe'],
-                'Rp/ohm·cm2 - Tikhnov': self.tknv_truncated['RL']['Rp_ImRe']
+                'L/ohm·cm2 - DRT_Re': self.tknv_truncated['RL']['L_Re'],
+                'Rohm/ohm·cm2 - DRT_Re': self.tknv_truncated['RL']['Rs_Re'],
+                'Rp/ohm·cm2 - DRT_Re': self.tknv_truncated['RL']['Rp_Re'],
+                'L/ohm·cm2 - DRT_Im': self.tknv_truncated['RL']['L_Im'],
+                'Rohm/ohm·cm2 - DRT_Im': self.tknv_truncated['RL']['Rs_Im'],
+                'Rp/ohm·cm2 - DRT_Im': self.tknv_truncated['RL']['Rp_Im'],
+                'L/ohm·cm2 - DRT_ReIm': self.tknv_truncated['RL']['L_ReIm'],
+                'Rohm/ohm·cm2 - DRT_ReIm': self.tknv_truncated['RL']['Rs_ReIm'],
+                'Rp/ohm·cm2 - DRT_ReIm': self.tknv_truncated['RL']['Rp_ReIm']
             }).to_excel(writer, sheet_name='Resistance', index=False)
 
         print("-- EIS data saved.")
@@ -628,67 +758,103 @@ class DRT:
             if hasattr(self, 'tknv_truncated') and self.tknv_truncated is not None:
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_truncated['Re']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_truncated['Re']['g']
+                    'gamma/ohm·s·cm2': self.tknv_truncated['Re']['g'],
+                    'Re/ohm·cm2': self.tknv_truncated['Re']['Re'],
+                    'Im/ohm·cm2': self.tknv_truncated['Re']['Im'],
+                    'Residuals': self.tknv_truncated['Re']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_Re', index=False)
 
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_truncated['Im']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_truncated['Im']['g']
+                    'gamma/ohm·s·cm2': self.tknv_truncated['Im']['g'],
+                    'Re/ohm·cm2': self.tknv_truncated['Im']['Re'],
+                    'Im/ohm·cm2': self.tknv_truncated['Im']['Im'],
+                    'Residuals': self.tknv_truncated['Im']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_Im', index=False)
 
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_truncated['ReIm']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_truncated['ReIm']['g']
+                    'gamma/ohm·s·cm2': self.tknv_truncated['ReIm']['g'],
+                    'Re/ohm·cm2': self.tknv_truncated['ReIm']['Re'],
+                    'Im/ohm·cm2': self.tknv_truncated['ReIm']['Im'],
+                    'Residuals': self.tknv_truncated['ReIm']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_ReIm', index=False)
 
             # Smoothed Tikhonov regularization data
             if hasattr(self, 'tknv_smooth') and self.tknv_smooth is not None:
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_smooth['Re']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_smooth['Re']['g']
+                    'gamma/ohm·s·cm2': self.tknv_smooth['Re']['g'],
+                    'Re/ohm·cm2': self.tknv_smooth['Re']['Re'],
+                    'Im/ohm·cm2': self.tknv_smooth['Re']['Im'],
+                    'Residuals': self.tknv_smooth['Re']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_Re_s', index=False)
 
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_smooth['Im']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_smooth['Im']['g']
+                    'gamma/ohm·s·cm2': self.tknv_smooth['Im']['g'],
+                    'Re/ohm·cm2': self.tknv_smooth['Im']['Re'],
+                    'Im/ohm·cm2': self.tknv_smooth['Im']['Im'],
+                    'Residuals': self.tknv_smooth['Im']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_Im_s', index=False)
 
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_smooth['ReIm']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_smooth['ReIm']['g']
+                    'gamma/ohm·s·cm2': self.tknv_smooth['ReIm']['g'],
+                    'Re/ohm·cm2': self.tknv_smooth['ReIm']['Re'],
+                    'Im/ohm·cm2': self.tknv_smooth['ReIm']['Im'],
+                    'Residuals': self.tknv_smooth['ReIm']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_ReIm_s', index=False)
 
             # Extrapolated Tikhonov regularization data
             if hasattr(self, 'tknv_extrapolation') and self.tknv_extrapolation is not None:
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_extrapolation['Re']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_extrapolation['Re']['g']
+                    'gamma/ohm·s·cm2': self.tknv_extrapolation['Re']['g'],
+                    'Re/ohm·cm2': self.tknv_extrapolation['Re']['Re'],
+                    'Im/ohm·cm2': self.tknv_extrapolation['Re']['Im'],
+                    'Residuals': self.tknv_extrapolation['Re']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_Re_e', index=False)
 
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_extrapolation['Im']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_extrapolation['Im']['g']
+                    'gamma/ohm·s·cm2': self.tknv_extrapolation['Im']['g'],
+                    'Re/ohm·cm2': self.tknv_extrapolation['Im']['Re'],
+                    'Im/ohm·cm2': self.tknv_extrapolation['Im']['Im'],
+                    'Residuals': self.tknv_extrapolation['Im']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_Im_e', index=False)
 
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_extrapolation['ReIm']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_extrapolation['ReIm']['g']
+                    'gamma/ohm·s·cm2': self.tknv_extrapolation['ReIm']['g'],
+                    'Re/ohm·cm2': self.tknv_extrapolation['ReIm']['Re'],
+                    'Im/ohm·cm2': self.tknv_extrapolation['ReIm']['Im'],
+                    'Residuals': self.tknv_extrapolation['ReIm']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_ReIm_e', index=False)
 
             # L/C corrected Tikhonov regularization data
             if hasattr(self, 'tknv_LCcorrect') and self.tknv_LCcorrect is not None:
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_LCcorrect['Re']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_LCcorrect['Re']['g']
+                    'gamma/ohm·s·cm2': self.tknv_LCcorrect['Re']['g'],
+                    'Re/ohm·cm2': self.tknv_LCcorrect['Re']['Re'],
+                    'Im/ohm·cm2': self.tknv_LCcorrect['Re']['Im'],
+                    'Residuals': self.tknv_LCcorrect['Re']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_Re_crct', index=False)
 
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_LCcorrect['Im']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_LCcorrect['Im']['g']
+                    'gamma/ohm·s·cm2': self.tknv_LCcorrect['Im']['g'],
+                    'Re/ohm·cm2': self.tknv_LCcorrect['Im']['Re'],
+                    'Im/ohm·cm2': self.tknv_LCcorrect['Im']['Im'],
+                    'Residuals': self.tknv_LCcorrect['Im']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_Im_crct', index=False)
 
                 pd.DataFrame({
                     'Frequency/Hz': self.tknv_LCcorrect['ReIm']['f'],
-                    'gamma/ohm·s·cm2': self.tknv_LCcorrect['ReIm']['g']
+                    'gamma/ohm·s·cm2': self.tknv_LCcorrect['ReIm']['g'],
+                    'Re/ohm·cm2': self.tknv_LCcorrect['ReIm']['Re'],
+                    'Im/ohm·cm2': self.tknv_LCcorrect['ReIm']['Im'],
+                    'Residuals': self.tknv_LCcorrect['ReIm']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_ReIm_crct', index=False)
         print("-- DRT data saved.")
