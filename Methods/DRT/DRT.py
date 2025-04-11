@@ -21,7 +21,7 @@ class DRT:
         # Test information
         self.file_folder = file_folder # File folder path
         self.filename = filename       # File name
-        self.save_name = None          # Save name for results
+        self.save_name = filename      # Save name for results
         self.info = None               # Information for the test
         self.store = {}                # Trash can for everything
         
