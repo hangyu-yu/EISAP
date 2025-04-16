@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import time
 import os
 import pandas as pd
+import traceback
 
 class DRT:
     def __init__(self, Re_raw=None, Im_raw=None, f_raw=None, CellArea=None, n_cell=None, file_folder=None, filename=None):
@@ -648,8 +649,8 @@ class DRT:
         ext_save = '.xlsx'
         folder_eis = os.path.join(self.file_folder, 'EIS')
         folder_drt = os.path.join(self.file_folder, 'DRT')
-        eis_file = os.path.join(folder_eis, f"{self.filename}{ext_save}")
-        drt_file = os.path.join(folder_drt, f"{self.filename}{ext_save}")
+        eis_file = os.path.join(folder_eis, f"{os.path.splitext(self.filename)[0]}{ext_save}")
+        drt_file = os.path.join(folder_drt, f"{os.path.splitext(self.filename)[0]}{ext_save}")
 
         # Ensure directories exist
         os.makedirs(folder_eis, exist_ok=True)
@@ -858,3 +859,197 @@ class DRT:
                     'Residuals': self.tknv_LCcorrect['ReIm']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_ReIm_crct', index=False)
         print("-- DRT data saved.")
+
+    # Function for import data
+    def import_data(self):
+        """
+        Import EIS and DRT data from Excel files.
+        
+        Parameters:
+        - specific_file: Optional; specific filename to import (without extension)
+                        If None, uses the filename set in the class instance
+        
+        Returns:
+        - True if import was successful, False otherwise
+        """
+        # Define file paths
+        ext_save = '.xlsx'
+        # Use the filename without extension
+        if self.filename is None:
+            print("[Error] No filename specified!")
+            return False
+            
+        file_to_import = os.path.splitext(self.filename)[0]
+        folder_eis = os.path.join(self.file_folder, 'EIS')
+        folder_drt = os.path.join(self.file_folder, 'DRT')
+        eis_file = os.path.join(folder_eis, f"{file_to_import}{ext_save}")
+        drt_file = os.path.join(folder_drt, f"{file_to_import}{ext_save}")
+        
+        # Check if files exist
+        if not os.path.exists(eis_file):
+            print(f"[Error] EIS file not found: {eis_file}")
+            return False
+        
+        if not os.path.exists(drt_file):
+            print(f"[Error] DRT file not found: {drt_file}")
+            return False
+        
+        try:
+            # Import EIS data
+            print(f"-- Importing EIS data from {eis_file}...")
+            
+            # Import info of measurement
+            try:
+                self.info = pd.read_excel(eis_file, sheet_name='Info of measurement')
+            except:
+                print("---- No 'Info of measurement' sheet found")
+            
+            # Import Original data
+            original_data = pd.read_excel(eis_file, sheet_name='Original')
+            self.raw['f'] = original_data['Frequency/Hz'].values
+            self.raw['Re'] = original_data['Re/ohm·cm2'].values
+            self.raw['Im'] = original_data['Im/ohm·cm2'].values
+            self.raw['Z'] = self.raw['Re'] + 1j * self.raw['Im']
+            self.raw['omega'] = 2 * np.pi * self.raw['f']
+            self.raw['tau'] = 1 / self.raw['omega']
+            
+            # Import Truncated data
+            truncated_data = pd.read_excel(eis_file, sheet_name='Truncated')
+            self.truncated['f'] = truncated_data['Frequency/Hz'].values
+            self.truncated['Re'] = truncated_data['Re/ohm·cm2'].values
+            self.truncated['Im'] = truncated_data['Im/ohm·cm2'].values
+            self.truncated['Z'] = self.truncated['Re'] + 1j * self.truncated['Im']
+            self.truncated['omega'] = 2 * np.pi * self.truncated['f']
+            self.truncated['tau'] = 1 / self.truncated['omega']
+            
+            # Import LC corrected data
+            lc_data = pd.read_excel(eis_file, sheet_name='LC corrected')
+            self.LCcorrect['f'] = lc_data['Frequency/Hz'].values
+            self.LCcorrect['Re'] = lc_data['Re/ohm·cm2'].values
+            self.LCcorrect['Im'] = lc_data['Im/ohm·cm2'].values
+            self.LCcorrect['Z'] = self.LCcorrect['Re'] + 1j * self.LCcorrect['Im']
+            self.LCcorrect['omega'] = 2 * np.pi * self.LCcorrect['f']
+            self.LCcorrect['tau'] = 1 / self.LCcorrect['omega']
+            
+            # Import KK data
+            kk_data = pd.read_excel(eis_file, sheet_name='Linear Kramers-Kroning')
+            self.KK_data['f'] = kk_data['Frequency/Hz'].values
+            self.KK_data['Re'] = kk_data['Re/ohm·cm2'].values
+            self.KK_data['Im'] = kk_data['Im/ohm·cm2'].values
+            self.KK_data['delta_Re_kk'] = kk_data['dr_kkl'].values
+            self.KK_data['delta_Im_kk'] = kk_data['di_kkl'].values
+            self.KK_data['omega'] = 2 * np.pi * self.KK_data['f']
+            self.KK_data['tau'] = 1 / self.KK_data['omega']
+            
+            # Import Smoothed data
+            smooth_data = pd.read_excel(eis_file, sheet_name='Smooth')
+            self.smooth['f'] = smooth_data['Frequency/Hz'].values
+            self.smooth['Re'] = smooth_data['Re/ohm·cm2'].values
+            self.smooth['Im'] = smooth_data['Im/ohm·cm2'].values
+            self.smooth['Z'] = self.smooth['Re'] + 1j * self.smooth['Im']
+            self.smooth['omega'] = 2 * np.pi * self.smooth['f']
+            self.smooth['tau'] = 1 / self.smooth['omega']
+            
+            # Import Extrapolated data
+            extrap_data = pd.read_excel(eis_file, sheet_name='Extended')
+            self.extrapolation['f'] = extrap_data['Frequency/Hz'].values
+            self.extrapolation['Re'] = extrap_data['Re/ohm·cm2'].values
+            self.extrapolation['Im'] = extrap_data['Im/ohm·cm2'].values
+            self.extrapolation['Z'] = self.extrapolation['Re'] + 1j * self.extrapolation['Im']
+            self.extrapolation['omega'] = 2 * np.pi * self.extrapolation['f']
+            self.extrapolation['tau'] = 1 / self.extrapolation['omega']
+            
+            # Import Resistance data
+            resistance_data = pd.read_excel(eis_file, sheet_name='Resistance')
+            self.KK_data['res_ohm_kk'] = resistance_data['Rohm/ohm·cm2 - KK'].values
+            self.KK_data['res_pol_kk'] = resistance_data['Rp/ohm·cm2 - KK'].values
+            
+            # Import DRT data
+            print(f"-- Importing DRT data from {drt_file}...")
+            
+            # Import DRT parameters
+            drt_params = pd.read_excel(drt_file, sheet_name='DRT_Parameters')
+            self.parameter['Preprocessing']['num_cut_upper'] = int(drt_params['Nfh_cut'].values[0])
+            self.parameter['Preprocessing']['num_cut_lower'] = int(drt_params['Nfl_cut'].values[0])
+            self.parameter['DRT']['Lambda'] = float(drt_params['lambda'].values[0])
+            self.parameter['Sample']['CellArea'] = float(drt_params['CellArea/cm2'].values[0])
+            
+            # Initialize the tknv dictionaries if they don't exist
+            self.tknv_truncated = {}
+            self.tknv_smooth = {}
+            self.tknv_extrapolation = {}
+            self.tknv_LCcorrect = {}
+            
+            # Create RL dictionaries for each tknv type
+            for tknv_dict in [self.tknv_truncated, self.tknv_smooth, self.tknv_extrapolation, self.tknv_LCcorrect]:
+                tknv_dict['RL'] = {
+                    'Rs_Re': None, 'Rp_Re': None, 'L_Re': None,
+                    'Rs_Im': None, 'Rp_Im': None, 'L_Im': None,
+                    'Rs_ReIm': None, 'Rp_ReIm': None, 'L_ReIm': None
+                }
+            
+            # Import Tikhonov regularization data for each method
+            sheet_map = {
+                ('Re', ''): 'Tknv_Re',
+                ('Im', ''): 'Tknv_Im',
+                ('ReIm', ''): 'Tknv_ReIm',
+                ('Re', 's'): 'Tknv_Re_s',
+                ('Im', 's'): 'Tknv_Im_s',
+                ('ReIm', 's'): 'Tknv_ReIm_s',
+                ('Re', 'e'): 'Tknv_Re_e',
+                ('Im', 'e'): 'Tknv_Im_e',
+                ('ReIm', 'e'): 'Tknv_ReIm_e',
+                ('Re', 'crct'): 'Tknv_Re_crct',
+                ('Im', 'crct'): 'Tknv_Im_crct',
+                ('ReIm', 'crct'): 'Tknv_ReIm_crct'
+            }
+            
+            # Import all available tknv data sheets
+            for (type_key, suffix), sheet_name in sheet_map.items():
+                try:
+                    tknv_data = pd.read_excel(drt_file, sheet_name=sheet_name)
+                    
+                    # Determine which dictionary to use based on suffix
+                    if suffix == '':
+                        target_dict = self.tknv_truncated
+                    elif suffix == 's':
+                        target_dict = self.tknv_smooth
+                    elif suffix == 'e':
+                        target_dict = self.tknv_extrapolation
+                    elif suffix == 'crct':
+                        target_dict = self.tknv_LCcorrect
+                    
+                    # Store the data in the appropriate dictionary
+                    if type_key not in target_dict:
+                        target_dict[type_key] = {}
+                    
+                    target_dict[type_key]['f'] = tknv_data['Frequency/Hz'].values
+                    target_dict[type_key]['g'] = tknv_data['gamma/ohm·s·cm2'].values
+                    target_dict[type_key]['Re'] = tknv_data['Re/ohm·cm2'].values
+                    target_dict[type_key]['Im'] = tknv_data['Im/ohm·cm2'].values
+                    target_dict[type_key]['Residuals'] = tknv_data['Residuals'].values
+                    
+                    # Set resistance values for resistance data sheet
+                    if type_key == 'Re':
+                        target_dict['RL']['Rs_Re'] = resistance_data[f'Rohm/ohm·cm2 - DRT_Re'].values[0]
+                        target_dict['RL']['Rp_Re'] = resistance_data[f'Rp/ohm·cm2 - DRT_Re'].values[0]
+                        target_dict['RL']['L_Re'] = resistance_data[f'L/ohm·cm2 - DRT_Re'].values[0]
+                    elif type_key == 'Im':
+                        target_dict['RL']['Rs_Im'] = resistance_data[f'Rohm/ohm·cm2 - DRT_Im'].values[0]
+                        target_dict['RL']['Rp_Im'] = resistance_data[f'Rp/ohm·cm2 - DRT_Im'].values[0]
+                        target_dict['RL']['L_Im'] = resistance_data[f'L/ohm·cm2 - DRT_Im'].values[0]
+                    elif type_key == 'ReIm':
+                        target_dict['RL']['Rs_ReIm'] = resistance_data[f'Rohm/ohm·cm2 - DRT_ReIm'].values[0]
+                        target_dict['RL']['Rp_ReIm'] = resistance_data[f'Rp/ohm·cm2 - DRT_ReIm'].values[0]
+                        target_dict['RL']['L_ReIm'] = resistance_data[f'L/ohm·cm2 - DRT_ReIm'].values[0]
+                        
+                except Exception as e:
+                    print(f"---- Sheet {sheet_name} not found or could not be read: {str(e)}")
+            
+            print("---- Data import successful!")
+            return True
+            
+        except Exception as e:
+            print(f"[Error] Failed to import data: {str(e)}")
+            traceback.print_exc()
+            return False

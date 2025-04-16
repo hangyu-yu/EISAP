@@ -5,10 +5,9 @@ sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import platform
 import numpy as np
 import pandas as pd
-import Functions as fn                 
-from Methods.DRT.DRT import DRT
+import Functions as fn
 import matplotlib.pyplot as plt
-import mplcursors
+from Methods.DRT.DRT import DRT
 
 # 01 - Initialization
 if platform.system() == 'Darwin':  # macOS
@@ -59,7 +58,7 @@ for file in txt_files:
         EIS.filename = filename
         print('---- File loaded:', file)
         print('-- file name:', filename)
-    
+    EIS.import_data()
     EIS.raw['Re'] = data['Re/Ohm'].to_numpy()
     EIS.raw['Im'] = data['Im/Ohm'].to_numpy()
     EIS.raw['Z'] = data['impedance/Ohm'].to_numpy()

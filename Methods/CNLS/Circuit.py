@@ -1,17 +1,18 @@
 import numpy as np
 import pandas as pd
-import Methods.CNLS.Utils.ImpedanceFunctions as Imp
 import scipy.optimize as opt
 from scipy.stats import t
 import matplotlib.pyplot as plt
-import Methods.DRT.DRT as DRT
+import Methods.DRT.Utils as DRT_fn
+import Methods.CNLS.Utils as CNLS_fn
 
 import tkinter as tk
 from tkinter import ttk
+import os
 import tkinter.font as tkFont
 
 class Circuit:
-    def __init__(self,file_folder=None, filename=None, Zmes = None, DRTmes = None, w = None, Elements = None):
+    def __init__(self,file_folder=None, filename=None, Zmes = None, DRTmes = None, w = None, Elements = None, EIS = None):
         """
         Initializes a new Circuit object with the specified elements and parameters.
         
@@ -38,6 +39,7 @@ class Circuit:
         self.filename = filename
 
         # Initialize the circuit details
+        self.data_type = None # Data type, smooth, truncated, extrapolation, etc.
         self.Zmes  = Zmes # Measured impedance data
         self.DRTmes = DRTmes # Measured DRT data
         self.Ztot0 = None # Initial total impedance
@@ -47,7 +49,13 @@ class Circuit:
         self.w     = w    # Angular frequency array
         self.f     = w/(2*np.pi) # Frequency array
         self.DRT   = None # DRT data
-        self.DRTparameters = None # DRT parameters
+        self.ElementDRTs = None # DRT for each element
+        if EIS is None:
+            self.DRTparameters = None # DRT parameters
+            print('---- DRT parameters not provided.')
+        else:
+            self.DRTparameters = EIS.parameters['DRT'] # DRT parameters
+        self.store = {} # Store all the mess
         
         # Initialize lists to store circuit elements configuration
         self.ElementsNames = []      # List to store names of the circuit elements
@@ -132,7 +140,38 @@ class Circuit:
             StartIndex+=len(element['Param'])
             counter+=1
 
-        self.initiate['Ztot0'], self.initiate['Z0']=self.EvaluateCircuit()
+        self.Ztot0, self.Z0=self.EvaluateCircuit()
+
+    def PeakDerivative(self, mode, nbr_peaks_fixed=None, f_fixed=None):
+        """
+        Calculates derivative-based peak identification for DRT analysis.
+        This method identifies peaks in the distribution of relaxation times (DRT) using 
+        derivative-based techniques.
+        Parameters
+        ----------
+        mode : str
+            Mode for peak identification algorithm. Specifies how peaks should be identified.
+        nbr_peaks_fixed : int, optional
+            If provided, forces the algorithm to identify exactly this number of peaks.
+        f_fixed : array-like, optional
+            If provided, uses these specific frequencies for peak identification instead of
+            automatically determining them.
+        Returns
+        -------
+        r_est : array-like
+            Estimated resistance values for each identified peak.
+        freq_est : array-like
+            Estimated characteristic frequencies for each identified peak.
+        alpha_est : array-like
+            Estimated shape parameters (alpha) for each identified peak.
+        nbr_peaks : int
+            Total number of peaks identified.
+        tau_est : array-like
+            Estimated time constants (tau = 1/(2π*freq)) for each identified peak.
+        """
+        r_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_fn.PeakDerivative.peak_derivative(self.DRTmes, self.f, mode, nbr_peaks_fixed, f_fixed)
+        
+        return r_est, freq_est, alpha_est, nbr_peaks, tau_est
 
     def EvaluateCircuit(self):
         """
@@ -159,17 +198,17 @@ class Circuit:
 
         # Define a mapping from element types to their corresponding functions
         element_function_map = {
-            'Resistor': Imp.Resistor,
-            'Inductor': Imp.Inductor,
-            'Inductor_a': Imp.Inductor_a,
-            'Capacitor': Imp.Capacitor,
-            'RC': Imp.RC,
-            'RQ': Imp.RQ,
-            'Gerisher': Imp.Gerisher,
-            'fFLW': Imp.fFLW,
-            'FLW': Imp.FLW,
-            'RandleC': Imp.RandleC,
-            'RandleCPE': Imp.RandleCPE
+            'Resistor': CNLS_fn.ImpedanceFunctions.Resistor,
+            'Inductor': CNLS_fn.ImpedanceFunctions.Inductor,
+            'Inductor_a': CNLS_fn.ImpedanceFunctions.Inductor_a,
+            'Capacitor': CNLS_fn.ImpedanceFunctions.Capacitor,
+            'RC': CNLS_fn.ImpedanceFunctions.RC,
+            'RQ': CNLS_fn.ImpedanceFunctions.RQ,
+            'Gerisher': CNLS_fn.ImpedanceFunctions.Gerisher,
+            'fFLW': CNLS_fn.ImpedanceFunctions.fFLW,
+            'FLW': CNLS_fn.ImpedanceFunctions.FLW,
+            'RandleC': CNLS_fn.ImpedanceFunctions.RandleC,
+            'RandleCPE': CNLS_fn.ImpedanceFunctions.RandleCPE
         }
         
         # Iterate over the elements and compute their impedances
@@ -551,54 +590,151 @@ class Circuit:
 
         return Z_element
 
-    def ExportCircuit(self, filename):
+    def ExportCircuit(self):
         """
         Exports the circuit details into an Excel file. Each element of the Circuit dictionary is saved on a different sheet.
 
-        Parameters:
-        Circuit (dict): A dictionary representing the initialized circuit.
-        filename (str): The name of the Excel file to save the circuit details.
+        The file is saved in a folder named 'CNLS' inside self.file_folder, with the filename being self.filename
+        (without its original extension) and an '.xlsx' extension added.
         """
-        with pd.ExcelWriter(filename) as writer:
-            for key, value in Circuit.items():
-                if isinstance(value, list):
-                    # Convert list to DataFrame
-                    df = pd.DataFrame(value, columns=[key])
-                elif isinstance(value, np.ndarray):
-                    # Convert ndarray to DataFrame
-                    df = pd.DataFrame(value, columns=[key])
-                elif isinstance(value, (pd.DataFrame, pd.Series)):
-                    # Use DataFrame or Series directly
-                    df = value
-                else:
-                    # Convert other types to DataFrame
-                    df = pd.DataFrame([value], columns=[key])
-                
-                
-                # Write DataFrame to Excel sheet
-                df.to_excel(writer, sheet_name=key, index=False)
 
-    def ImportCircuit(self,filename): 
+        # Ensure the CNLS folder exists
+        export_folder = os.path.join(self.file_folder, "CNLS")
+        os.makedirs(export_folder, exist_ok=True)
+
+        # Define the export file path
+        export_file = os.path.join(export_folder, os.path.splitext(self.filename)[0] + ".xlsx")
+
+        # Create a Pandas Excel writer
+        with pd.ExcelWriter(export_file, engine='xlsxwriter') as writer:
+            # Sheet - Summary
+            summary_data = {
+                "ElementsNames": [self.ElementsNames],
+                "ElementsType": [self.ElementsType],
+                "SumNormResiduals": [self.SumNormResiduals],
+                "dof": [self.dof],
+                "data_type": [self.data_type],
+            }
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name="Summary", index=False)
+
+            # Sheet - Elements
+            elements_data = {
+                "ElementsParamNames": self.ElementsParamNames,
+                "ElementsParamValues": self.ElementsParamValues,
+                "UpperBound": self.UpperBound,
+                "LowerBound": self.LowerBound,
+                "ElementsParamVariance": self.ElementsParamVariance,
+                "ElementsParamStandardErrors": self.ElementsParamStandardErrors,
+                "ElementsParamPValues": self.ElementsParamPValues,
+            }
+            elements_df = pd.DataFrame(elements_data)
+            elements_df.to_excel(writer, sheet_name="Elements", index=False)
+
+            # Sheet - Z
+            z_data = {
+                "Frequency/Hz": self.f,
+                "Zmes_Re/ohm·cm2": np.real(self.Zmes),
+                "Zmes_Im/ohm·cm2": np.imag(self.Zmes),
+                "Ztot_Re/ohm·cm2": np.real(self.Ztot),
+                "Ztot_Im/ohm·cm2": np.imag(self.Ztot),
+                "Ztot0_Re/ohm·cm2": np.real(self.Ztot0),
+                "Ztot0_Im/ohm·cm2": np.imag(self.Ztot0),
+                "Residuals_Re": self.ResidualsReal,
+                "Residuals_Im": self.ResidualsImag,
+            }
+            z_df = pd.DataFrame(z_data)
+            z_df.to_excel(writer, sheet_name="Z", index=False)
+
+            # Add individual element impedances to the Z sheet
+            for element_name in self.Z.columns:
+                z_df[element_name + "_Re" + "/ohm·cm2"] = np.real(self.Z[element_name])
+                z_df[element_name + "_Im" + "/ohm·cm2"] = np.imag(self.Z[element_name])
+            z_df.to_excel(writer, sheet_name="Z", index=False)
+
+            # Sheet - DRT
+            drt_data = {
+                "f": self.f,
+                "DRTmes/ohm·s·cm2": self.DRTmes,
+            }
+            if self.DRT is not None:
+                drt_data.update({
+                    "DRT": self.DRT["ReIm"]["g"],
+                })
+            drt_df = pd.DataFrame(drt_data)
+            drt_df.to_excel(writer, sheet_name="DRT", index=False)
+
+            # Add individual element DRTs to the DRT sheet
+            for element_name, drt in self.ElementDRTs.items():
+                drt_df["DRT" + element_name + "/ohm·s·cm2"] = drt["ReIm"]["g"]
+            drt_df.to_excel(writer, sheet_name="DRT", index=False)
+
+        print(f"-- Circuit details exported to {export_file}")
+
+
+    def ImportCircuit(self):
         """
         Imports the circuit details from an Excel file.
 
-        Parameters:
-        filename (str): The name of the Excel file containing the circuit details.
+        The file is expected to be located in a folder named 'CNLS' inside self.file_folder,
+        with the filename being self.filename (without its original extension) and an '.xlsx' extension added.
 
         Returns:
-        dict: A dictionary representing the circuit details.
+        None: Updates the Circuit object with the imported data.
         """
-        with pd.ExcelFile(filename) as xls:
+        # Define the import file path
+        import_folder = os.path.join(self.file_folder, "CNLS")
+        import_file = os.path.join(import_folder, os.path.splitext(self.filename)[0] + ".xlsx")
+
+        # Check if the file exists
+        if not os.path.exists(import_file):
+            raise FileNotFoundError(f"File not found: {import_file}")
+
+        # Read the Excel file
+        with pd.ExcelFile(import_file) as xls:
             for sheet_name in xls.sheet_names:
                 df = pd.read_excel(xls, sheet_name)
-                if df.shape[1] == 1:
-                    # Check if the first element is a string
-                    if isinstance(df.iloc[0, 0], str):
-                        self[sheet_name] = df.values.flatten().tolist()
-                    else:
-                        self[sheet_name] = np.array(df.values.flatten().tolist())
-                else:
-                    self[sheet_name] = df
+                if sheet_name == "Summary":
+                    # Convert the Summary sheet to a dictionary
+                    self.data_type = df["data_type"].iloc[0]
+                    self.SumNormResiduals = df["SumNormResiduals"].iloc[0]
+                    self.dof = df["dof"].iloc[0]
+                    self.ElementsNames = eval(df["ElementsNames"].iloc[0])
+                    self.ElementsType = eval(df["ElementsType"].iloc[0])
+                elif sheet_name == "Elements":
+                    # Extract elements-related data
+                    self.ElementsParamNames = df["ElementsParamNames"].tolist()
+                    self.ElementsParamValues = df["ElementsParamValues"].tolist()
+                    self.UpperBound = df["UpperBound"].tolist()
+                    self.LowerBound = df["LowerBound"].tolist()
+                    self.ElementsParamVariance = df["ElementsParamVariance"].tolist()
+                    self.ElementsParamStandardErrors = df["ElementsParamStandardErrors"].tolist()
+                    self.ElementsParamPValues = df["ElementsParamPValues"].tolist()
+                elif sheet_name == "Z":
+                    # Extract impedance-related data
+                    self.f = df["Frequency/Hz"].to_numpy()
+                    self.Zmes = df["Zmes_Re/ohm·cm2"].to_numpy() + 1j * df["Zmes_Im/ohm·cm2"].to_numpy()
+                    self.Ztot = df["Ztot_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot_Im/ohm·cm2"].to_numpy()
+                    self.Ztot0 = df["Ztot0_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot0_Im/ohm·cm2"].to_numpy()
+                    self.ResidualsReal = df["Residuals_Re"].to_numpy()
+                    self.ResidualsImag = df["Residuals_Im"].to_numpy()
+                    # Extract individual element impedances
+                    self.Z = pd.DataFrame()
+                    for col in df.columns:
+                        if "_Re/ohm·cm2" in col:
+                            element_name = col.split("_Re")[0]
+                            self.Z[element_name] = df[col].to_numpy() + 1j * df[element_name + "_Im/ohm·cm2"].to_numpy()
+                elif sheet_name == "DRT":
+                    # Extract DRT-related data
+                    self.DRTmes = df["DRTmes/ohm·s·cm2"].to_numpy()
+                    if "DRT" in df.columns:
+                        self.DRT = {"ReIm": {"g": df["DRT"].to_numpy()}}
+                    # Extract individual element DRTs
+                    self.ElementDRTs = {}
+                    for col in df.columns:
+                        if "DRT" in col and col != "DRT":
+                            element_name = col.replace("DRT", "").replace("/ohm·s·cm2", "")
+                            self.ElementDRTs[element_name] = {"ReIm": {"g": df[col].to_numpy()}}
 
     def ShowFitSummary(self):
         """
@@ -691,26 +827,41 @@ class Circuit:
         root.mainloop()
 
     def EvaluateCircuitDRT(self):
-
         """
-        Evaluates the circuit with the fitted parameters and computes the DRT.
-
-        Parameters:
-        Circuit (dict): A dictionary representing the initialized circuit.
-        DRTParameters (dict): A dictionary containing the DRT parameters.
+        Computes the DRT for the total impedance and for each individual circuit element
+        using the existing impedance data (self.Ztot and self.Z).
 
         Returns:
-        dict: A dictionary containing the DRT results.
+        dict: A dictionary containing the DRT results for the total impedance and each element.
+        
+        Raises:
+        ValueError: If self.Ztot or self.Z is None or empty.
         """
-        # Evaluate the circuit with the fitted parameters
-        self.Ztot, _ = self.EvaluateCircuit()
+        # Check if impedance data exists
+        if self.Ztot is None or self.Z is None:
+            raise ValueError("Circuit impedance data not available. Run EvaluateCircuit() first.")
+        
+        if len(self.Ztot) == 0 or self.Z.empty:
+            raise ValueError("Circuit impedance data is empty. Check your circuit configuration.")
 
-        # Compute the DRT
-        EIS = {
+        # Compute the DRT for the total impedance
+        EIS_total = {
             'Re': np.real(self.Ztot),
             'Im': np.imag(self.Ztot),
             'f': self.f,
         }
-        EIS=pd.DataFrame(EIS)
-
-        self.DRT = DRT.drt_tikonov(EIS, self.DRTparameters)
+        EIS_total = pd.DataFrame(EIS_total)
+        self.DRT = DRT_fn.drt_tikonov(EIS_total, self.DRTparameters)
+        
+        # Compute DRT for each individual element
+        self.ElementDRTs = {}
+        for element_name in self.Z.columns:
+            element_impedance = self.Z[element_name]
+            EIS_element = {
+                'Re': np.real(element_impedance),
+                'Im': np.imag(element_impedance),
+                'f': self.f,
+            }
+            EIS_element = pd.DataFrame(EIS_element)
+            # Store the DRT for this element
+            self.ElementDRTs[element_name] = DRT_fn.drt_tikonov(EIS_element, self.DRTparameters)
