@@ -24,7 +24,7 @@ def peak_derivative(drt, f, mode, nbr_peaks_fixed=None, f_fixed=None):
     dd_drt = np.gradient(d_drt)
 
     # Find peaks in the absolute value of the first derivative
-    _, peak_valley_shoulder_loc = find_peaks(-np.abs(d_drt))
+    peak_valley_shoulder_loc,_  = find_peaks(-np.abs(d_drt))
     m = dd_drt[peak_valley_shoulder_loc] < 0.00001  # Filter based on second derivative
 
     # Extract peak and shoulder locations
@@ -46,7 +46,7 @@ def peak_derivative(drt, f, mode, nbr_peaks_fixed=None, f_fixed=None):
         plt.axvline(fmax, linestyle=':', color='k', linewidth=1.5)
         plt.show()
 
-        nbr_peaks = int(input("Number of peaks: "))  # User inputs the number of peaks
+        nbr_peaks = int(input("Number of peaks from high frequency to low frequency: "))  # User inputs the number of peaks
         f_input, y_input = plt.ginput(nbr_peaks, timeout=0)  # User selects peaks
         f_input = np.array(f_input)
         y_input = np.array(y_input)

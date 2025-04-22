@@ -1053,3 +1053,34 @@ class DRT:
             print(f"[Error] Failed to import data: {str(e)}")
             traceback.print_exc()
             return False
+        
+    # Function to get data
+    def __getitem__(self, key):
+        """
+        Get the data from the DRT class using the key
+        """
+        if key == 'raw':
+            return self.raw
+        elif key == 'truncated':
+            return self.truncated
+        elif key == 'LCcorrect':
+            return self.LCcorrect
+        elif key == 'smooth':
+            return self.smooth
+        elif key == 'extrapolation':
+            return self.extrapolation
+        elif key == 'KK_data':
+            return self.KK_data
+        elif key == 'tknv_truncated':
+            return self.tknv_truncated
+        elif key == 'tknv_smooth':
+            return self.tknv_smooth
+        elif key == 'tknv_extrapolation':
+            return self.tknv_extrapolation
+        elif key == 'tknv_LCcorrect':
+            return self.tknv_LCcorrect
+        elif key == 'parameter':
+            return self.parameter
+        else:
+            raise KeyError(f"Key '{key}' not found in DRT class.")
+

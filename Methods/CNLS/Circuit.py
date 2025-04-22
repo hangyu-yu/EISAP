@@ -12,7 +12,7 @@ import os
 import tkinter.font as tkFont
 
 class Circuit:
-    def __init__(self,file_folder=None, filename=None, Zmes = None, DRTmes = None, w = None, Elements = None, EIS = None):
+    def __init__(self,file_folder=None, filename=None, Elements = None, EIS = None, data_type = None):
         """
         Initializes a new Circuit object with the specified elements and parameters.
         
@@ -39,25 +39,30 @@ class Circuit:
         self.filename = filename
 
         # Initialize the circuit details
-        self.data_type = None # Data type, smooth, truncated, extrapolation, etc.
-        self.Zmes  = Zmes # Measured impedance data
-        self.DRTmes = DRTmes # Measured DRT data
+        self.data_type = data_type # Data type, smooth, truncated, extrapolation, etc.
+        if EIS is None:
+            self.DRTparameters = None # DRT parameters
+            self.Zmes  = None # Measured impedance data
+            self.DRTmes = None # Measured DRT data
+            self.f = None # Frequency array
+            self.w = None # Angular frequency array
+            print('---- DRT parameters not provided, please define f, w, DRTmes, Zmes, and DRTparameters.')
+        else:
+            self.DRTparameters = EIS.parameter['DRT'] # DRT parameters
+            self.Zmes  = EIS[data_type]['Z'] # Measured impedance data
+            self.DRTmes = EIS['tknv_' + data_type]['ReIm']['g'] # Measured DRT data
+            self.f = EIS[data_type]['f'] # Frequency array
+            self.w = self.f*(2*np.pi)    # Angular frequency array
         self.Ztot0 = None # Initial total impedance
         self.Z0    = None # Initial impedance for each angular frequency
         self.Ztot  = None # Total impedance of the circuit
         self.Z     = None # Impedance values for each angular frequency
-        self.w     = w    # Angular frequency array
-        self.f     = w/(2*np.pi) # Frequency array
         self.DRT   = None # DRT data
         self.ElementDRTs = None # DRT for each element
-        if EIS is None:
-            self.DRTparameters = None # DRT parameters
-            print('---- DRT parameters not provided.')
-        else:
-            self.DRTparameters = EIS.parameters['DRT'] # DRT parameters
         self.store = {} # Store all the mess
         
         # Initialize lists to store circuit elements configuration
+        self.Elements = Elements     # List to store circuit elements
         self.ElementsNames = []      # List to store names of the circuit elements
         self.ElementsType = []       # List to store types of circuit elements (e.g., Resistor, Capacitor)
         self.ElementsStartIndex = [] # List to store starting indices of each element's parameters
@@ -80,6 +85,8 @@ class Circuit:
         self.ElementsParamPValues = [] # List to store p-values for parameters (for statistical significance)
         self.FitSummary = None # DataFrame to store the fit summary
 
+    # Function to initialize the circuit elements
+    def initialize_elements(self, Constraint_type = None):
         # Initialize tracking indices for parameter positions
         StartIndex = 0              # Keeps track of the current parameter index
         counter = 0                 # Counter for element counting/naming
@@ -101,13 +108,13 @@ class Circuit:
 
         # Check for duplicate element names
         self.display_name = set()
-        for element in Elements:
+        for element in self.Elements:
             if 'name' in element and element['name'] in self.display_name:
                 raise ValueError(f"Duplicate element name found: {element['name']}")
             self.display_name.add(element.get('name', ''))
 
         # Iterate over the elements and assign parameter names
-        for element in Elements:
+        for element in self.Elements:
             element_type = element['type']
             if element_type in element_param_map:
                 param_suffixes = element_param_map[element_type]
@@ -132,15 +139,31 @@ class Circuit:
                 element['Ub'] = [np.inf] * len(element['Param'])
             if 'Lb' not in element or element['Lb'] == []:
                 element['Lb'] = [-np.inf] * len(element['Param'])
-
             self.UpperBound.extend(element['Ub'])
             self.LowerBound.extend(element['Lb'])
 
             #update loop increment
             StartIndex+=len(element['Param'])
             counter+=1
+        
+        self.UpperBound = np.array(self.UpperBound)
+        self.LowerBound = np.array(self.LowerBound)
 
         self.Ztot0, self.Z0=self.EvaluateCircuit()
+        
+        AlphaIndex = [i for i, name in enumerate(self.ElementsParamNames) if 'alpha' in name]
+        for i in AlphaIndex:
+            if self.UpperBound[i] == np.inf or self.LowerBound[i] == 1e-10:
+                self.UpperBound[i] = 1.0
+                self.LowerBound[i] = 0.4
+
+        if Constraint_type == 'segment':
+            # Set the segment as bounds
+            TauIndex = [i for i, name in enumerate(self.ElementsParamNames) if 'tau' in name]
+            tau = np.array(self.ElementsParamValues)[TauIndex]
+            self.UpperBound[TauIndex] = np.concatenate([(tau[:-1] + tau[1:]) / 2, [10 * tau[-1]]])
+            self.LowerBound[TauIndex] = np.concatenate([[0.1 * tau[0]], (tau[:-1] + tau[1:]) / 2])
+            breakpoint
 
     def PeakDerivative(self, mode, nbr_peaks_fixed=None, f_fixed=None):
         """
@@ -149,7 +172,7 @@ class Circuit:
         derivative-based techniques.
         Parameters
         ----------
-        mode : str
+        mode : str 'manual', 'fixed' or 'auto'
             Mode for peak identification algorithm. Specifies how peaks should be identified.
         nbr_peaks_fixed : int, optional
             If provided, forces the algorithm to identify exactly this number of peaks.
@@ -169,9 +192,14 @@ class Circuit:
         tau_est : array-like
             Estimated time constants (tau = 1/(2π*freq)) for each identified peak.
         """
-        r_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_fn.PeakDerivative.peak_derivative(self.DRTmes, self.f, mode, nbr_peaks_fixed, f_fixed)
+        if mode is None:
+            raise ValueError("Mode must be specified as 'maund', 'fixed', or 'auto'.")
+        elif mode == 'fixed' and (nbr_peaks_fixed is None or f_fixed is None):
+            raise ValueError("For 'fixed' mode, both nbr_peaks_fixed and f_fixed must be provided.")
+        else:
+            R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_fn.PeakDerivative.peak_derivative(self.DRTmes, self.f, mode, nbr_peaks_fixed, f_fixed)
         
-        return r_est, freq_est, alpha_est, nbr_peaks, tau_est
+        return R_est, freq_est, alpha_est, nbr_peaks, tau_est
 
     def EvaluateCircuit(self):
         """
@@ -276,7 +304,7 @@ class Circuit:
         self.ResidualsReal = residuals[:len(residuals)//2]
         self.ResidualsImag = residuals[len(residuals)//2:]
         self.SumNormResiduals = np.sum(residuals**2)
-
+        print('---- Sum of normalized residuals:', self.SumNormResiduals)
         # Compute the covariance matrix
         self.dof = 2*len(self.Zmes) - len(result.x)  # Degrees of freedom
         J = result.jac
@@ -303,7 +331,7 @@ class Circuit:
             'SE': self.ElementsParamStandardErrors,
             'Pvalue': self.ElementsParamPValues
         }
-        fit_summary_df = pd.DataFrame(fit_summary_data, index=Circuit['ElementsParamNames']).T
+        fit_summary_df = pd.DataFrame(fit_summary_data, index=self.ElementsParamNames).T
         fit_summary_df.index.name = 'Index'
 
         self.FitSummary = fit_summary_df
@@ -483,7 +511,7 @@ class Circuit:
         if 'Ub' not in Element or Element['Ub'] == []:
             Element['Ub'] = [np.inf] * len(Element['Param'])
         if 'Lb' not in Element or Element['Lb'] == []:
-            Element['Lb'] = [-np.inf] * len(Element['Param'])
+            Element['Lb'] = [1e-10] * len(Element['Param'])
 
         self.UpperBound.extend(Element['Ub'])
         self.LowerBound.extend(Element['Lb'])
@@ -850,8 +878,8 @@ class Circuit:
             'Im': np.imag(self.Ztot),
             'f': self.f,
         }
-        EIS_total = pd.DataFrame(EIS_total)
-        self.DRT = DRT_fn.drt_tikonov(EIS_total, self.DRTparameters)
+        
+        self.DRT = DRT_fn.DRT_tikhonov(EIS_total, self.DRTparameters)
         
         # Compute DRT for each individual element
         self.ElementDRTs = {}
@@ -862,6 +890,6 @@ class Circuit:
                 'Im': np.imag(element_impedance),
                 'f': self.f,
             }
-            EIS_element = pd.DataFrame(EIS_element)
+            
             # Store the DRT for this element
-            self.ElementDRTs[element_name] = DRT_fn.drt_tikonov(EIS_element, self.DRTparameters)
+            self.ElementDRTs[element_name] = DRT_fn.DRT_tikhonov(EIS_element, self.DRTparameters)

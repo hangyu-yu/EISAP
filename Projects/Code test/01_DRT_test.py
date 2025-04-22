@@ -58,7 +58,6 @@ for file in txt_files:
         EIS.filename = filename
         print('---- File loaded:', file)
         print('-- file name:', filename)
-    EIS.import_data()
     EIS.raw['Re'] = data['Re/Ohm'].to_numpy()
     EIS.raw['Im'] = data['Im/Ohm'].to_numpy()
     EIS.raw['Z'] = data['impedance/Ohm'].to_numpy()
@@ -123,7 +122,7 @@ for file in txt_files:
 # 05 - Data save
     if switch_data_save:
         EIS.save_data()
-    break
+    # break
 
 plt.show(block=True)
 
