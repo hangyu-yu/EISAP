@@ -41,8 +41,8 @@ EIS.parameter['DRT']['DRT_switch']                  = True  # DRT switch
 switch_data_save = True
 switch_plot_KK  = False
 switch_plot_EIS = False
-switch_plot_DRT = True
-switch_Plot_DRT_EIS = True
+switch_plot_DRT = False
+switch_Plot_DRT_EIS = False
 plot_EIS_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
 plot_DRT_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
 plot_DRT_EIS_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
@@ -124,7 +124,7 @@ for file in txt_files:
         EIS.save_data()
     # break
 
-plt.show(block=True)
+    plt.show(block=True)
 
 
     # plt.figure(figsize=(8, 6))

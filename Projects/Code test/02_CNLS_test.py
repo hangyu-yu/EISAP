@@ -17,15 +17,15 @@ if platform.system() == 'Darwin':  # macOS
     Folder_Path = r'/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/19_HydroQuebec/4_Models/IS_analysis_V1/_DataRef/Zahner'
 elif platform.system() == 'Windows':  # Windows
     Folder_Path = r'D:\OneDrive\Experience\01_Projects\19_HydroQuebec\4_Models\IS_analysis_V1\_DataRef\Zahner'
-fn.figure_initialization(width=1920, height=1080, font_size=24, colormap_name='vik', dpi=100, font_family='Times New Roman', line_width=3, marker_edge_width=3)
+fn.figure_initialization(width=1920, height=1080, font_size=16, colormap_name='vik', dpi=100, font_family='Times New Roman', line_width=3, marker_edge_width=3)
 
 txt_files = glob.glob(os.path.join(Folder_Path, '*.txt'))
 
 EIS = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=None, n_cell=None, file_folder=Folder_Path, filename=None)
 
 # 02 - Command window
-Plot_data = True
-Save_data = False
+Plot_data = False
+Save_data = True
 
 Data_type = 'truncated' # 'raw', 'truncated', 'LCcorrected', 'smooth', 'extrapolation'
 
@@ -47,6 +47,9 @@ for file in txt_files:
     R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS.PeakDerivative('fixed', f_fixed=f_fixed, nbr_peaks_fixed=len(f_fixed))
     R_est = R_est*EIS['tknv_' + Data_type]['RL']['Rp_ReIm']/np.sum(R_est)
 
+    # Data import
+    # CNLS.ImportCircuit()
+
     # Define the elements based on the Gaussian fit results
     CNLS.Elements = [
         {'name': 'L1', 'type': 'Inductor', 'Param': [EIS['tknv_' + Data_type]['RL']['L_ReIm']], 'Ub': [], 'Lb': []},
@@ -65,13 +68,18 @@ for file in txt_files:
     # Fit the circuit
     for i in range(0,5):
         CNLS.FitCircuit()
+
     # Evaluate the DRT results of the Circuit
     CNLS.EvaluateCircuitDRT()
 
     # Plot the results
     if Plot_data:
         CNLS.PlotResiduals()
-        CNLS.PlotElementImpedance()
         CNLS.PlotCircuit()
-    
+        CNLS.PlotElements()
+    plt.show(block=True)  # Show the plot and wait for user input before closing
+
+    # Save the results
+    if Save_data:
+        CNLS.ExportCircuit()
     breakpoint

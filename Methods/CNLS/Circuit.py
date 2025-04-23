@@ -352,6 +352,28 @@ class Circuit:
         print("Elements Lower Bound:", self.LowerBound)
         print("Elements Param Variance:", self.ElementsParamVariance)
 
+    def PlotResiduals(self):
+        """
+        Plots the residuals of the circuit fit.
+
+        Parameters:
+        Circuit (dict): A dictionary representing the initialized circuit.
+        """
+
+        # Create subplots
+        plt.figure('Residual')
+
+        # Plot Real(Residuals) vs Frequency
+        plt.plot(self.f, 100 * self.ResidualsReal / np.abs(self.Ztot), 'o', label='Real', markerfacecolor='none', color='blue')
+        plt.plot(self.f, 100 * self.ResidualsImag / np.abs(self.Ztot), 'o', label='Imag', markerfacecolor='none', color='red')
+        plt.xscale('log')
+        plt.xlabel('Frequency [Hz]')
+        plt.ylabel('Residuals [%]')
+        plt.legend()
+        plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+
+        plt.tight_layout()
+
     def PlotCircuit(self):
         """
         Plots the impedance of the circuit and the experimental impedance data.
@@ -367,70 +389,69 @@ class Circuit:
 
         # Create subplots
         fig, ax = plt.subplots(3, 2, figsize=(15, 12))
+        fig.canvas.manager.set_window_title('Fit results')
 
         # Plot |Z| vs Frequency
-        ax[0, 0].plot(self.f, np.abs(self.Zmes), 'o', label='Experimental Impedance')
+        ax[0, 0].plot(self.f, np.abs(self.Zmes), 'o', markerfacecolor='none', label='Experimental Impedance')
         ax[0, 0].plot(self.f, np.abs(Ztot), label='Total Impedance')
         ax[0, 0].set_xscale('log')
-        ax[0, 0].set_yscale('log')
         ax[0, 0].set_xlabel('Frequency [Hz]')
-        ax[0, 0].set_ylabel('|Z| (Ohmcm2)')
+        ax[0, 0].set_ylabel(r'|Z| [$\Omega\cdot \mathrm{cm}^2$]')
+        ax[0, 0].grid(True, which='both', linestyle='--', linewidth=0.5)
         ax[0, 0].legend()
 
         # Plot Phase vs Frequency
-        ax[0, 1].plot(self.f, np.angle(self.Zmes, deg=True), 'o', label='Experimental Impedance')
+        ax[0, 1].plot(self.f, np.angle(self.Zmes, deg=True), 'o', markerfacecolor='none', label='Experimental Impedance')
         ax[0, 1].plot(self.f, np.angle(Ztot, deg=True), label='Total Impedance')
         ax[0, 1].set_xscale('log')
         ax[0, 1].set_xlabel('Frequency [Hz]')
-        ax[0, 1].set_ylabel('Phase (degrees)')
-        ax[0, 1].legend()
+        ax[0, 1].set_ylabel('Phase [degree]')
+        ax[0, 1].grid(True, which='both', linestyle='--', linewidth=0.5)
+        # ax[0, 1].legend()
 
         # Plot -Imag(Z) vs Frequency
-        ax[1, 0].plot(self.f, -np.imag(self.Zmes), 'o', label='Experimental Impedance')
+        ax[1, 0].plot(self.f, -np.imag(self.Zmes), 'o', markerfacecolor='none', label='Experimental Impedance')
         ax[1, 0].plot(self.f, -np.imag(Ztot), label='Total Impedance')
         ax[1, 0].set_xscale('log')
         ax[1, 0].set_xlabel('Frequency [Hz]')
-        ax[1, 0].set_ylabel('-Imag(Z) (Ohmcm2)')
-        ax[1, 0].legend()
+        ax[1, 0].set_ylabel(r"$\mathrm{-Z}'' \, [\Omega\cdot \mathrm{cm}^2]$")
+        ax[1, 0].grid(True, which='both', linestyle='--', linewidth=0.5)
+        # ax[1, 0].legend()
 
         # Plot Real(Z) vs Frequency
-        ax[1, 1].plot(self.f, np.real(self.Zmes), 'o', label='Experimental Impedance')
+        ax[1, 1].plot(self.f, np.real(self.Zmes), 'o', markerfacecolor='none', label='Experimental Impedance')
         ax[1, 1].plot(self.f, np.real(Ztot), label='Total Impedance')
         ax[1, 1].set_xscale('log')
         ax[1, 1].set_xlabel('Frequency [Hz]')
-        ax[1, 1].set_ylabel('Real(Z) (Ohmcm2)')
-        ax[1, 1].legend()
+        ax[1, 1].set_ylabel(r"$\mathrm{Z}' \, [\Omega\cdot \mathrm{cm}^2]$")
+        ax[1, 1].grid(True, which='both', linestyle='--', linewidth=0.5)
+        # ax[1, 1].legend()
 
         # Plot Nyquist plot (Real(Z) vs -Imag(Z))
-        ax[2, 0].plot(np.real(self.Zmes), -np.imag(self.Zmes), 'o', label='Experimental Impedance')
+        ax[2, 0].plot(np.real(self.Zmes), -np.imag(self.Zmes), 'o', markerfacecolor='none', label='Experimental Impedance')
         ax[2, 0].plot(np.real(Ztot), -np.imag(Ztot), label='Total Impedance')
-        ax[2, 0].set_xlabel('Real(Z) (Ohmcm2)')
-        ax[2, 0].set_ylabel('-Imag(Z) (Ohmcm2)')
+        ax[2, 0].set_xlabel(r"$\mathrm{Z}' \, [\Omega\cdot \mathrm{cm}^2]$")
+        ax[2, 0].set_ylabel(r"$\mathrm{-Z}'' \, [\Omega\cdot \mathrm{cm}^2]$")
         ax[2, 0].set_aspect('equal', 'box')
-        ax[2, 0].legend()
+        ax[2, 0].grid(True, which='both', linestyle='--', linewidth=0.5)
+        # ax[2, 0].legend()
 
-        if 'DRT' in self:
-            if self['DRT'] is not None:
-                # Plot DRT
-                ax[2, 1].plot(self.f, self.DRTmes, label='Experimental DRT')
-                ax[2, 1].plot(self.f, self.DRT['ReIm']['g'], label='DRT')
-                ax[2, 1].set_xscale('log')
-                ax[2, 1].set_xlabel('Frequency [Hz]')
-                ax[2, 1].sylabel(r'$\gamma \, [\Omega \cdot cm^2 \cdot s]$')
-                ax[2, 1].legend()
-            else:
-                ax[2, 1].axis('off')
+        if self.DRT is not None:
+            # Plot DRT
+            ax[2, 1].plot(self.f, self.DRTmes, label='Experimental DRT')
+            ax[2, 1].plot(self.f, self.DRT['ReIm']['g'], label='DRT')
+            ax[2, 1].set_xscale('log')
+            ax[2, 1].set_xlabel('Frequency [Hz]')
+            ax[2, 1].set_ylabel(r'$\gamma \, [\Omega \cdot cm^2 \cdot s]$')
+            ax[2, 1].grid(True, which='both', linestyle='--', linewidth=0.5)
+            ax[2, 1].set_ylim(0, 1.2 * np.max([self.DRTmes, self.DRT['ReIm']['g']]))
+            # ax[2, 1].legend()
         else:
             ax[2, 1].axis('off')
         
-        # Hide the empty subplot (bottom right)
-        #fig.delaxes(ax[2, 1])
-        
-
         plt.tight_layout()
-        plt.show()
 
-    def PlotElementImpedance(self):
+    def PlotElements(self):
         """
         Plots the impedance of each element in the circuit.
 
@@ -441,50 +462,250 @@ class Circuit:
         # Evaluate the circuit
         _, Z = self.EvaluateCircuit()
 
-        fig, ax = plt.subplots(figsize=(10, 8))
+        fig, ax = plt.subplots(2, 2, figsize=(12, 10))
+        fig.canvas.manager.set_window_title('Individual elements')
 
         # Plot -Imag(Z) vs Frequency for each element
+        ax[0, 0].plot(self.f, -np.imag(self.Zmes), 'o', markerfacecolor='none', label='Experimental Impedance')
         for element in Z.columns:
-            ax.plot(self.f, -np.imag(Z[element]), label=f'{element} (Impedance)')
-        ax.plot(self.f, -np.imag(self.Zmes), 'o', label='Experimental Impedance')
+            ax[0, 0].semilogx(self.f, -np.imag(Z[element]), label=f'{element}')
+        ax[0, 0].set_xlabel('Frequency [Hz]')
+        ax[0, 0].set_ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+        ax[0, 0].legend()
+        ax[0, 0].grid(True, which='both', linestyle='--', linewidth=0.5)
 
-        ax.set_xscale('log')
-        ax.set_xlabel('Frequency [Hz]')
-        ax.set_ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
-        ax.legend()
-        ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+        # Plot Real(Z) vs Frequency for each element (cumulative)
+        ax[0, 1].plot(self.f, np.real(self.Zmes), 'o', markerfacecolor='none', label='Experimental Impedance')
+        for idx, element in enumerate(Z.columns):
+            cumulative_real = sum(np.real(Z[element].iloc[-1]) for element in Z.columns[:idx])
+            ax[0, 1].semilogx(self.f, np.real(Z[element])+cumulative_real, label=f'{element}')
+        ax[0, 1].set_xlabel('Frequency [Hz]')
+        ax[0, 1].set_ylabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+        # ax[0, 1].legend()
+        ax[0, 1].grid(True, which='both', linestyle='--', linewidth=0.5)
+
+        # Nyquist plot (Real(Z) vs -Imag(Z) for each element)
+        ax[1, 0].plot(np.real(self.Zmes), -np.imag(self.Zmes), 'o', markerfacecolor='none', label='Experimental Impedance')
+        for idx, element in enumerate(Z.columns):
+            cumulative_real = sum(np.real(Z[element].iloc[-1]) for element in Z.columns[:idx])
+            if 'L' in element:
+                cumulative_real = sum(
+                    np.real(Z[col][0]) for col in Z.columns
+                    if 'R' in col and not any(excluded in col for excluded in ['RQ', 'RC', 'Randle'])
+                )
+            ax[1, 0].plot(np.real(Z[element])+cumulative_real, -np.imag(Z[element]), label=f'{element}')
+        ax[1, 0].set_xlabel(r"$Z' \, [\Omega\cdot \mathrm{cm}^2]$")
+        ax[1, 0].set_ylabel(r"$-Z'' \, [\Omega\cdot \mathrm{cm}^2]$")
+        ax[1, 0].set_aspect('equal', 'box')
+        # ax[1, 0].legend()
+        ax[1, 0].grid(True, which='both', linestyle='--', linewidth=0.5)
+
+        # DRT plot
+        if self.DRT is not None:
+            ax[1, 1].plot(self.f, self.DRTmes, label='Experimental DRT')
+            for element in self.ElementDRTs:
+                if 'L' in element or ('R' in element and not any(excluded in element for excluded in ['RQ', 'RC', 'Randle'])):
+                    continue
+                ax[1, 1].plot(self.f, self.ElementDRTs[element]['ReIm']['g'], label=f'{element}')
+            ax[1, 1].set_xscale('log')
+            ax[1, 1].set_xlabel('Frequency [Hz]')
+            ax[1, 1].set_ylabel(r'$\gamma \, [\Omega \cdot cm^2 \cdot s]$')
+            ax[1, 1].legend()
+            ax[1, 1].grid(True, which='both', linestyle='--', linewidth=0.5)
+            ax[1, 1].set_ylim(0, 1.2 * np.max([self.DRTmes, self.DRT['ReIm']['g']]))
+        else:
+            ax[1, 1].axis('off')
 
         plt.tight_layout()
-        plt.show()
 
-    def PlotResiduals(self):
+    def EvaluateCircuitDRT(self):
         """
-        Plots the residuals of the circuit fit.
+        Computes the DRT for the total impedance and for each individual circuit element
+        using the existing impedance data (self.Ztot and self.Z).
 
-        Parameters:
-        Circuit (dict): A dictionary representing the initialized circuit.
+        Returns:
+        dict: A dictionary containing the DRT results for the total impedance and each element.
+        
+        Raises:
+        ValueError: If self.Ztot or self.Z is None or empty.
+        """
+        # Check if impedance data exists
+        if self.Ztot is None or self.Z is None:
+            raise ValueError("Circuit impedance data not available. Run EvaluateCircuit() first.")
+        
+        if len(self.Ztot) == 0 or self.Z.empty:
+            raise ValueError("Circuit impedance data is empty. Check your circuit configuration.")
+
+        # Compute the DRT for the total impedance
+        EIS_total = {
+            'Re': np.real(self.Ztot),
+            'Im': np.imag(self.Ztot),
+            'f': self.f,
+        }
+        
+        self.DRT = DRT_fn.DRT_tikhonov(EIS_total, self.DRTparameters)
+        
+        # Compute DRT for each individual element
+        self.ElementDRTs = {}
+        for element_name in self.Z.columns:
+            element_impedance = self.Z[element_name]
+            EIS_element = {
+                'Re': np.real(element_impedance),
+                'Im': np.imag(element_impedance),
+                'f': self.f,
+            }
+
+            # Store the DRT for this element
+            self.ElementDRTs[element_name] = DRT_fn.DRT_tikhonov(EIS_element, self.DRTparameters)
+
+
+    def ExportCircuit(self):
+        """
+        Exports the circuit details into an Excel file. Each element of the Circuit dictionary is saved on a different sheet.
+
+        The file is saved in a folder named 'CNLS' inside self.file_folder, with the filename being self.filename
+        (without its original extension) and an '.xlsx' extension added.
         """
 
-        # Create subplots
-        fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+        # Ensure the CNLS folder exists
+        export_folder = os.path.join(self.file_folder, "CNLS")
+        os.makedirs(export_folder, exist_ok=True)
 
-        # Plot Real(Residuals) vs Frequency
-        ax[0].plot(self.f, 100*self.ResidualsReal/np.abs(self.Ztot), 'o', label='Real(Residuals)')
-        ax[0].set_xscale('log')
-        ax[0].set_xlabel('Frequency [Hz]')
-        ax[0].set_ylabel('Real(Residuals) [%]')
-        ax[0].legend()
+        # Define the export file path
+        export_file = os.path.join(export_folder, os.path.splitext(self.filename)[0] + ".xlsx")
 
-        # Plot Imag(Residuals) vs Frequency
-        ax[1].plot(self.f, 100*self.ResidualsImag/np.abs(self.Ztot), 'o', label='Imag(Residuals)')
-        ax[1].set_xscale('log')
-        ax[1].set_xlabel('Frequency [Hz]')
-        ax[1].set_ylabel('Imag(Residuals) [%]')
-        ax[1].legend()
+        # Create a Pandas Excel writer
+        with pd.ExcelWriter(export_file, engine='openpyxl') as writer:
+            # Sheet - Summary
+            summary_data = {
+                "ElementsNames": [self.ElementsNames],
+                "ElementsType": [self.ElementsType],
+                "SumNormResiduals": [self.SumNormResiduals],
+                "dof": [self.dof],
+                "data_type": [self.data_type],
+            }
+            summary_df = pd.DataFrame(summary_data)
+            summary_df.to_excel(writer, sheet_name="Summary", index=False)
 
-        plt.tight_layout()
-        plt.show()
+            # Sheet - Elements
+            elements_data = {
+                "ElementsParamNames": self.ElementsParamNames,
+                "ElementsParamValues": self.ElementsParamValues,
+                "UpperBound": self.UpperBound,
+                "LowerBound": self.LowerBound,
+                "ElementsParamVariance": self.ElementsParamVariance,
+                "ElementsParamStandardErrors": self.ElementsParamStandardErrors,
+                "ElementsParamPValues": self.ElementsParamPValues,
+            }
+            elements_df = pd.DataFrame(elements_data)
+            elements_df.to_excel(writer, sheet_name="Elements", index=False)
 
+            # Sheet - Z
+            z_data = {
+                "Frequency/Hz": self.f,
+                "Zmes_Re/ohm·cm2": np.real(self.Zmes),
+                "Zmes_Im/ohm·cm2": np.imag(self.Zmes),
+                "Ztot_Re/ohm·cm2": np.real(self.Ztot),
+                "Ztot_Im/ohm·cm2": np.imag(self.Ztot),
+                "Ztot0_Re/ohm·cm2": np.real(self.Ztot0),
+                "Ztot0_Im/ohm·cm2": np.imag(self.Ztot0),
+                "Residuals_Re": self.ResidualsReal,
+                "Residuals_Im": self.ResidualsImag,
+            }
+            z_df = pd.DataFrame(z_data)
+            z_df.to_excel(writer, sheet_name="Z", index=False)
+
+            # Add individual element impedances to the Z sheet
+            for element_name in self.Z.columns:
+                z_df[element_name + "_Re" + "/ohm·cm2"] = np.real(self.Z[element_name])
+                z_df[element_name + "_Im" + "/ohm·cm2"] = np.imag(self.Z[element_name])
+            z_df.to_excel(writer, sheet_name="Z", index=False)
+
+            # Sheet - DRT
+            drt_data = {
+                "f": self.f,
+                "DRTmes/ohm·s·cm2": self.DRTmes,
+            }
+            if self.DRT is not None:
+                drt_data.update({
+                    "DRT": self.DRT["ReIm"]["g"],
+                })
+            drt_df = pd.DataFrame(drt_data)
+            drt_df.to_excel(writer, sheet_name="DRT", index=False)
+
+            # Add individual element DRTs to the DRT sheet
+            for element_name, drt in self.ElementDRTs.items():
+                drt_df["DRT" + element_name + "/ohm·s·cm2"] = drt["ReIm"]["g"]
+            drt_df.to_excel(writer, sheet_name="DRT", index=False)
+
+        print(f"-- Circuit details exported to {export_file}")
+
+
+    def ImportCircuit(self):
+        """
+        Imports the circuit details from an Excel file.
+
+        The file is expected to be located in a folder named 'CNLS' inside self.file_folder,
+        with the filename being self.filename (without its original extension) and an '.xlsx' extension added.
+
+        Returns:
+        None: Updates the Circuit object with the imported data.
+        """
+        # Define the import file path
+        import_folder = os.path.join(self.file_folder, "CNLS")
+        import_file = os.path.join(import_folder, os.path.splitext(self.filename)[0] + ".xlsx")
+
+        # Check if the file exists
+        if not os.path.exists(import_file):
+            raise FileNotFoundError(f"File not found: {import_file}")
+
+        # Read the Excel file
+        with pd.ExcelFile(import_file) as xls:
+            for sheet_name in xls.sheet_names:
+                df = pd.read_excel(xls, sheet_name)
+                if sheet_name == "Summary":
+                    # Convert the Summary sheet to a dictionary
+                    self.data_type = df["data_type"].iloc[0]
+                    self.SumNormResiduals = df["SumNormResiduals"].iloc[0]
+                    self.dof = df["dof"].iloc[0]
+                    self.ElementsNames = eval(df["ElementsNames"].iloc[0])
+                    self.ElementsType = eval(df["ElementsType"].iloc[0])
+                elif sheet_name == "Elements":
+                    # Extract elements-related data
+                    self.ElementsParamNames = df["ElementsParamNames"].tolist()
+                    self.ElementsParamValues = df["ElementsParamValues"].tolist()
+                    self.UpperBound = df["UpperBound"].tolist()
+                    self.LowerBound = df["LowerBound"].tolist()
+                    self.ElementsParamVariance = df["ElementsParamVariance"].tolist()
+                    self.ElementsParamStandardErrors = df["ElementsParamStandardErrors"].tolist()
+                    self.ElementsParamPValues = df["ElementsParamPValues"].tolist()
+                elif sheet_name == "Z":
+                    # Extract impedance-related data
+                    self.f = df["Frequency/Hz"].to_numpy()
+                    self.Zmes = df["Zmes_Re/ohm·cm2"].to_numpy() + 1j * df["Zmes_Im/ohm·cm2"].to_numpy()
+                    self.Ztot = df["Ztot_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot_Im/ohm·cm2"].to_numpy()
+                    self.Ztot0 = df["Ztot0_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot0_Im/ohm·cm2"].to_numpy()
+                    self.ResidualsReal = df["Residuals_Re"].to_numpy()
+                    self.ResidualsImag = df["Residuals_Im"].to_numpy()
+                    # Extract individual element impedances
+                    self.Z = pd.DataFrame()
+                    for col in df.columns:
+                        if "_Re/ohm·cm2" in col:
+                            element_name = col.split("_Re")[0]
+                            self.Z[element_name] = df[col].to_numpy() + 1j * df[element_name + "_Im/ohm·cm2"].to_numpy()
+                elif sheet_name == "DRT":
+                    # Extract DRT-related data
+                    self.DRTmes = df["DRTmes/ohm·s·cm2"].to_numpy()
+                    if "DRT" in df.columns:
+                        self.DRT = {"ReIm": {"g": df["DRT"].to_numpy()}}
+                    # Extract individual element DRTs
+                    self.ElementDRTs = {}
+                    for col in df.columns:
+                        if "DRT" in col and col != "DRT":
+                            element_name = col.replace("DRT", "").replace("/ohm·s·cm2", "")
+                            self.ElementDRTs[element_name] = {"ReIm": {"g": df[col].to_numpy()}}
+
+    # Software functions
     def AddElement(self, Element):
         """
         Adds a new element to the circuit.
@@ -617,153 +838,7 @@ class Circuit:
         Z_element = Z[ElementName]
 
         return Z_element
-
-    def ExportCircuit(self):
-        """
-        Exports the circuit details into an Excel file. Each element of the Circuit dictionary is saved on a different sheet.
-
-        The file is saved in a folder named 'CNLS' inside self.file_folder, with the filename being self.filename
-        (without its original extension) and an '.xlsx' extension added.
-        """
-
-        # Ensure the CNLS folder exists
-        export_folder = os.path.join(self.file_folder, "CNLS")
-        os.makedirs(export_folder, exist_ok=True)
-
-        # Define the export file path
-        export_file = os.path.join(export_folder, os.path.splitext(self.filename)[0] + ".xlsx")
-
-        # Create a Pandas Excel writer
-        with pd.ExcelWriter(export_file, engine='xlsxwriter') as writer:
-            # Sheet - Summary
-            summary_data = {
-                "ElementsNames": [self.ElementsNames],
-                "ElementsType": [self.ElementsType],
-                "SumNormResiduals": [self.SumNormResiduals],
-                "dof": [self.dof],
-                "data_type": [self.data_type],
-            }
-            summary_df = pd.DataFrame(summary_data)
-            summary_df.to_excel(writer, sheet_name="Summary", index=False)
-
-            # Sheet - Elements
-            elements_data = {
-                "ElementsParamNames": self.ElementsParamNames,
-                "ElementsParamValues": self.ElementsParamValues,
-                "UpperBound": self.UpperBound,
-                "LowerBound": self.LowerBound,
-                "ElementsParamVariance": self.ElementsParamVariance,
-                "ElementsParamStandardErrors": self.ElementsParamStandardErrors,
-                "ElementsParamPValues": self.ElementsParamPValues,
-            }
-            elements_df = pd.DataFrame(elements_data)
-            elements_df.to_excel(writer, sheet_name="Elements", index=False)
-
-            # Sheet - Z
-            z_data = {
-                "Frequency/Hz": self.f,
-                "Zmes_Re/ohm·cm2": np.real(self.Zmes),
-                "Zmes_Im/ohm·cm2": np.imag(self.Zmes),
-                "Ztot_Re/ohm·cm2": np.real(self.Ztot),
-                "Ztot_Im/ohm·cm2": np.imag(self.Ztot),
-                "Ztot0_Re/ohm·cm2": np.real(self.Ztot0),
-                "Ztot0_Im/ohm·cm2": np.imag(self.Ztot0),
-                "Residuals_Re": self.ResidualsReal,
-                "Residuals_Im": self.ResidualsImag,
-            }
-            z_df = pd.DataFrame(z_data)
-            z_df.to_excel(writer, sheet_name="Z", index=False)
-
-            # Add individual element impedances to the Z sheet
-            for element_name in self.Z.columns:
-                z_df[element_name + "_Re" + "/ohm·cm2"] = np.real(self.Z[element_name])
-                z_df[element_name + "_Im" + "/ohm·cm2"] = np.imag(self.Z[element_name])
-            z_df.to_excel(writer, sheet_name="Z", index=False)
-
-            # Sheet - DRT
-            drt_data = {
-                "f": self.f,
-                "DRTmes/ohm·s·cm2": self.DRTmes,
-            }
-            if self.DRT is not None:
-                drt_data.update({
-                    "DRT": self.DRT["ReIm"]["g"],
-                })
-            drt_df = pd.DataFrame(drt_data)
-            drt_df.to_excel(writer, sheet_name="DRT", index=False)
-
-            # Add individual element DRTs to the DRT sheet
-            for element_name, drt in self.ElementDRTs.items():
-                drt_df["DRT" + element_name + "/ohm·s·cm2"] = drt["ReIm"]["g"]
-            drt_df.to_excel(writer, sheet_name="DRT", index=False)
-
-        print(f"-- Circuit details exported to {export_file}")
-
-
-    def ImportCircuit(self):
-        """
-        Imports the circuit details from an Excel file.
-
-        The file is expected to be located in a folder named 'CNLS' inside self.file_folder,
-        with the filename being self.filename (without its original extension) and an '.xlsx' extension added.
-
-        Returns:
-        None: Updates the Circuit object with the imported data.
-        """
-        # Define the import file path
-        import_folder = os.path.join(self.file_folder, "CNLS")
-        import_file = os.path.join(import_folder, os.path.splitext(self.filename)[0] + ".xlsx")
-
-        # Check if the file exists
-        if not os.path.exists(import_file):
-            raise FileNotFoundError(f"File not found: {import_file}")
-
-        # Read the Excel file
-        with pd.ExcelFile(import_file) as xls:
-            for sheet_name in xls.sheet_names:
-                df = pd.read_excel(xls, sheet_name)
-                if sheet_name == "Summary":
-                    # Convert the Summary sheet to a dictionary
-                    self.data_type = df["data_type"].iloc[0]
-                    self.SumNormResiduals = df["SumNormResiduals"].iloc[0]
-                    self.dof = df["dof"].iloc[0]
-                    self.ElementsNames = eval(df["ElementsNames"].iloc[0])
-                    self.ElementsType = eval(df["ElementsType"].iloc[0])
-                elif sheet_name == "Elements":
-                    # Extract elements-related data
-                    self.ElementsParamNames = df["ElementsParamNames"].tolist()
-                    self.ElementsParamValues = df["ElementsParamValues"].tolist()
-                    self.UpperBound = df["UpperBound"].tolist()
-                    self.LowerBound = df["LowerBound"].tolist()
-                    self.ElementsParamVariance = df["ElementsParamVariance"].tolist()
-                    self.ElementsParamStandardErrors = df["ElementsParamStandardErrors"].tolist()
-                    self.ElementsParamPValues = df["ElementsParamPValues"].tolist()
-                elif sheet_name == "Z":
-                    # Extract impedance-related data
-                    self.f = df["Frequency/Hz"].to_numpy()
-                    self.Zmes = df["Zmes_Re/ohm·cm2"].to_numpy() + 1j * df["Zmes_Im/ohm·cm2"].to_numpy()
-                    self.Ztot = df["Ztot_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot_Im/ohm·cm2"].to_numpy()
-                    self.Ztot0 = df["Ztot0_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot0_Im/ohm·cm2"].to_numpy()
-                    self.ResidualsReal = df["Residuals_Re"].to_numpy()
-                    self.ResidualsImag = df["Residuals_Im"].to_numpy()
-                    # Extract individual element impedances
-                    self.Z = pd.DataFrame()
-                    for col in df.columns:
-                        if "_Re/ohm·cm2" in col:
-                            element_name = col.split("_Re")[0]
-                            self.Z[element_name] = df[col].to_numpy() + 1j * df[element_name + "_Im/ohm·cm2"].to_numpy()
-                elif sheet_name == "DRT":
-                    # Extract DRT-related data
-                    self.DRTmes = df["DRTmes/ohm·s·cm2"].to_numpy()
-                    if "DRT" in df.columns:
-                        self.DRT = {"ReIm": {"g": df["DRT"].to_numpy()}}
-                    # Extract individual element DRTs
-                    self.ElementDRTs = {}
-                    for col in df.columns:
-                        if "DRT" in col and col != "DRT":
-                            element_name = col.replace("DRT", "").replace("/ohm·s·cm2", "")
-                            self.ElementDRTs[element_name] = {"ReIm": {"g": df[col].to_numpy()}}
-
+    
     def ShowFitSummary(self):
         """
         Displays the Fit Summary table in an external window using tkinter.
@@ -853,43 +928,3 @@ class Circuit:
 
         # Start the tkinter main loop
         root.mainloop()
-
-    def EvaluateCircuitDRT(self):
-        """
-        Computes the DRT for the total impedance and for each individual circuit element
-        using the existing impedance data (self.Ztot and self.Z).
-
-        Returns:
-        dict: A dictionary containing the DRT results for the total impedance and each element.
-        
-        Raises:
-        ValueError: If self.Ztot or self.Z is None or empty.
-        """
-        # Check if impedance data exists
-        if self.Ztot is None or self.Z is None:
-            raise ValueError("Circuit impedance data not available. Run EvaluateCircuit() first.")
-        
-        if len(self.Ztot) == 0 or self.Z.empty:
-            raise ValueError("Circuit impedance data is empty. Check your circuit configuration.")
-
-        # Compute the DRT for the total impedance
-        EIS_total = {
-            'Re': np.real(self.Ztot),
-            'Im': np.imag(self.Ztot),
-            'f': self.f,
-        }
-        
-        self.DRT = DRT_fn.DRT_tikhonov(EIS_total, self.DRTparameters)
-        
-        # Compute DRT for each individual element
-        self.ElementDRTs = {}
-        for element_name in self.Z.columns:
-            element_impedance = self.Z[element_name]
-            EIS_element = {
-                'Re': np.real(element_impedance),
-                'Im': np.imag(element_impedance),
-                'f': self.f,
-            }
-            
-            # Store the DRT for this element
-            self.ElementDRTs[element_name] = DRT_fn.DRT_tikhonov(EIS_element, self.DRTparameters)
