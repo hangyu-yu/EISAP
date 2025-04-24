@@ -5,9 +5,9 @@ sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import platform
 import numpy as np
 import pandas as pd
-import Functions as fn
+import src.Functions as fn
 import matplotlib.pyplot as plt
-from Methods.DRT.DRT import DRT
+from src.Methods.DRT.DRT import DRT
 
 # 01 - Initialization
 if platform.system() == 'Darwin':  # macOS
@@ -38,11 +38,11 @@ EIS.parameter['KK']['KK_type']             = 'Mu_criterion' # KK type
 EIS.parameter['LambdaOpt']['lambda_opt']            = False # solve the optimum lambda
 EIS.parameter['DRT']['DRT_switch']                  = True  # DRT switch
 
-switch_data_save = True
-switch_plot_KK  = False
-switch_plot_EIS = False
-switch_plot_DRT = False
-switch_Plot_DRT_EIS = False
+switch_data_save = False
+switch_plot_KK  = True
+switch_plot_EIS = True
+switch_plot_DRT = True
+switch_Plot_DRT_EIS = True
 plot_EIS_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
 plot_DRT_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
 plot_DRT_EIS_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}

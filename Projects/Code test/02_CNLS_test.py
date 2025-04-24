@@ -1,15 +1,13 @@
-from importlib import reload
 import platform
 import os
 import glob
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import numpy as np
-import pandas as pd
-import Functions as fn
+import src.Functions as fn
 import matplotlib.pyplot as plt
-from Methods.CNLS.Circuit import Circuit
-from Methods.DRT.DRT import DRT
+from src.Methods.CNLS.Circuit import Circuit
+from src.Methods.DRT.DRT import DRT
 
 
 # 01 - Initialization
@@ -24,8 +22,8 @@ txt_files = glob.glob(os.path.join(Folder_Path, '*.txt'))
 EIS = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=None, n_cell=None, file_folder=Folder_Path, filename=None)
 
 # 02 - Command window
-Plot_data = False
-Save_data = True
+Plot_data = True
+Save_data = False
 
 Data_type = 'truncated' # 'raw', 'truncated', 'LCcorrected', 'smooth', 'extrapolation'
 
