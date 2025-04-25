@@ -3,6 +3,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import dearpygui.dearpygui as dpg
 import src.GUI as gui
+from src.GUI.config import Config
 import platform
 import ctypes
 
@@ -10,6 +11,10 @@ import ctypes
 # Utility function to print the sender of the callback
 def print_me(sender):
     print(f"Menu Item: {sender}")
+
+def on_exit(config):
+    config.save_config()
+    print("[LOG] Configuration saved.")
 
 # 01 - Initialization
 # Set the DPI awareness to system DPI
@@ -28,6 +33,9 @@ elif platform.system() == "Darwin":  # macOS
     window_height = int(screen_height * 0.8)
 else:
     raise OSError("Unsupported operating system")
+
+# Initialize the configuration
+config = Config()
 
 # Initialize DearPyGui
 dpg.create_context()
@@ -58,11 +66,12 @@ with dpg.window(label="Main Window", tag='fullscreen'):
         dpg.add_menu_item(label="Help", callback=print_me)
 
     with dpg.tab_bar():
-        gui.gui_tab_soceis()
+        gui.gui_tab_soceis(config)
 
 # 05 - Show the window
 dpg.setup_dearpygui()
 dpg.set_primary_window("fullscreen", True)
 dpg.show_viewport()
 dpg.start_dearpygui()
+dpg.set_exit_callback(on_exit(config))
 dpg.destroy_context()
