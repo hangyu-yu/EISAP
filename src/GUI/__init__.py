@@ -10,7 +10,7 @@ for root, dirs, files in os.walk(package_path):
         dirs.remove("__pycache__")
         
     for file in files:
-        if file.endswith(".py") and not file.startswith("__") and file != "gui_main.py":
+        if file == "gui_tab_soceis.py":  # Only process gui_tab_soceis.py
             # Construct the module path
             module_path = os.path.join(root, file)
             module_name = os.path.splitext(file)[0]
@@ -20,11 +20,9 @@ for root, dirs, files in os.walk(package_path):
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
 
-            # Add functions from the module to the global namespace
-            for attr_name in dir(module):
-                attr = getattr(module, attr_name)
-                if callable(attr) and not attr_name.startswith("__"):
-                    globals()[attr_name] = attr
+            # Add only the gui_tab_soceis function to the global namespace
+            if hasattr(module, "gui_tab_soceis") and callable(getattr(module, "gui_tab_soceis")):
+                globals()["gui_tab_soceis"] = getattr(module, "gui_tab_soceis")
 
-# Optional: Define __all__ to explicitly expose functions
-__all__ = [name for name in globals() if callable(globals()[name]) and not name.startswith("__")]
+# Define __all__ to explicitly expose the gui_tab_soceis function
+__all__ = ["gui_tab_soceis"] if "gui_tab_soceis" in globals() else []

@@ -3,6 +3,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import dearpygui.dearpygui as dpg
 import src.GUI as gui
+import platform
 import ctypes
 
 # 00 - Function Definitions
@@ -12,9 +13,21 @@ def print_me(sender):
 
 # 01 - Initialization
 # Set the DPI awareness to system DPI
-user32 = ctypes.windll.user32
-window_width  = int(user32.GetSystemMetrics(0) * 0.8)
-window_height = int(user32.GetSystemMetrics(1) * 0.8)
+if platform.system() == "Windows":
+    import ctypes
+    user32 = ctypes.windll.user32
+    window_width = int(user32.GetSystemMetrics(0) * 0.8)
+    window_height = int(user32.GetSystemMetrics(1) * 0.8)
+elif platform.system() == "Darwin":  # macOS
+    from tkinter import Tk
+    root = Tk()
+    root.withdraw()
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    window_width = int(screen_width * 0.8)
+    window_height = int(screen_height * 0.8)
+else:
+    raise OSError("Unsupported operating system")
 
 # Initialize DearPyGui
 dpg.create_context()
@@ -46,18 +59,6 @@ with dpg.window(label="Main Window", tag='fullscreen'):
 
     with dpg.tab_bar():
         gui.gui_tab_soceis()
-
-        # Tab 2
-        with dpg.tab(label="Tab 2"):
-            dpg.add_text("This is Tab 2")
-            dpg.add_input_text(label="Input in Tab 2", default_value="Type here...")
-            dpg.add_slider_float(label="Slider in Tab 2", default_value=0.5, min_value=0.0, max_value=1.0)
-
-        # Tab 3
-        with dpg.tab(label="Tab 3"):
-            dpg.add_text("This is Tab 3")
-            dpg.add_checkbox(label="Enable Feature", callback=lambda: print("Feature toggled in Tab 3!"))
-            dpg.add_color_picker(label="Pick a Color", callback=lambda s, d: print(f"Color picked: {d}"))
 
 # 05 - Show the window
 dpg.setup_dearpygui()
