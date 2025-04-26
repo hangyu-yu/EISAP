@@ -2,9 +2,47 @@ import os
 import dearpygui.dearpygui as dpg
 import glob
 
+# Functions for GUI tab SOCEIS
+def load_images(icon_path, picture_list):
+    """
+    Load images and return their properties.
+    """
+    images = {}
+    for name, file in picture_list:
+        width, height, channels, data = dpg.load_image(os.path.join(icon_path, file))
+        images[name] = {"width": width, "height": height, "data": data}
+    return images
+
+def create_texture_registry(images):
+    """
+    Create a texture registry for the loaded images.
+    """
+    with dpg.texture_registry(show=False):
+        for tag, img in images.items():
+            dpg.add_static_texture(img["width"], img["height"], img["data"], tag=f"{tag}_texture")
+
+def configure_spacers(viewport_width, spacers):
+    """
+    Configure spacers based on viewport width.
+    """
+    for tag, ratio in spacers.items():
+        dpg.configure_item(tag, width=int(viewport_width * ratio))
+
+def configure_images(images, viewport_width, viewport_height):
+    """
+    Configure image sizes based on viewport dimensions.
+    """
+    logo_height = int(viewport_height * 0.05)
+    dpg.configure_item("app_icon", width=int(viewport_width * 0.1), height=int(viewport_width * 0.1))
+    for tag in ["epfl_icon", "gem_icon", "hq_icon"]:
+        width = images[tag]["width"]
+        height = images[tag]["height"]
+        scaled_width = int(width * logo_height / height)
+        dpg.configure_item(tag, width=scaled_width, height=logo_height)
+
 def update_image_sizes():
     """
-    Callback function to update image sizes when viewport is resized.
+    Callback function to update image sizes and spacers when viewport is resized.
     """
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
@@ -12,75 +50,115 @@ def update_image_sizes():
     # Update main app icon
     dpg.configure_item("app_icon", width=int(viewport_width * 0.1), height=int(viewport_width * 0.1))
     
-    # Update partner logos (keeping original scaling logic)
+    # Update partner logos dynamically
     logo_height = int(viewport_height * 0.05)
-    epfl_width = dpg.get_item_width("epfl_icon_texture")
-    epfl_height = dpg.get_item_height("epfl_icon_texture")
-    epfl_scaled_width = int(epfl_width * logo_height / epfl_height)
-    dpg.configure_item("epfl_icon", width=epfl_scaled_width, height=logo_height)
+    total_logos_width = 0
+    for tag in ["epfl_icon", "gem_icon", "hq_icon"]:
+        width = dpg.get_item_width(f"{tag}_texture")
+        height = dpg.get_item_height(f"{tag}_texture")
+        scaled_width = int(width * logo_height / height)
+        dpg.configure_item(tag, width=scaled_width, height=logo_height)
+        total_logos_width += scaled_width
     
-    gem_width = dpg.get_item_width("gem_icon_texture")
-    gem_height = dpg.get_item_height("gem_icon_texture")
-    gem_scaled_width = int(gem_width * logo_height / gem_height)
-    dpg.configure_item("gem_icon", width=gem_scaled_width, height=logo_height)
+    # Update spacers dynamically
+    spacers = {
+        "main_icon_spacer": 0.45,
+        "logos_spacer": (0.97 - total_logos_width / viewport_width) / 2,
+        "version_spacer": 0.49,
+        "welcome_spacer": 0.25,
+        "right_spacer": 0.05,
+        "Directory_before_spacer": 0.25,
+        "Directory_child_before_spacer": 0.25,
+        "extension_spacer": 0.25,
+        "file_list_spacer": 0.25,
+    }
+    configure_spacers(viewport_width, spacers)
     
-    hq_width = dpg.get_item_width("hq_icon_texture")
-    hq_height = dpg.get_item_height("hq_icon_texture")
-    hq_scaled_width = int(hq_width * logo_height / hq_height)
-    dpg.configure_item("hq_icon", width=hq_scaled_width, height=logo_height)
-    
-    # Update spacer widths (keeping original complex calculations)
-    dpg.configure_item("main_icon_spacer", width=int(viewport_width * 0.45))
-    
-    epfl_scaled_width = int(dpg.get_item_width("epfl_icon_texture") * logo_height / dpg.get_item_height("epfl_icon_texture"))
-    gem_scaled_width = int(dpg.get_item_width("gem_icon_texture") * logo_height / dpg.get_item_height("gem_icon_texture"))
-    hq_scaled_width = int(dpg.get_item_width("hq_icon_texture") * logo_height / dpg.get_item_height("hq_icon_texture"))
-    total_logos_width = epfl_scaled_width + gem_scaled_width + hq_scaled_width
-    spacer_width = int(viewport_width*(0.97-total_logos_width/viewport_width)/2)
-    dpg.configure_item("logos_spacer", width=spacer_width)
-    
-    dpg.configure_item("version_spacer", width=int(viewport_width*0.49))
-    dpg.configure_item("welcome_spacer", width=int(viewport_width * 0.25))
-    dpg.configure_item("right_spacer", width=int(viewport_width * 0.05))
-    dpg.configure_item("Directory_before_spacer", width=int(viewport_width * 0.25))
-    dpg.configure_item("Directory_child_before_spacer", width=int(viewport_width * 0.25))
+    # Update child window sizes
     dpg.configure_item("child_window_folder_directory", width=int(viewport_width * 0.5))
-    dpg.configure_item("extension_spacer", width=int(viewport_width * 0.25))
-    dpg.configure_item("file_list_spacer", width=int(viewport_width * 0.25))
     dpg.configure_item("file_list_child_window", width=int(viewport_width * 0.5))
     
     # Update text wrapping
     dpg.configure_item("welcome_text", wrap=int(viewport_width * 0.5))
     dpg.configure_item("version_text", wrap=int(viewport_width * 0.04))
 
+# Synchronize checkboxes with config.selected_files
+# Set up the folder selection dialog
+def callback(sender, app_data, config):
+    print('OK was clicked.')
+    print("Sender: ", sender)
+    print("App Data: ", app_data)
+    config.folder_path = app_data['file_path_name']
+    print("Folder path:", config.folder_path)
+def cancel_callback(sender, app_data):
+    print('Cancel was clicked.')
+    print("Sender: ", sender)
+    print("App Data: ", app_data)
+
+def update_file_list(config):
+    """
+    Update the file list based on the selected extension and default folder path.
+    """
+    config.file_extensions = dpg.get_value("file_extension_selector")
+    select_files()
+    dpg.configure_item("file_listbox", items=[os.path.basename(file) for file in config.file_list])
+    
+def select_files(config):
+    """
+    Update the selected file paths in the config.
+    """
+    if os.path.isdir(config.folder_path):
+        config.file_list = sorted(glob.glob(os.path.join(config.folder_path, f"*{config.file_extensions}")))
+        if not config.file_list:
+            config.file_list = ['[Error] No file found! Recheck the folder path or report the issue.']
+    else:
+        config.file_list = ['[Error] Folder path not found! Recheck the folder path or report the issue.']
+    
+def sync_checkboxes(config):
+    """
+    Ensure checkboxes reflect the current state of config.selected_files.
+    """
+    for file in config.file_list:
+        checkbox_tag = f"checkbox_{os.path.basename(file)}"
+        is_selected = os.path.basename(file) in config.selected_files
+    dpg.set_value(checkbox_tag, is_selected)
+
+
+def update_selected_files(config):
+    """
+    Update the list of selected files in config.selected_files.
+    """
+    config.selected_files = [
+    os.path.basename(file) for file in config.file_list
+    if dpg.get_value(f"checkbox_{os.path.basename(file)}")
+    ]
+    print("Selected files:", config.selected_files)
+
+# Main function to create the SOCEIS tab
 def gui_tab_soceis(config):
     """
     Function to create the SOCEIS tab in the GUI.
     This function is called from the main GUI file.
     """
+    # Initialization of resources
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
+
+    picture_list = [("app_icon", "app_icon.png"), 
+                    ("epfl_icon", "EPFL.png"), 
+                    ("gem_icon", "GEM.png"), 
+                    ("hq_icon", "HydroQuebec.png")]
     
+    icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "icons")
+
+    images = load_images(icon_path, picture_list) # Load images and their properties
+
     with dpg.tab(label="SOCEIS"):
-        icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "icons")
-        
-        # Load images
-        soceis_width, soceis_height, soceis_channels, soceis_data = dpg.load_image(os.path.join(icon_path, 'app_icon.png'))
-        epfl_width, epfl_height, epfl_channels, epfl_data = dpg.load_image(os.path.join(icon_path, 'EPFL.png'))
-        gem_width, gem_height, gem_channels, gem_data = dpg.load_image(os.path.join(icon_path, 'GEM.png'))
-        hq_width, hq_height, hq_channels, hq_data = dpg.load_image(os.path.join(icon_path, 'HydroQuebec.png'))
-        
-        # Calculate initial scaled widths for logos
-        epfl_scaled_width = int(epfl_width * (viewport_height * 0.05) / epfl_height)
-        gem_scaled_width = int(gem_width * (viewport_height * 0.05) / gem_height)
-        hq_scaled_width = int(hq_width * (viewport_height * 0.05) / hq_height)
-        
         # Create texture registry
-        with dpg.texture_registry(show=False):
-            dpg.add_static_texture(soceis_width, soceis_height, soceis_data, tag="app_icon_texture")
-            dpg.add_static_texture(epfl_width, epfl_height, epfl_data, tag="epfl_icon_texture")
-            dpg.add_static_texture(gem_width, gem_height, gem_data, tag="gem_icon_texture")
-            dpg.add_static_texture(hq_width, hq_height, hq_data, tag="hq_icon_texture")
+        create_texture_registry(images)
+
+        # Calculate initial scaled widths for logos
+        total_logos_width = sum(int(img["width"] * (viewport_height * 0.05) / img["height"]) for img in images.values())
         
         with dpg.group(horizontal=True, horizontal_spacing=20):
             with dpg.group():
@@ -94,21 +172,15 @@ def gui_tab_soceis(config):
                 
                 # Partner logos with original complex spacer calculation
                 with dpg.group(horizontal=True, horizontal_spacing=20):
-                    total_logos_width = epfl_scaled_width + gem_scaled_width + hq_scaled_width
                     spacer_width = int(viewport_width*(0.97-total_logos_width/viewport_width)/2)
                     dpg.add_spacer(width=spacer_width, tag="logos_spacer")
-                    dpg.add_image("epfl_icon_texture", 
-                                width=epfl_scaled_width, 
-                                height=int(viewport_height * 0.05),
-                                tag="epfl_icon")
-                    dpg.add_image("gem_icon_texture", 
-                                width=gem_scaled_width, 
-                                height=int(viewport_height * 0.05),
-                                tag="gem_icon")
-                    dpg.add_image("hq_icon_texture", 
-                                width=hq_scaled_width, 
-                                height=int(viewport_height * 0.05),
-                                tag="hq_icon")
+                    for tag, img in images.items():
+                        if tag != "app_icon":
+                            scaled_width = int(img["width"] * (viewport_height * 0.05) / img["height"])
+                            dpg.add_image(f"{tag}_texture", 
+                                      width=scaled_width, 
+                                      height=int(viewport_height * 0.05),
+                                      tag=tag)
                 
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
@@ -124,23 +196,10 @@ def gui_tab_soceis(config):
             
             # Right spacer with original width
             dpg.add_spacer(width=int(viewport_width * 0.05), tag="right_spacer")
-    
-        # Set up the folder selection dialog
-        def callback(sender, app_data):
-            print('OK was clicked.')
-            print("Sender: ", sender)
-            print("App Data: ", app_data)
-            config.folder_path = app_data['file_path_name']
-            print("Folder path:", config.folder_path)
-
-        def cancel_callback(sender, app_data):
-            print('Cancel was clicked.')
-            print("Sender: ", sender)
-            print("App Data: ", app_data)
 
         dpg.add_file_dialog(
-            directory_selector=True, show=False, callback=callback, tag="file_dialog_id",
-            cancel_callback=cancel_callback, width=700 ,height=400)
+            directory_selector=True, show=False, callback=callback(config), tag="file_dialog_id",
+            cancel_callback=cancel_callback(config), width=700 ,height=400)
 
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="Directory_before_spacer")
@@ -169,26 +228,7 @@ def gui_tab_soceis(config):
                 width=100
             )
 
-        def update_file_list():
-            """
-            Update the file list based on the selected extension and default folder path.
-            """
-            config.file_extensions = dpg.get_value("file_extension_selector")
-            select_files()
-            dpg.configure_item("file_listbox", items=[os.path.basename(file) for file in config.file_list])
-            
-        def select_files():
-            """
-            Update the selected file paths in the config.
-            """
-            if os.path.isdir(config.folder_path):
-                config.file_list = sorted(glob.glob(os.path.join(config.folder_path, f"*{config.file_extensions}")))
-                if not config.file_list:
-                    config.file_list = ['[Error] No file found! Recheck the folder path or report the issue.']
-            else:
-                config.file_list = ['[Error] Folder path not found! Recheck the folder path or report the issue.']
-
-        select_files()
+        select_files(config)
 
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
@@ -199,38 +239,17 @@ def gui_tab_soceis(config):
                     checkbox_tag = f"checkbox_{os.path.basename(file)}"
                     if os.path.basename(file) in config.selected_files:
                         dpg.set_value(checkbox_tag, True)
-        
-        
-        def update_selected_files():
-            """
-            Update the list of selected files in config.selected_files.
-            """
-            config.selected_files = [
-            os.path.basename(file) for file in config.file_list
-            if dpg.get_value(f"checkbox_{os.path.basename(file)}")
-            ]
-            print("Selected files:", config.selected_files)
-
+    
         # Automatically update selected files whenever a checkbox is toggled
         for file in config.file_list:
             checkbox_tag = f"checkbox_{os.path.basename(file)}"
-            dpg.set_item_callback(checkbox_tag, lambda sender, app_data, tag=checkbox_tag: update_selected_files())
-
-        # Synchronize checkboxes with config.selected_files
-        def sync_checkboxes():
-            """
-            Ensure checkboxes reflect the current state of config.selected_files.
-            """
-            for file in config.file_list:
-                checkbox_tag = f"checkbox_{os.path.basename(file)}"
-                is_selected = os.path.basename(file) in config.selected_files
-            dpg.set_value(checkbox_tag, is_selected)
+            dpg.set_item_callback(checkbox_tag, lambda sender, app_data, tag=checkbox_tag: update_selected_files(config))
 
         # Call sync_checkboxes initially to ensure consistency
-        sync_checkboxes()
+        sync_checkboxes(config)
 
         # Update the file list whenever the extension is changed
-        dpg.set_item_callback("file_extension_selector", update_file_list)
+        dpg.set_item_callback("file_extension_selector", update_file_list(config))
 
     
     # Set up viewport resize callback using correct API
