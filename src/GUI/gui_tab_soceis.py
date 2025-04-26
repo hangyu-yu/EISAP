@@ -23,10 +23,7 @@ Main Components:
    - folder_selector_cancel_callback(): Handles directory selection cancellation
    - select_files(): Populates file list based on directory and extension
    - update_file_list(): Updates UI with filtered files
-4. Selection Management:
-   - sync_checkboxes(): Synchronizes checkbox states with config
-   - update_selected_files(): Updates config with user selections
-5. Main Interface:
+4. Main Interface:
    - gui_tab_soceis(): Creates and configures the main SOCEIS tab
 The GUI features:
 - Responsive design that adapts to window resizing
@@ -154,15 +151,6 @@ def select_files(config):
             config.file_list = ['[Error] No file found! Recheck the folder path or file extension, otherwise report the issue.']
     else:
         config.file_list = ['[Error] Folder path not found! Recheck the folder path or report the issue.']
-    
-def sync_checkboxes(config):
-    """
-    Ensure checkboxes reflect the current state of config.selected_files.
-    """
-    for file in config.file_list:
-        checkbox_tag = f"checkbox_{os.path.basename(file)}"
-        is_selected = os.path.basename(file) in config.selected_files
-    dpg.set_value(checkbox_tag, is_selected)
 
 def update_selected_files(config):
     """
@@ -173,6 +161,11 @@ def update_selected_files(config):
     if dpg.get_value(f"checkbox_{os.path.basename(file)}")
     ]
     print("Selected files:", config.selected_files)
+
+    for file in config.file_list:
+        checkbox_tag = f"checkbox_{os.path.basename(file)}"
+        is_selected = os.path.basename(file) in config.selected_files
+    dpg.set_value(checkbox_tag, is_selected)
 
 def update_file_list(config):
     """
@@ -303,20 +296,10 @@ def gui_tab_soceis(config):
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
             with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="file_list_child_window"):
-                with dpg.menu(label="File list"):
+                with dpg.menu_bar():
+                    with dpg.menu(label="File list"):
                         dpg.add_menu_item(label="")
-                for file in config.file_list:
-                    dpg.add_checkbox(label=os.path.basename(file), tag=f"checkbox_{os.path.basename(file)}")
-                checkbox_tag = f"checkbox_{os.path.basename(file)}"
-                if os.path.basename(file) in config.selected_files:
-                    dpg.set_value(checkbox_tag, True)
-    
-        # Automatically update selected files whenever a checkbox is toggled
-        for file in config.file_list:
-            dpg.set_item_callback(checkbox_tag, lambda: update_selected_files(config))
-
-        # Call sync_checkboxes initially to ensure consistency
-        sync_checkboxes(config)
+                update_file_list(config)
 
     # Set up viewport resize callback using correct API
     dpg.set_viewport_resize_callback(update_image_sizes)
