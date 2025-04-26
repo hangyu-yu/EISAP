@@ -9,7 +9,7 @@ def load_images(icon_path, picture_list):
     """
     images = {}
     for name, file in picture_list:
-        width, height, channels, data = dpg.load_image(os.path.join(icon_path, file))
+        width, height, _, data = dpg.load_image(os.path.join(icon_path, file))
         images[name] = {"width": width, "height": height, "data": data}
     return images
 
@@ -82,26 +82,26 @@ def update_image_sizes():
     dpg.configure_item("welcome_text", wrap=int(viewport_width * 0.5))
     dpg.configure_item("version_text", wrap=int(viewport_width * 0.04))
 
-# Synchronize checkboxes with config.selected_files
-# Set up the folder selection dialog
-def callback(sender, app_data, config):
+# Functions for file dialog callbacks
+def folder_selector_ok_callback(sender, app_data, config):
+    """
+    Callback function when directory is selected in file dialog.
+    """
     print('OK was clicked.')
     print("Sender: ", sender)
     print("App Data: ", app_data)
     config.folder_path = app_data['file_path_name']
     print("Folder path:", config.folder_path)
-def cancel_callback(sender, app_data):
+    dpg.set_value("selected_directory", config.folder_path)
+    update_file_list(config)
+
+def folder_selector_cancel_callback(sender, app_data):
+    """
+    Callback function when file dialog is cancelled.
+    """
     print('Cancel was clicked.')
     print("Sender: ", sender)
     print("App Data: ", app_data)
-
-def update_file_list(config):
-    """
-    Update the file list based on the selected extension and default folder path.
-    """
-    config.file_extensions = dpg.get_value("file_extension_selector")
-    select_files()
-    dpg.configure_item("file_listbox", items=[os.path.basename(file) for file in config.file_list])
     
 def select_files(config):
     """
@@ -109,8 +109,9 @@ def select_files(config):
     """
     if os.path.isdir(config.folder_path):
         config.file_list = sorted(glob.glob(os.path.join(config.folder_path, f"*{config.file_extensions}")))
+        print("File list:", config.file_list)
         if not config.file_list:
-            config.file_list = ['[Error] No file found! Recheck the folder path or report the issue.']
+            config.file_list = ['[Error] No file found! Recheck the folder path or file extension, otherwise report the issue.']
     else:
         config.file_list = ['[Error] Folder path not found! Recheck the folder path or report the issue.']
     
@@ -123,7 +124,6 @@ def sync_checkboxes(config):
         is_selected = os.path.basename(file) in config.selected_files
     dpg.set_value(checkbox_tag, is_selected)
 
-
 def update_selected_files(config):
     """
     Update the list of selected files in config.selected_files.
@@ -133,6 +133,32 @@ def update_selected_files(config):
     if dpg.get_value(f"checkbox_{os.path.basename(file)}")
     ]
     print("Selected files:", config.selected_files)
+
+def update_file_list(config):
+    """
+    Update the file list based on the selected extension and default folder path.
+    """
+    config.file_extensions = dpg.get_value("file_extension_selector")
+    select_files(config)
+    dpg.delete_item("file_list_child_window", children_only=True)
+    for file in config.file_list:
+        filename = os.path.basename(file)
+        checkbox_tag = f"checkbox_{filename}"
+        
+        # Determine if this file should be checked
+        should_check = any(
+            os.path.basename(selected_file) == filename 
+            for selected_file in config.selected_files
+        )
+        
+        # Add checkbox with proper callback
+        with dpg.group(parent="file_list_child_window", horizontal=True):
+            dpg.add_checkbox(
+                label=filename,
+                tag=checkbox_tag,
+                default_value=should_check,
+                callback=lambda s, a, f=filename: update_selected_files(config)
+            )
 
 # Main function to create the SOCEIS tab
 def gui_tab_soceis(config):
@@ -194,12 +220,16 @@ def gui_tab_soceis(config):
                                 wrap=int(viewport_width * 0.5),
                                 tag="welcome_text")
             
-            # Right spacer with original width
-            dpg.add_spacer(width=int(viewport_width * 0.05), tag="right_spacer")
-
+        # Right spacer with original width
+        dpg.add_spacer(width=int(viewport_width * 0.05), tag="right_spacer")
         dpg.add_file_dialog(
-            directory_selector=True, show=False, callback=callback(config), tag="file_dialog_id",
-            cancel_callback=cancel_callback(config), width=700 ,height=400)
+            directory_selector=True, 
+            show=False, 
+            callback=lambda sender, app_data: folder_selector_ok_callback(sender, app_data, config),
+            tag="file_dialog_id",
+            cancel_callback=lambda sender, app_data: folder_selector_cancel_callback(sender, app_data),
+            width=700,
+            height=400)
 
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="Directory_before_spacer")
@@ -222,9 +252,9 @@ def gui_tab_soceis(config):
             dpg.add_text("File extension:")
             dpg.add_combo(
                 items=[".txt", ".mpt", ".csv", ".xlsx"],
+                tag = 'file_extension_selector',
                 default_value=config.file_extensions,
-                tag="file_extension_selector",
-                callback=lambda sender, app_data: print(f"Selected extension: {app_data}"),
+                callback=lambda _, app_data: update_file_list(config),
                 width=100
             )
 
@@ -234,23 +264,17 @@ def gui_tab_soceis(config):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
             with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="file_list_child_window"):
                 for file in config.file_list:
-                    with dpg.group(horizontal=True):
-                        dpg.add_checkbox(label=os.path.basename(file), tag=f"checkbox_{os.path.basename(file)}")
-                    checkbox_tag = f"checkbox_{os.path.basename(file)}"
-                    if os.path.basename(file) in config.selected_files:
-                        dpg.set_value(checkbox_tag, True)
+                    dpg.add_checkbox(label=os.path.basename(file), tag=f"checkbox_{os.path.basename(file)}")
+                checkbox_tag = f"checkbox_{os.path.basename(file)}"
+                if os.path.basename(file) in config.selected_files:
+                    dpg.set_value(checkbox_tag, True)
     
         # Automatically update selected files whenever a checkbox is toggled
         for file in config.file_list:
-            checkbox_tag = f"checkbox_{os.path.basename(file)}"
-            dpg.set_item_callback(checkbox_tag, lambda sender, app_data, tag=checkbox_tag: update_selected_files(config))
+            dpg.set_item_callback(checkbox_tag, lambda: update_selected_files(config))
 
         # Call sync_checkboxes initially to ensure consistency
         sync_checkboxes(config)
 
-        # Update the file list whenever the extension is changed
-        dpg.set_item_callback("file_extension_selector", update_file_list(config))
-
-    
     # Set up viewport resize callback using correct API
     dpg.set_viewport_resize_callback(update_image_sizes)
