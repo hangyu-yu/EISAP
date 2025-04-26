@@ -2,6 +2,46 @@ import os
 import dearpygui.dearpygui as dpg
 import glob
 
+"""
+SOCEIS GUI Module Documentation
+This module implements the GUI interface for SOCEIS (System for Optimal Control of Energy Infrastructure Systems) 
+using Dear PyGui. It provides functionality for:
+- Loading and displaying application icons and partner logos
+- Handling file selection and directory browsing
+- Managing user selections through checkboxes
+- Responsive layout adjustments based on viewport size
+Main Components:
+1. Image Handling:
+   - load_images(): Loads image files and extracts their properties
+   - create_texture_registry(): Creates texture registry for efficient image rendering
+   - configure_images(): Dynamically adjusts image sizes based on viewport
+2. Layout Management:
+   - configure_spacers(): Calculates and sets spacer widths for responsive layout
+   - update_image_sizes(): Main callback for responsive design adjustments
+3. File Operations:
+   - folder_selector_ok_callback(): Handles directory selection confirmation
+   - folder_selector_cancel_callback(): Handles directory selection cancellation
+   - select_files(): Populates file list based on directory and extension
+   - update_file_list(): Updates UI with filtered files
+4. Selection Management:
+   - sync_checkboxes(): Synchronizes checkbox states with config
+   - update_selected_files(): Updates config with user selections
+5. Main Interface:
+   - gui_tab_soceis(): Creates and configures the main SOCEIS tab
+The GUI features:
+- Responsive design that adapts to window resizing
+- File browser with extension filtering
+- Multi-selection capability
+- Institutional branding with partner logos
+- Dynamic layout spacers for consistent appearance
+Configuration Requirements:
+- config object must contain:
+  - folder_path: Default directory path
+  - file_extensions: Default file filter
+  - file_list: List of available files
+  - selected_files: List of user-selected files
+"""
+
 # Functions for GUI tab SOCEIS
 def load_images(icon_path, picture_list):
     """
@@ -179,7 +219,7 @@ def gui_tab_soceis(config):
 
     images = load_images(icon_path, picture_list) # Load images and their properties
 
-    with dpg.tab(label="SOCEIS"):
+    with dpg.tab(label="SOCEIS", tag="SOCEIS_tab"):
         # Create texture registry
         create_texture_registry(images)
 
@@ -263,6 +303,8 @@ def gui_tab_soceis(config):
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
             with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="file_list_child_window"):
+                with dpg.menu(label="File list"):
+                        dpg.add_menu_item(label="")
                 for file in config.file_list:
                     dpg.add_checkbox(label=os.path.basename(file), tag=f"checkbox_{os.path.basename(file)}")
                 checkbox_tag = f"checkbox_{os.path.basename(file)}"
