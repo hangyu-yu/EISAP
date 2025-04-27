@@ -1,6 +1,7 @@
 import os
 import dearpygui.dearpygui as dpg
 import glob
+import src.GUI.Utils as gui_utils
 
 """
 SOCEIS GUI Module Documentation
@@ -113,7 +114,7 @@ def update_image_sizes():
     
     # Update child window sizes
     dpg.configure_item("child_window_folder_directory", width=int(viewport_width * 0.5))
-    dpg.configure_item("child_window_file_list", width=int(viewport_width * 0.5))
+    dpg.configure_item("child_window_file_list_soceis", width=int(viewport_width * 0.5))
     
     # Update text wrapping
     dpg.configure_item("welcome_text", wrap=int(viewport_width * 0.5))
@@ -130,7 +131,7 @@ def folder_selector_ok_callback(sender, app_data, config):
     config.folder_path = app_data['file_path_name']
     print("Folder path:", config.folder_path)
     dpg.set_value("selected_directory", config.folder_path)
-    update_file_list(config)
+    gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis")
 
 def folder_selector_cancel_callback(sender, app_data):
     """
@@ -139,64 +140,6 @@ def folder_selector_cancel_callback(sender, app_data):
     print('Cancel was clicked.')
     print("Sender: ", sender)
     print("App Data: ", app_data)
-    
-def select_files(config):
-    """
-    Update the selected file paths in the config.
-    """
-    if os.path.isdir(config.folder_path):
-        config.file_list = sorted(glob.glob(os.path.join(config.folder_path, f"*{config.file_extensions}")))
-        print("File list:", config.file_list)
-        if not config.file_list:
-            config.file_list = ['[Error] No file found! Recheck the folder path or file extension, otherwise report the issue.']
-    else:
-        config.file_list = ['[Error] Folder path not found! Recheck the folder path or report the issue.']
-
-def update_selected_files(config):
-    """
-    Update the list of selected files in config.selected_files.
-    """
-    config.selected_files = [
-    os.path.basename(file) for file in config.file_list
-    if dpg.get_value(f"checkbox_{os.path.basename(file)}")
-    ]
-    print("Selected files:", config.selected_files)
-
-    for file in config.file_list:
-        checkbox_tag = f"checkbox_{os.path.basename(file)}"
-        is_selected = os.path.basename(file) in config.selected_files
-    dpg.set_value(checkbox_tag, is_selected)
-
-def update_file_list(config):
-    """
-    Update the file list based on the selected extension and default folder path.
-    """
-    config.file_extensions = dpg.get_value("file_extension_selector")
-    select_files(config)
-    dpg.delete_item("child_window_file_list", children_only=True)
-
-    with dpg.menu_bar(parent="child_window_file_list"):
-        with dpg.menu(label="File list"):
-            dpg.add_menu_item(label="")
-            
-    for file in config.file_list:
-        filename = os.path.basename(file)
-        checkbox_tag = f"checkbox_{filename}"
-        
-        # Determine if this file should be checked
-        should_check = any(
-            os.path.basename(selected_file) == filename 
-            for selected_file in config.selected_files
-        )
-        
-        # Add checkbox with proper callback
-        with dpg.group(parent="child_window_file_list", horizontal=True):
-            dpg.add_checkbox(
-                label=filename,
-                tag=checkbox_tag,
-                default_value=should_check,
-                callback=lambda s, a, f=filename: update_selected_files(config)
-            )
 
 # Main function to create the SOCEIS tab
 def gui_tab_soceis(config):
@@ -292,16 +235,16 @@ def gui_tab_soceis(config):
                 items=[".txt", ".mpt", ".csv", ".xlsx"],
                 tag = 'file_extension_selector',
                 default_value=config.file_extensions,
-                callback=lambda _, app_data: update_file_list(config),
+                callback=lambda _, app_data: gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis"),
                 width=100
             )
 
-        select_files(config)
+        gui_utils.file_list.select_files(config)
 
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
-            with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="child_window_file_list"):
-                update_file_list(config)
+            with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_soceis"):
+                gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis")
 
     # Set up viewport resize callback using correct API
     dpg.set_viewport_resize_callback(update_image_sizes)
