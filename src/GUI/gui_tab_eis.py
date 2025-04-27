@@ -25,6 +25,11 @@ def update_file_list(config):
     Update the file list based on the selected extension and default folder path.
     """
     dpg.delete_item("child_window_file_list_eis", children_only=True)
+
+    with dpg.menu_bar(parent="child_window_file_list_eis"):
+        with dpg.menu(label="File list"):
+            dpg.add_menu_item(label="")
+
     for file in config.file_list:
         filename = os.path.basename(file)
         checkbox_tag = f"checkbox_eis_{filename}"
@@ -51,8 +56,5 @@ def gui_tab_eis(config):
 
     with dpg.tab(label="EIS", tag="tab_eis"):
         with dpg.group(horizontal=False, horizontal_spacing=0):
-            with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.33), horizontal_scrollbar=True, menubar=False, tag="child_window_file_list_eis"):
-                # with dpg.menu_bar():
-                #     with dpg.menu(label="File list"):
-                #         dpg.add_menu_item(label="")
+            with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.33), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_eis"):
                 update_file_list(config)

@@ -113,7 +113,7 @@ def update_image_sizes():
     
     # Update child window sizes
     dpg.configure_item("child_window_folder_directory", width=int(viewport_width * 0.5))
-    dpg.configure_item("file_list_child_window", width=int(viewport_width * 0.5))
+    dpg.configure_item("child_window_file_list", width=int(viewport_width * 0.5))
     
     # Update text wrapping
     dpg.configure_item("welcome_text", wrap=int(viewport_width * 0.5))
@@ -173,7 +173,12 @@ def update_file_list(config):
     """
     config.file_extensions = dpg.get_value("file_extension_selector")
     select_files(config)
-    dpg.delete_item("file_list_child_window", children_only=True)
+    dpg.delete_item("child_window_file_list", children_only=True)
+
+    with dpg.menu_bar(parent="child_window_file_list"):
+        with dpg.menu(label="File list"):
+            dpg.add_menu_item(label="")
+            
     for file in config.file_list:
         filename = os.path.basename(file)
         checkbox_tag = f"checkbox_{filename}"
@@ -185,7 +190,7 @@ def update_file_list(config):
         )
         
         # Add checkbox with proper callback
-        with dpg.group(parent="file_list_child_window", horizontal=True):
+        with dpg.group(parent="child_window_file_list", horizontal=True):
             dpg.add_checkbox(
                 label=filename,
                 tag=checkbox_tag,
@@ -295,10 +300,7 @@ def gui_tab_soceis(config):
 
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
-            with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="file_list_child_window"):
-                with dpg.menu_bar():
-                    with dpg.menu(label="File list"):
-                        dpg.add_menu_item(label="")
+            with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="child_window_file_list"):
                 update_file_list(config)
 
     # Set up viewport resize callback using correct API
