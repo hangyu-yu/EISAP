@@ -60,13 +60,14 @@ def gui_tab_eis(config, EIS):
         # Window for file list
         with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.33), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_eis"):
             gui_utils.file_list.update_file_list(config, "child_window_file_list_eis")
-            gui_utils.file_monitor.bind_tab_switch_update(
-                tab_tag="tab_eis",
-                config=config,
-                update_callback=lambda: gui_utils.file_list.update_file_list(
-                    config, "child_window_file_list_eis"
-                )
-            )
+            # Monitor function to be updated
+            # gui_utils.file_monitor.bind_tab_switch_update(
+            #     tab_tag="tab_eis",
+            #     config=config,
+            #     update_callback=lambda: gui_utils.file_list.update_file_list(
+            #         config, "child_window_file_list_eis"
+            #     )
+            # )
 
         # Window for the parameters
         with dpg.child_window(
@@ -107,6 +108,7 @@ def gui_tab_eis(config, EIS):
                             dpg.add_checkbox(
                                 tag="rm_outliers",
                                 label="Remove outliers",
+                                default_value=EIS.parameter["Rmoutliers"]["Rmoutliers"],
                                 callback=lambda sender, app_data: rm_outliers_callback(sender, app_data, EIS))
                         with dpg.table_row():
                             dpg.add_text("Instrument")

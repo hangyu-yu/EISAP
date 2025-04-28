@@ -25,6 +25,7 @@ def update_selected_files(config, tag=None):
         checkbox_tag = f"checkbox_{tag}_{os.path.basename(file)}"
         is_selected = os.path.basename(file) in config.selected_files
     dpg.set_value(checkbox_tag, is_selected)
+    print("Selected files:", config.selected_files)
 
 def select_all_files(config, tag=None):
     """
@@ -56,6 +57,7 @@ def update_file_list(config, tag = None):
         with dpg.menu(label="File list"):
             dpg.add_menu_item(label="Select all", callback=lambda: select_all_files(config, tag))
             dpg.add_menu_item(label="Unselect all", callback=lambda: unselect_all_files(config, tag))
+            dpg.add_menu_item(label="Refresh", callback=lambda: update_file_list(config, tag))
 
     for file in config.file_list:
         filename = os.path.basename(file)
