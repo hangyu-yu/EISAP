@@ -5,8 +5,7 @@ import src.GUI.Utils as gui_utils
 
 """
 SOCEIS GUI Module Documentation
-This module implements the GUI interface for SOCEIS (System for Optimal Control of Energy Infrastructure Systems) 
-using Dear PyGui. It provides functionality for:
+This module implements the GUI interface for SOCEIS using Dear PyGui. It provides functionality for:
 - Loading and displaying application icons and partner logos
 - Handling file selection and directory browsing
 - Managing user selections through checkboxes
