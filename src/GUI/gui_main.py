@@ -70,8 +70,8 @@ with dpg.window(label="Main Window", tag='fullscreen'):
         dpg.add_menu_item(label="Help", callback=print_me)
 
     with dpg.tab_bar(tag="tab_bar_main"):
-        gui.gui_tab_soceis(config)
-        gui.gui_tab_eis(config, EIS)
+        gui.gui_tab_soceis(config, EIS, CNLS)
+        gui.gui_tab_eis(config, EIS, CNLS)
 
 # 05 - Show the window
 dpg.setup_dearpygui()

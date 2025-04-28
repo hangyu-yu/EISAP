@@ -1,7 +1,8 @@
-import dearpygui.dearpygui as dpg
 import os
 import glob
-    
+import copy
+import dearpygui.dearpygui as dpg
+
 def select_files(config):
     """
     Update the selected file paths in the config.
@@ -45,7 +46,7 @@ def unselect_all_files(config, tag=None):
         dpg.set_value(checkbox_tag, False)
     update_selected_files(config, tag)
 
-def update_file_list(config, tag = None):
+def update_file_list(config, tag = None, EIS = None, CNLS = None):
     """
     Update the file list based on the selected extension and default folder path.
     """
@@ -77,3 +78,26 @@ def update_file_list(config, tag = None):
                 default_value=should_check,
                 callback=lambda s, a, f=filename: update_selected_files(config, tag)
             )
+        
+        # Import all the data if there is historical data
+        if (os.path.isdir(os.path.join(config.folder_path, "EIS")) and os.path.isdir(os.path.join(config.folder_path, "DRT"))) or os.path.isdir(os.path.join(config.folder_path, "CNLS")):
+            for idx, file in enumerate(config.file_list):
+                file_name_no_ext = os.path.splitext(os.path.basename(file))[0]
+                if file_name_no_ext not in config.store.keys() and not "[Error]" not in file:
+                    config.store[file_name_no_ext] = {}
+                    config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
+                    EIS_tmp = config.store[file_name_no_ext]['EIS']
+                    EIS_tmp.filename = file
+                    EIS_tmp.import_data()
+
+                    config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(CNLS)
+                    CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+                    CNLS_tmp.file_folder = config.folder_path
+                    CNLS_tmp.filename = os.path.basename(file)
+                    CNLS_tmp.ImportCircuit()
+                    if idx == len(config.file_list) - 1:
+                        EIS.filename = file
+                        EIS.import_data()
+                        CNLS.file_folder = config.folder_path
+                        CNLS.filename = os.path.basename(file)
+                        CNLS.ImportCircuit()

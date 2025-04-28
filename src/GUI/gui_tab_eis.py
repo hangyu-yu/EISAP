@@ -50,16 +50,37 @@ def RmNonKK_callback(sender, app_data, EIS):
     # Print the updated value for debugging
     print(f"RmNonKK: {EIS.parameter['KK']['RmNonKK']}")
 
+
+# Functions for file dialog callbacks
+def file_selector_ok_callback(sender, app_data, config):
+    """
+    Callback function when directory is selected in file dialog.
+    """
+    print('OK was clicked.')
+    print("Sender: ", sender)
+    print("App Data: ", app_data)
+    config.data_import_function = app_data['file_path_name']
+    print("Import function path:", config.data_import_function)
+    dpg.set_value("function_import", os.path.basename(config.data_import_function))
+
+def file_selector_cancel_callback(sender, app_data):
+    """
+    Callback function when file dialog is cancelled.
+    """
+    print('Cancel was clicked.')
+    print("Sender: ", sender)
+    print("App Data: ", app_data)
+
 # Main tab function for EIS
-def gui_tab_eis(config, EIS):
+def gui_tab_eis(config, EIS, CNLS):
     # Initialize the configuration
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
 
     with dpg.tab(label="EIS", tag="tab_eis"):
         # Window for file list
-        with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.33), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_eis"):
-            gui_utils.file_list.update_file_list(config, "child_window_file_list_eis")
+        with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.2), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_eis"):
+            gui_utils.file_list.update_file_list(config, "child_window_file_list_eis", EIS, CNLS)
             # Monitor function to be updated
             # gui_utils.file_monitor.bind_tab_switch_update(
             #     tab_tag="tab_eis",
@@ -70,19 +91,13 @@ def gui_tab_eis(config, EIS):
             # )
 
         # Window for the parameters
-        with dpg.child_window(
-            width=int(viewport_width * 0.33),
-            height=int(viewport_height * 0.285),
-            horizontal_scrollbar=True,
-            menubar=True,
-            tag="child_window_parameter_eis"
-        ):
+        with dpg.child_window(width=int(viewport_width * 0.33), height=int(viewport_height * 0.285), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_eis"):
             with dpg.menu_bar(parent="child_window_parameter_eis"):
                 with dpg.menu(label="Parameters"):
                     dpg.add_menu_item(label="")
             with dpg.tab_bar(tag="tab_bar_eis_parameters"):
                 # Sample parameters
-                with dpg.tab(label="General", tag="tab_eis_parameter_sample"):
+                with dpg.tab(label="General", tag="tab_eis_parameter_general"):
                     with dpg.table(
                         header_row=False,
                         borders_innerH=False,
@@ -113,9 +128,24 @@ def gui_tab_eis(config, EIS):
                         with dpg.table_row():
                             dpg.add_text("Instrument")
                             dpg.add_input_text(tag="instrument_type", default_value=EIS.parameter["Sample"]["instrument_type"])
+                            with dpg.file_dialog(
+                                directory_selector=False, 
+                                show=False, 
+                                callback=lambda sender, app_data: file_selector_ok_callback(sender, app_data, config),
+                                tag="file_dialog_eis",
+                                cancel_callback=lambda sender, app_data: file_selector_cancel_callback(sender, app_data),
+                                width=700,
+                                height=400):
+                                dpg.add_file_extension(".py", color=(0, 255, 0, 255), custom_text="[Python]")
+                            dpg.add_button(
+                                label="Data import function",
+                                callback=lambda: dpg.show_item("file_dialog_eis"),
+                                tag="button_data_import_function"
+                            )
                         with dpg.table_row():
                             dpg.add_text("Upper cut:")
                             dpg.add_input_text(tag="num_cut_upper", default_value=EIS.parameter["Preprocessing"]["num_cut_upper"])
+                            dpg.add_text(config.data_import_function, tag="function_import")
                         with dpg.table_row():
                             dpg.add_text("Lower cut:")
                             dpg.add_input_text(tag="num_cut_lower", default_value=EIS.parameter["Preprocessing"]["num_cut_lower"])
@@ -192,3 +222,9 @@ def gui_tab_eis(config, EIS):
                         with dpg.table_row():
                             dpg.add_text("Extrap. PPD")
                             dpg.add_input_text(tag="Extrapolation_PointsPerDecade", default_value=EIS.parameter["Extrapolation"]["PointsPerDecade"])
+
+        # Window for the data import buttons
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Data import", width=int(viewport_width*0.106), callback=lambda s, a: gui_utils.eis_functions.data_import(s, a, config, EIS))
+            dpg.add_button(label="Load parameters", width=int(viewport_width*0.106), callback=lambda s, a: gui_utils.eis_functions.load_parameters(s, a, config, EIS))
+            dpg.add_button(label="Process data", width=int(viewport_width*0.106), callback=lambda s, a: gui_utils.eis_functions.process_data(s, a, config, EIS))

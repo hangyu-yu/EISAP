@@ -13,6 +13,11 @@ class Config:
         self.file_list = []
         # Selected file paths
         self.selected_files = []
+        # Select data import functino
+        self.data_import_function = []
+        # Store
+        self.store = {}
+        self.store['file_list'] = []
         # Load configuration
         self.load_config()
 
@@ -26,6 +31,7 @@ class Config:
                     self.file_list = data.get("file_list", self.file_list) or self.file_list
                     self.selected_files = data.get("selected_files", self.selected_files) or self.selected_files
                     self.file_extensions = data.get("file_extensions", self.file_extensions) or self.file_extensions
+                    self.data_import_function = data.get("data_import_function", self.data_import_function) or self.data_import_function
 
     def save_config(self):
         """Save configuration to a JSON file"""
@@ -33,7 +39,8 @@ class Config:
             "folder_path": self.folder_path,
             "file_list": self.file_list,
             "selected_files": self.selected_files,
-            "file_extensions": self.file_extensions
+            "file_extensions": self.file_extensions,
+            "data_import_function": self.data_import_function
         }
         with open(self.config_file, "w") as f:
             json.dump(data, f, indent=4)
