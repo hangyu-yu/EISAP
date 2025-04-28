@@ -1,11 +1,13 @@
 import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
-import dearpygui.dearpygui as dpg
-import src.GUI as gui
-from src.GUI.config import Config
-import platform
 import ctypes
+import platform
+import src.GUI as gui
+import dearpygui.dearpygui as dpg
+from src.GUI.config import Config
+from src.Methods.DRT.DRT import DRT
+from src.Methods.CNLS.Circuit import Circuit
 
 # 00 - Function Definitions
 # Utility function to print the sender of the callback
@@ -36,6 +38,8 @@ else:
 
 # Initialize the configuration
 config = Config()
+EIS = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=12.56, n_cell=1, file_folder=config.folder_path, filename=None)
+CNLS = Circuit(file_folder=config.folder_path, filename=None, Elements = None, EIS = None, data_type = None)
 
 # Initialize DearPyGui
 dpg.create_context()
@@ -65,9 +69,9 @@ with dpg.window(label="Main Window", tag='fullscreen'):
 
         dpg.add_menu_item(label="Help", callback=print_me)
 
-    with dpg.tab_bar():
+    with dpg.tab_bar(tag="tab_bar_main"):
         gui.gui_tab_soceis(config)
-        gui.gui_tab_eis(config)
+        gui.gui_tab_eis(config, EIS)
 
 # 05 - Show the window
 dpg.setup_dearpygui()

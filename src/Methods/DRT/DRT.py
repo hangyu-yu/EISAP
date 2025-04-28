@@ -106,7 +106,7 @@ class DRT:
             'Sample' : {
                 'CellArea': CellArea,  # SOC area [\mathrm{cm}^2]
                 'n_cell': n_cell,        # Number of cells
-                'instrument_type': None  # Zahner or Biologic or others
+                'instrument_type': "Zahner"  # Zahner or Biologic or others
             },
             # Data preprocessing
             'Preprocessing': {

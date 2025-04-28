@@ -103,11 +103,12 @@ def update_image_sizes():
         "logos_spacer": (0.97 - total_logos_width / viewport_width) / 2,
         "version_spacer": 0.49,
         "welcome_spacer": 0.25,
-        "right_spacer": 0.05,
+        "file_dialog_before_spacer": 0.05,
         "Directory_before_spacer": 0.25,
         "Directory_child_before_spacer": 0.25,
         "extension_spacer": 0.25,
         "file_list_spacer": 0.25,
+        "command_buttons_spacer": 0.25,
     }
     configure_spacers(viewport_width, spacers)
     
@@ -159,7 +160,7 @@ def gui_tab_soceis(config):
 
     images = load_images(icon_path, picture_list) # Load images and their properties
 
-    with dpg.tab(label="SOCEIS", tag="SOCEIS_tab"):
+    with dpg.tab(label="SOCEIS", tag="tab_soceis"):
         # Create texture registry
         create_texture_registry(images)
 
@@ -201,7 +202,7 @@ def gui_tab_soceis(config):
                                 tag="welcome_text")
             
         # Right spacer with original width
-        dpg.add_spacer(width=int(viewport_width * 0.05), tag="right_spacer")
+        dpg.add_spacer(width=int(viewport_width * 0.05), tag="file_dialog_before_spacer")
         dpg.add_file_dialog(
             directory_selector=True, 
             show=False, 
@@ -244,6 +245,13 @@ def gui_tab_soceis(config):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
             with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_soceis"):
                 gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis")
+
+        # Add the buttons
+        with dpg.group(horizontal=True, horizontal_spacing=20):
+            dpg.add_spacer(width=int(viewport_width * 0.25), tag="command_buttons_spacer")
+            dpg.add_button(label="EIS analysis", callback=())
+            dpg.add_button(label="DRT analysis", callback=())
+            dpg.add_button(label="CNLS fitting", callback=())
 
     # Set up viewport resize callback using correct API
     dpg.set_viewport_resize_callback(update_image_sizes)

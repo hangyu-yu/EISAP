@@ -26,6 +26,24 @@ def update_selected_files(config, tag=None):
         is_selected = os.path.basename(file) in config.selected_files
     dpg.set_value(checkbox_tag, is_selected)
 
+def select_all_files(config, tag=None):
+    """
+    Select all files in the file list.
+    """
+    for file in config.file_list:
+        checkbox_tag = f"checkbox_{tag}_{os.path.basename(file)}"
+        dpg.set_value(checkbox_tag, True)
+    update_selected_files(config, tag)
+
+def unselect_all_files(config, tag=None):
+    """
+    Unselect all files in the file list.
+    """
+    for file in config.file_list:
+        checkbox_tag = f"checkbox_{tag}_{os.path.basename(file)}"
+        dpg.set_value(checkbox_tag, False)
+    update_selected_files(config, tag)
+
 def update_file_list(config, tag = None):
     """
     Update the file list based on the selected extension and default folder path.
@@ -36,7 +54,8 @@ def update_file_list(config, tag = None):
 
     with dpg.menu_bar(parent=tag):
         with dpg.menu(label="File list"):
-            dpg.add_menu_item(label="")
+            dpg.add_menu_item(label="Select all", callback=lambda: select_all_files(config, tag))
+            dpg.add_menu_item(label="Unselect all", callback=lambda: unselect_all_files(config, tag))
 
     for file in config.file_list:
         filename = os.path.basename(file)

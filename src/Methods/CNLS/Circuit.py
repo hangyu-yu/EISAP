@@ -39,7 +39,12 @@ class Circuit:
         self.filename = filename
 
         # Initialize the circuit details
-        self.data_type = data_type # Data type, smooth, truncated, extrapolation, etc.
+        if data_type is None:
+            print('---- Data type not provided, data_type by default set as truncated.')
+            self.data_type = 'truncated'
+        else:
+            self.data_type = data_type # Data type, smooth, truncated, extrapolation, etc.
+
         if EIS is None:
             self.DRTparameters = None # DRT parameters
             self.Zmes  = None # Measured impedance data
@@ -49,9 +54,9 @@ class Circuit:
             print('---- DRT parameters not provided, please define f, w, DRTmes, Zmes, and DRTparameters.')
         else:
             self.DRTparameters = EIS.parameter['DRT'] # DRT parameters
-            self.Zmes  = EIS[data_type]['Z'] # Measured impedance data
-            self.DRTmes = EIS['tknv_' + data_type]['ReIm']['g'] # Measured DRT data
-            self.f = EIS[data_type]['f'] # Frequency array
+            self.Zmes  = EIS[self.data_type]['Z'] # Measured impedance data
+            self.DRTmes = EIS['tknv_' + self.data_type]['ReIm']['g'] # Measured DRT data
+            self.f = EIS[self.data_type]['f'] # Frequency array
             self.w = self.f*(2*np.pi)    # Angular frequency array
         self.Ztot0 = None # Initial total impedance
         self.Z0    = None # Initial impedance for each angular frequency
