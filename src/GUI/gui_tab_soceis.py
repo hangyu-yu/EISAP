@@ -239,7 +239,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                 width=100
             )
 
-        gui_utils.file_list.select_files(config)
+        gui_utils.file_list.select_files(config, "child_window_file_list_soceis")
 
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")

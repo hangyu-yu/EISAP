@@ -3,13 +3,13 @@ import glob
 import copy
 import dearpygui.dearpygui as dpg
 
-def select_files(config):
+def select_files(config, tag):
     """
     Update the selected file paths in the config.
     """
     if os.path.isdir(config.folder_path):
         config.file_list = sorted(glob.glob(os.path.join(config.folder_path, f"*{config.file_extensions}")))
-        print("File list:", config.file_list)
+        print(f"---- File list from [{tag}]:", config.file_list)
         if not config.file_list:
             config.file_list = ['[Error] No file found! Recheck the folder path or file extension, otherwise report the issue.']
     else:
@@ -51,7 +51,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
     Update the file list based on the selected extension and default folder path.
     """
     config.file_extensions = dpg.get_value("file_extension_selector")
-    select_files(config)
+    select_files(config, tag)
     dpg.delete_item(tag, children_only=True)
 
     with dpg.menu_bar(parent=tag):

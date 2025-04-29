@@ -30,7 +30,7 @@ EIS.parameter['Smoothing']['PointsPerDecade'] = 30         # number of points pe
 EIS.parameter['Extrapolation']['PointsPerDecade'] = 20     # number of points per decade
 EIS.parameter['DRT']['Lambda'] = 5e-4                      # regularization parameter
 
-EIS.parameter['Rmoutliers']['RMoutliers']           = False # remove outliers
+EIS.parameter['Rmoutliers']['Rmoutliers']           = False # remove outliers
 EIS.parameter['RM_significance']['rm_significance'] = False # remove data with low significance
 EIS.parameter['KKpreprocess']['OptimalCut']         = False # remove data based on KK criterion
 EIS.parameter['KK']['KK_test']                      = True  # KK test
@@ -70,7 +70,7 @@ for file in txt_files:
     EIS.rm_hfc_lfc()
 
     # 032 - Data cut due to outliers
-    if EIS.parameter['Rmoutliers']['RMoutliers']:
+    if EIS.parameter['Rmoutliers']['Rmoutliers']:
         EIS.rm_outliers()
 
     # 033 - Data cut based on the significance values
@@ -85,7 +85,7 @@ for file in txt_files:
     if EIS.parameter['KK']['KK_test']:
         EIS.KK_test(EIS.truncated)
     
-    # 036 = Get smoothed data, LCcorrected data, and extrapolated data
+    # 036 - Get smoothed data, LCcorrected data, and extrapolated data
     EIS.parameter['Smoothing']['fmax'] = max(EIS.truncated['f'])
     EIS.parameter['Smoothing']['fmin'] = min(EIS.truncated['f'])
     EIS.smooth = EIS.ResampleEIS(EIS.truncated, EIS.parameter['Smoothing'])

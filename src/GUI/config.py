@@ -13,6 +13,8 @@ class Config:
         self.file_list = []
         # Selected file paths
         self.selected_files = []
+        # Displayed file name
+        self.display_file = []
         # Select data import functino
         self.data_import_function = []
         # Store
@@ -32,6 +34,7 @@ class Config:
                     self.selected_files = data.get("selected_files", self.selected_files) or self.selected_files
                     self.file_extensions = data.get("file_extensions", self.file_extensions) or self.file_extensions
                     self.data_import_function = data.get("data_import_function", self.data_import_function) or self.data_import_function
+                    self.display_file = data.get("display_file", self.display_file) or self.display_file
 
     def save_config(self):
         """Save configuration to a JSON file"""
