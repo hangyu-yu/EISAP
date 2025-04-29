@@ -81,6 +81,25 @@ def display_file(sender, app_data, config):
     # Print the selected file for debugging
     print(f"---- File to plot: {config.display_file}")
 
+def callback_process_data(sender, app_data, EIS, config, table_theme):
+    """
+    Callback function to process and update EIS data in the GUI.
+    This function is triggered by a GUI event and performs two main tasks:
+    1. Processes the EIS data using the provided configuration and updates the EIS object.
+    2. Updates the corresponding table in the GUI with the processed data.
+    Args:
+        sender: The GUI element or event that triggered this callback.
+        app_data: Additional data passed from the GUI event.
+        EIS: The EIS object containing the data to be processed.
+        config: Configuration settings used for processing the data.
+        data_category: The category of data being processed (e.g., type or group of data).
+        table_theme: The theme or style settings for the table in the GUI.
+    Returns:
+        None
+    """
+    gui_utils.eis_functions.process_data(sender, app_data, config, EIS)
+    gui_utils.eis_table.table_update(config, table_theme)
+
 # Main tab function for EIS
 def gui_tab_eis(config, EIS, CNLS):
     # Initialize the configuration
@@ -269,49 +288,24 @@ def gui_tab_eis(config, EIS, CNLS):
                 dpg.add_button(tag="Button_load_parameters", label="Load parameters", width=int(viewport_width*0.104), callback=lambda s, a: gui_utils.eis_functions.load_parameters(s, a, config, EIS))
                 dpg.bind_item_theme("Button_load_parameters", blue_button_theme)
 
-                dpg.add_button(tag="Button_Process_data", label="Process data", width=-1, callback=lambda s, a: gui_utils.eis_functions.process_data(s, a, config, EIS))
+                dpg.add_button(tag="Button_Process_data", label="Process data", width=-1, callback=lambda s, a: callback_process_data(s, a, EIS, config, table_theme))
                 dpg.bind_item_theme("Button_Process_data", blue_button_theme)
+            
+            config.display_file = config.selected_files[0] if config.selected_files else None
             with dpg.group(horizontal=True):
                 dpg.add_text("Displayed file:")
                 dpg.add_combo(
                     tag="Combo_plot_file",
-                    default_value = config.selected_files[0] if config.selected_files else None,
+                    default_value = config.display_file,
                     width = -1,
                     items = config.selected_files,
                     callback=lambda s, a: display_file(s, a, config)
             )
         
         # Window for the data display
-        with dpg.child_window(width=int(viewport_width*0.33), height=-1, horizontal_scrollbar=True, menubar=False, tag="child_window_eis_data"):
+        with dpg.child_window(width=int(viewport_width*0.33), height=-1, horizontal_scrollbar=True, menubar=False, border=False, tag="child_window_eis_data"):
             with dpg.tab_bar(tag="tab_bar_eis_data"):
                 for idx, data_category in enumerate(["KK_data", "raw", "truncated", "LCcorrect", "smooth",  "extrapolation"]):
                     with dpg.tab(label=data_category, tag=f"tab_eis_{data_category}_data"):
-                        with dpg.table(
-                            header_row=True,
-                            borders_innerV=True,  # Show vertical column lines
-                            borders_outerV=True,
-                            borders_outerH=True,
-                            row_background=True,  # Enable alternating row colors
-                            reorderable=True,     # Allow column reordering via drag-and-drop
-                            freeze_rows=1,        # Freeze header row (fixed during scrolling)
-                            scrollX=True,         # Enable horizontal scrolling
-                            scrollY=True,         # Enable vertical scrolling
-                            policy=dpg.mvTable_SizingFixedFit  # Automatically adjust column width
-                        ):
-                            if data_category != "KK_data":
-                                dpg.add_table_column(label="Index", width_fixed=True)
-                                dpg.add_table_column(label="Frequency [Hz]", width_stretch=True)
-                                dpg.add_table_column(label="Re [Ohm·cm2]", width_stretch=True)
-                                dpg.add_table_column(label="Im [Ohm·cm2]", width_stretch=True)
-                                dpg.add_table_column(label="Z [Ohm·cm2]", width_stretch=True)
-                                dpg.add_table_column(label="Phase [deg]", width_stretch=True)
-                            else:
-                                dpg.add_table_column(label="Index", width_fixed=True)
-                                dpg.add_table_column(label="Frequency [Hz]", width_stretch=True)
-                                dpg.add_table_column(label="Re residual [%]", width_stretch=True)
-                                dpg.add_table_column(label="Im residual [%]", width_stretch=True)
-                        if data_category == "KK_data" and not config.display_file == []:
-                            with dpg.group(horizontal=True):
-                                dpg.add_text(f"Ohmic resistance [Ω·cm2]: {config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['res_ohm_kk']:.2f},")
-                                dpg.add_text(f"Polarization resistance [Ω·cm2]: {config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['res_pol_kk']:.2f}")
-                        dpg.bind_item_theme(f"tab_eis_{data_category}_data", table_theme)
+                        gui_utils.eis_table.table_update(config, table_theme)
+                            

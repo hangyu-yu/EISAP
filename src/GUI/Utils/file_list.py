@@ -83,11 +83,11 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
         if (os.path.isdir(os.path.join(config.folder_path, "EIS")) and os.path.isdir(os.path.join(config.folder_path, "DRT"))) or os.path.isdir(os.path.join(config.folder_path, "CNLS")):
             for idx, file in enumerate(config.file_list):
                 file_name_no_ext = os.path.splitext(os.path.basename(file))[0]
-                if file_name_no_ext not in config.store.keys() and not "[Error]" not in file:
+                if file_name_no_ext not in config.store.keys() and "[Error]" not in file:
                     config.store[file_name_no_ext] = {}
                     config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
                     EIS_tmp = config.store[file_name_no_ext]['EIS']
-                    EIS_tmp.filename = file
+                    EIS_tmp.filename = os.path.basename(file)
                     EIS_tmp.import_data()
 
                     config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(CNLS)
@@ -96,8 +96,11 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                     CNLS_tmp.filename = os.path.basename(file)
                     CNLS_tmp.ImportCircuit()
                     if idx == len(config.file_list) - 1:
-                        EIS.filename = file
+                        EIS.filename = os.path.basename(file)
                         EIS.import_data()
                         CNLS.file_folder = config.folder_path
                         CNLS.filename = os.path.basename(file)
                         CNLS.ImportCircuit()
+
+                        print(f"---- Data imported from {file} successfully.")
+            breakpoint

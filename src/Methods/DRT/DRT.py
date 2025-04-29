@@ -52,8 +52,8 @@ class DRT:
             'Z': None,                 # L/C Corrected impedance data [Ω*cm2]
             'Re': None,                # L/C Corrected real part of impedance data [Ω*cm2]
             'Im': None,                # L/C Corrected imaginary part of impedance data [Ω*cm2]
-            'omega': None,               # Angular frequency data [rad/s]
-            'tau': None                 # Time constant data [s]
+            'omega': None,             # Angular frequency data [rad/s]
+            'tau': None                # Time constant data [s]
         }
 
         self.smooth = {
@@ -61,7 +61,7 @@ class DRT:
             'Z': None,                 # Smoothed impedance data [Ω*cm2]
             'Re': None,                # Smoothed real part of impedance data [Ω*cm2]
             'Im': None,                # Smoothed imaginary part of impedance data [Ω*cm2]
-            'omega': None,               # Angular frequency data [rad/s]
+            'omega': None,             # Angular frequency data [rad/s]
             'tau': None,               # Time constant data [s]
         }
 
@@ -70,8 +70,8 @@ class DRT:
             'Z': None,                 # Extrapolated impedance data
             'Re': None,                # Extrapolated real part of impedance data [Ω*cm2]
             'Im': None,                # Extrapolated imaginary part of impedance data
-            'omega': None,               # Angular frequency data [rad/s]
-            'tau': None                 # Time constant data [s]
+            'omega': None,             # Angular frequency data [rad/s]
+            'tau': None                # Time constant data [s]
         }
 
         # Data structure for KK results

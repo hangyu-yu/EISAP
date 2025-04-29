@@ -20,7 +20,7 @@ for root, dirs, files in os.walk(package_path):
             module_name = os.path.splitext(file)[0]
             
             # Skip special files
-            if module_name == "gui_main":
+            if "data_" in file:
                 continue
                 
             # Create a module-like object for this file's functions

@@ -663,6 +663,8 @@ class Circuit:
         # Check if the file exists
         if not os.path.exists(import_file):
             raise FileNotFoundError(f"File not found: {import_file}")
+        else:
+            print(f"-- Importing CNLS data from {import_file}")
 
         # Read the Excel file
         with pd.ExcelFile(import_file) as xls:
@@ -709,6 +711,7 @@ class Circuit:
                         if "DRT" in col and col != "DRT":
                             element_name = col.replace("DRT", "").replace("/ohm·s·cm2", "")
                             self.ElementDRTs[element_name] = {"ReIm": {"g": df[col].to_numpy()}}
+        print(f"-- Circuit data imported successfully")
 
     # Software functions
     def AddElement(self, Element):

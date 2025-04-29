@@ -30,8 +30,9 @@ def data_import(sender, app_data, config, EIS):
         else: 
             metadata,data = call_function(config.data_import_function, file_path)
             file_name_no_ext = os.path.splitext(file_name)[0]
-            config.store[file_name_no_ext] = copy.deepcopy(EIS)
-            EIS_tmp = config.store[file_name_no_ext]
+            config.store[file_name_no_ext] = {}
+            config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
+            EIS_tmp = config.store[file_name_no_ext]['EIS']
             EIS_tmp.filename = file_name
             print('---- Data imported:', file_path)
         EIS_tmp.raw['Re'] = data['Re/Ohm'].to_numpy()
@@ -46,9 +47,9 @@ def load_parameters(sender, app_data, config, EIS):
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
         if file_name_no_ext not in config.store.keys():
-            config.store[file_name_no_ext] = copy.deepcopy(EIS)
+            config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
         else:
-            EIS_tmp = config.store[file_name_no_ext]
+            EIS_tmp = config.store[file_name_no_ext]['EIS']
             # Load the parameter for the general settings
             EIS_tmp.parameter["Sample"]["CellArea"] = float(dpg.get_value("CellArea"))
             EIS_tmp.parameter["Sample"]["n_cell"] = int(dpg.get_value("n_cell"))
@@ -79,9 +80,9 @@ def process_data(sender, app_data, config, EIS):
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
         if file_name_no_ext not in config.store.keys():
-            config.store[file_name_no_ext] = copy.deepcopy(EIS)
+            config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
         else:
-            EIS_tmp = config.store[file_name_no_ext]
+            EIS_tmp = config.store[file_name_no_ext]['EIS']
             # 01 - Data cut based on the upper and lower numbers
             EIS_tmp.rm_hfc_lfc()
 

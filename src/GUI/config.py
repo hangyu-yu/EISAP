@@ -43,6 +43,7 @@ class Config:
             "file_list": self.file_list,
             "selected_files": self.selected_files,
             "file_extensions": self.file_extensions,
+            "display_file": self.display_file,
             "data_import_function": self.data_import_function
         }
         with open(self.config_file, "w") as f:
