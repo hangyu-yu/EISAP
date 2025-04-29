@@ -298,11 +298,13 @@ def gui_tab_eis(config, EIS, CNLS):
                             scrollY=True,         # Enable vertical scrolling
                             policy=dpg.mvTable_SizingFixedFit  # Automatically adjust column width
                         ):
-                            if data_category is not "KK_data":
+                            if data_category != "KK_data":
                                 dpg.add_table_column(label="Index", width_fixed=True)
                                 dpg.add_table_column(label="Frequency [Hz]", width_stretch=True)
                                 dpg.add_table_column(label="Re [Ohm·cm2]", width_stretch=True)
                                 dpg.add_table_column(label="Im [Ohm·cm2]", width_stretch=True)
+                                dpg.add_table_column(label="Z [Ohm·cm2]", width_stretch=True)
+                                dpg.add_table_column(label="Phase [deg]", width_stretch=True)
                             else:
                                 dpg.add_table_column(label="Index", width_fixed=True)
                                 dpg.add_table_column(label="Frequency [Hz]", width_stretch=True)
