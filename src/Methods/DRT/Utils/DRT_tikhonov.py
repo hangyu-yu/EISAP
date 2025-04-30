@@ -11,7 +11,7 @@ def DRT_tikhonov(EIS_data, parameters):
                              'Im' should not have been multiplied by -1 (i.e., imag(Z_RC) < 0)
                              Frequency should be ordered from highest to lowest
     parameters (dict): Dictionary containing:
-                       'Lambda' = regularization parameter
+                       'lambda' = regularization parameter
                                   The lambda used here has to be squared to match that of Priscilla Caliandro's thesis
 
     Returns:
@@ -57,7 +57,7 @@ def DRT_tikhonov(EIS_data, parameters):
 
     # Solve linear least square problem A*g(tau)=Z with Tikhonov regularization (ridge regression)
     # Imaginary part only
-    DRT_Im = np.linalg.inv(A_im.T @ A_im + parameters['Lambda'] * np.eye(A_im.shape[1])) @ A_im.T @ Im
+    DRT_Im = np.linalg.inv(A_im.T @ A_im + parameters['lambda'] * np.eye(A_im.shape[1])) @ A_im.T @ Im
     Residuals_Im = A_im @ DRT_Im - EIS_data['Im']  # compute the Residuals
     Z_Im = A_re @ DRT_Im + 1j * A_im @ DRT_Im  # Compute Z back from DRT
     Rs_Im = DRT_Im[-2]  # Get R
@@ -66,7 +66,7 @@ def DRT_tikhonov(EIS_data, parameters):
     Rp_Im = -np.trapz(DRT_Im, np.log(f))  # Estimated polarization resistance
 
     # Real part only
-    DRT_Re = np.linalg.inv(A_re.T @ A_re + parameters['Lambda'] * np.eye(A_re.shape[1])) @ A_re.T @ Re
+    DRT_Re = np.linalg.inv(A_re.T @ A_re + parameters['lambda'] * np.eye(A_re.shape[1])) @ A_re.T @ Re
     Residuals_Re = A_re @ DRT_Re - EIS_data['Re']  # useful for Lambda optimization
     Z_Re = A_re @ DRT_Re + 1j * A_im @ DRT_Re  # Compute Z back from DRT
     Rs_Re = DRT_Re[-2]  # Get R
@@ -78,7 +78,7 @@ def DRT_tikhonov(EIS_data, parameters):
     A_im_re = np.vstack([A_im, A_re])
     Im_Re = np.hstack([Im, Re])
 
-    DRT_ReIm = np.linalg.inv(A_im_re.T @ A_im_re + parameters['Lambda'] * np.eye(A_im_re.shape[1])) @ A_im_re.T @ Im_Re
+    DRT_ReIm = np.linalg.inv(A_im_re.T @ A_im_re + parameters['lambda'] * np.eye(A_im_re.shape[1])) @ A_im_re.T @ Im_Re
     Residuals_ReIm = A_im_re @ DRT_ReIm - Im_Re  # useful for Lambda optimization
     Z_ReIm = A_re @ DRT_ReIm + 1j * A_im @ DRT_ReIm  # Compute Z back from DRT
     Rs_ReIm = DRT_ReIm[-2]  # Get R

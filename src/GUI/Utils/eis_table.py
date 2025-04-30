@@ -92,6 +92,39 @@ def table_update(config):
             else:
                 pass
     if config.display_file != [] and config.display_file is not None:
+        dpg.delete_item(f"tab_eis_Resistances_data")
+        with dpg.tab(label='Resistances', tag=f"tab_eis_Resistances_data", parent="tab_bar_eis_data"):
+            with dpg.table(
+                    parent=f"tab_eis_Resistances_data",
+                    tag=f"tab_eis_Resistances_data_table",
+                    header_row=True,
+                    borders_innerV=True,  # Show vertical column lines
+                    borders_outerV=True,
+                    borders_outerH=True,
+                    row_background=True,  # Enable alternating row colors
+                    reorderable=True,     # Allow column reordering via drag-and-drop
+                    freeze_rows=1,        # Freeze header row (fixed during scrolling)
+                    scrollX=True,         # Enable horizontal scrolling
+                    scrollY=True,         # Enable vertical scrolling
+                    policy=dpg.mvTable_SizingFixedFit,  # Automatically adjust column width
+                ):
+                dpg.add_table_column(label="File name", width_fixed=True)
+                dpg.add_table_column(label="L [H·cm2]", width_stretch=True)
+                dpg.add_table_column(label="C [F/cm2]", width_stretch=True)
+                dpg.add_table_column(label="Rohm [Ohm·cm2]", width_stretch=True)
+                dpg.add_table_column(label="Rpol [Ohm·cm2]", width_stretch=True)
+                if config.display_file is not None and config.display_file != []:
+                    if os.path.splitext(config.display_file)[0] in config.store.keys():
+                        for file_name in config.selected_files:
+                            file_name_no_ext = os.path.splitext(file_name)[0]
+                            EIS_tmp = config.store[file_name_no_ext]['EIS']
+                            with dpg.table_row():
+                                dpg.add_text(f"{file_name_no_ext[:15]}...{file_name_no_ext[-15:]}" if len(file_name_no_ext) > 30 else file_name_no_ext)
+                                dpg.add_text(f"{float(EIS_tmp.KK_data['L_kk']):.6f}" if EIS_tmp.KK_data['L_kk'] is not None else "N/A")
+                                dpg.add_text(f"{float(EIS_tmp.KK_data['C_kk']):.6f}" if EIS_tmp.KK_data['C_kk'] is not None else "N/A")
+                                dpg.add_text(f"{float(EIS_tmp.KK_data['res_ohm_kk']):.6f}" if EIS_tmp.KK_data['res_ohm_kk'] is not None else "N/A")
+                                dpg.add_text(f"{float(EIS_tmp.KK_data['res_pol_kk']):.6f}" if EIS_tmp.KK_data['res_pol_kk'] is not None else "N/A")
+
         print(f"---- EIS data table updated successfully.")
     else:
         print("---- Continue. The specified file does not exist, maybe check 'eis_table.py' file.")

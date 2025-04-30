@@ -33,11 +33,11 @@ def LambdaOPT(EIS_data, parameters):
         fig = plt.figure(figsize=(15, 5))
         gs = gridspec.GridSpec(1, 4, width_ratios=[25,25,25, 1], wspace=0.6, hspace=0.3)
 
-    axs=[]
-    axs.append(fig.add_subplot(gs[0, 0]))
-    axs.append(fig.add_subplot(gs[0, 1]))
-    axs.append(fig.add_subplot(gs[0, 2]))
-    axs.append(fig.add_subplot(gs[0, 3]))
+        axs=[]
+        axs.append(fig.add_subplot(gs[0, 0]))
+        axs.append(fig.add_subplot(gs[0, 1]))
+        axs.append(fig.add_subplot(gs[0, 2]))
+        axs.append(fig.add_subplot(gs[0, 3]))
 
     lambda_values = np.logspace(np.log10(parameters['lambda_min']), np.log10(parameters['lambda_max']), parameters['n'])
 

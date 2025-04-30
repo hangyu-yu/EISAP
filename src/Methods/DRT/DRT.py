@@ -100,6 +100,8 @@ class DRT:
 
         self.tknv_LCcorrect = None
 
+        self.lambda_opt = None
+
         # Data treatment parameters
         self.parameter = {
             # Sample information
@@ -169,12 +171,12 @@ class DRT:
                 'lambda_max': 0.2,      # Maximal lambda value for Tikhonov regularization
                 'n': 100,               # Number of lambda values to be tested
                 'lampda_opt': True,     # Perform optimal lambda selection or not
-                'PlotFig': True,        # Plot the L-curve or not
+                'PlotFig': False,        # Plot the L-curve or not
             },
             # Tikonov regularization
             'DRT': {
                 'Lambda_selection': 'Manual',  # Lambda selection method, including 'Manual' and 'Optimal'
-                'Lambda': 5e-5,                # Regularization parameter
+                'lambda': 5e-5,                # Regularization parameter
                 'tknv_legend': None,           # Legend for Tikhonov regularization plot
                 'DRT_switch': True,            # Switch on Tikhonov regularization or not
             }
@@ -666,6 +668,43 @@ class DRT:
                     self.info = pd.DataFrame([self.info])
                 self.info.to_excel(writer, sheet_name='Info of measurement', index=False)
 
+            # EIS parameters
+            pd.DataFrame({
+                'Nfh_cut': [self.parameter['Preprocessing']['num_cut_upper']],
+                'Nfl_cut': [self.parameter['Preprocessing']['num_cut_lower']],
+                'num_cut_middle': [self.parameter['Preprocessing']['num_cut_middle']],
+                'sig_threshold': [self.parameter['RM_significance']['sig_threshold']],
+                'rm_significance': [self.parameter['RM_significance']['rm_significance']],
+                'mv_window_size': [self.parameter['Rmoutliers']['mv_window_size']],
+                'n_std': [self.parameter['Rmoutliers']['n_std']],
+                'Rmoutliers': [self.parameter['Rmoutliers']['Rmoutliers']],
+                'nRCmax': [self.parameter['KK']['nRCmax']],
+                'kk_threshold': [self.parameter['KK']['kk_threshold']],
+                'mu_threshold': [self.parameter['KK']['mu_threshold']],
+                'KK_type': [self.parameter['KK']['KK_type']],
+                'nRC': [self.parameter['KK']['nRC']],
+                'KK_test': [self.parameter['KK']['KK_test']],
+                'RmNonKK': [self.parameter['KK']['RmNonKK']],
+                'fmin_smoothing': [self.parameter['Smoothing']['fmin']],
+                'fmax_smoothing': [self.parameter['Smoothing']['fmax']],
+                'PointsPerDecade_smoothing': [self.parameter['Smoothing']['PointsPerDecade']],
+                'fmin_extrapolation': [self.parameter['Extrapolation']['fmin']],
+                'fmax_extrapolation': [self.parameter['Extrapolation']['fmax']],
+                'PointsPerDecade_extrapolation': [self.parameter['Extrapolation']['PointsPerDecade']],
+                'lambda_min': [self.parameter['LambdaOpt']['lambda_min']],
+                'lambda_max': [self.parameter['LambdaOpt']['lambda_max']],
+                'lambda_n': [self.parameter['LambdaOpt']['n']],
+                'lampda_opt': [self.parameter['LambdaOpt']['lampda_opt']],
+                'PlotFig': [self.parameter['LambdaOpt']['PlotFig']],
+                'Lambda_selection': [self.parameter['DRT']['Lambda_selection']],
+                'lambda': [self.parameter['DRT']['lambda']],
+                'tknv_legend': [self.parameter['DRT']['tknv_legend']],
+                'DRT_switch': [self.parameter['DRT']['DRT_switch']],
+                'CellArea/cm2': [self.parameter['Sample']['CellArea']],
+                'n_cell': [self.parameter['Sample']['n_cell']],
+                'instrument_type': [self.parameter['Sample']['instrument_type']]
+            }).to_excel(writer, sheet_name='EIS_Parameters', index=False)
+
             # Original data
             pd.DataFrame({
                 'Frequency/Hz': self.raw['f'],
@@ -712,6 +751,8 @@ class DRT:
 
             # Resistance data
             pd.DataFrame({
+                'L/H·cm2 - KK': self.KK_data['L_kk'],
+                'C/C·cm-2 - KK': self.KK_data['C_kk'],
                 'Rohm/ohm·cm2 - KK': self.KK_data['res_ohm_kk'],
                 'Rp/ohm·cm2 - KK': self.KK_data['res_pol_kk'],
             }).to_excel(writer, sheet_name='Resistance', index=False)
@@ -747,12 +788,15 @@ class DRT:
 
             # DRT parameters
             pd.DataFrame({
-                'Nfh_cut': [self.parameter['Preprocessing']['num_cut_upper']],
-                'Nfl_cut': [self.parameter['Preprocessing']['num_cut_lower']],
-                'fl': [min(self.truncated['f'])],
-                'fh': [max(self.truncated['f'])],
-                'lambda': [self.parameter['DRT']['Lambda']],
-                'CellArea/cm2': [self.parameter['Sample']['CellArea']]
+                'lambda': [self.parameter['DRT']['lambda']],
+                'Lambda_selection': [self.parameter['DRT']['Lambda_selection']],
+                'tknv_legend': [self.parameter['DRT']['tknv_legend']],
+                'DRT_switch': [self.parameter['DRT']['DRT_switch']],
+                'lambda_min': [self.parameter['LambdaOpt']['lambda_min']],
+                'lambda_max': [self.parameter['LambdaOpt']['lambda_max']],
+                'lambda_n': [self.parameter['LambdaOpt']['n']],
+                'lampda_opt': [self.parameter['LambdaOpt']['lampda_opt']],
+                'PlotFig': [self.parameter['LambdaOpt']['PlotFig']]
             }).to_excel(writer, sheet_name='DRT_Parameters', index=False)
 
             # Tikhonov regularization data
@@ -901,6 +945,45 @@ class DRT:
                 self.info = pd.read_excel(eis_file, sheet_name='Info of measurement')
             except:
                 print("---- No 'Info of measurement' sheet found")
+
+            # Import EIS parameters
+            try:
+                eis_params = pd.read_excel(eis_file, sheet_name='EIS_Parameters')
+                self.parameter['Preprocessing']['num_cut_upper'] = int(eis_params['Nfh_cut'].values[0])
+                self.parameter['Preprocessing']['num_cut_lower'] = int(eis_params['Nfl_cut'].values[0])
+                self.parameter['Preprocessing']['num_cut_middle'] = int(eis_params['num_cut_middle'].values[0])
+                self.parameter['RM_significance']['sig_threshold'] = float(eis_params['sig_threshold'].values[0])
+                self.parameter['RM_significance']['rm_significance'] = bool(eis_params['rm_significance'].values[0])
+                self.parameter['Rmoutliers']['mv_window_size'] = int(eis_params['mv_window_size'].values[0])
+                self.parameter['Rmoutliers']['n_std'] = int(eis_params['n_std'].values[0])
+                self.parameter['Rmoutliers']['Rmoutliers'] = bool(eis_params['Rmoutliers'].values[0])
+                self.parameter['KK']['nRCmax'] = int(eis_params['nRCmax'].values[0])
+                self.parameter['KK']['kk_threshold'] = float(eis_params['kk_threshold'].values[0])
+                self.parameter['KK']['mu_threshold'] = float(eis_params['mu_threshold'].values[0])
+                self.parameter['KK']['KK_type'] = eis_params['KK_type'].values[0]
+                self.parameter['KK']['nRC'] = int(eis_params['nRC'].values[0])
+                self.parameter['KK']['KK_test'] = bool(eis_params['KK_test'].values[0])
+                self.parameter['KK']['RmNonKK'] = bool(eis_params['RmNonKK'].values[0])
+                self.parameter['Smoothing']['fmin'] = float(eis_params['fmin_smoothing'].values[0])
+                self.parameter['Smoothing']['fmax'] = float(eis_params['fmax_smoothing'].values[0])
+                self.parameter['Smoothing']['PointsPerDecade'] = int(eis_params['PointsPerDecade_smoothing'].values[0])
+                self.parameter['Extrapolation']['fmin'] = float(eis_params['fmin_extrapolation'].values[0])
+                self.parameter['Extrapolation']['fmax'] = float(eis_params['fmax_extrapolation'].values[0])
+                self.parameter['Extrapolation']['PointsPerDecade'] = int(eis_params['PointsPerDecade_extrapolation'].values[0])
+                self.parameter['LambdaOpt']['lambda_min'] = float(eis_params['lambda_min'].values[0])
+                self.parameter['LambdaOpt']['lambda_max'] = float(eis_params['lambda_max'].values[0])
+                self.parameter['LambdaOpt']['n'] = int(eis_params['lambda_n'].values[0])
+                self.parameter['LambdaOpt']['lampda_opt'] = bool(eis_params['lampda_opt'].values[0])
+                self.parameter['LambdaOpt']['PlotFig'] = bool(eis_params['PlotFig'].values[0])
+                self.parameter['DRT']['Lambda_selection'] = eis_params['Lambda_selection'].values[0]
+                self.parameter['DRT']['lambda'] = float(eis_params['lambda'].values[0])
+                self.parameter['DRT']['tknv_legend'] = eis_params['tknv_legend'].values[0]
+                self.parameter['DRT']['DRT_switch'] = bool(eis_params['DRT_switch'].values[0])
+                self.parameter['Sample']['CellArea'] = float(eis_params['CellArea/cm2'].values[0])
+                self.parameter['Sample']['n_cell'] = int(eis_params['n_cell'].values[0])
+                self.parameter['Sample']['instrument_type'] = eis_params['instrument_type'].values[0]
+            except:
+                print("---- No 'EIS_Parameters' sheet found")
             
             # Define all data import operations in a list for cleaner code
             import_operations = [
@@ -932,6 +1015,8 @@ class DRT:
             
             # Import Resistance data
             resistance_data = pd.read_excel(eis_file, sheet_name='Resistance')
+            self.KK_data['L_kk'] = resistance_data['L/H·cm2 - KK'].values if 'L/H·cm2 - KK' in resistance_data.columns else None
+            self.KK_data['C_kk'] = resistance_data['C/C·cm-2 - KK'].values if 'C/C·cm-2 - KK' in resistance_data.columns else None
             self.KK_data['res_ohm_kk'] = resistance_data['Rohm/ohm·cm2 - KK'].values
             self.KK_data['res_pol_kk'] = resistance_data['Rp/ohm·cm2 - KK'].values
             
@@ -966,11 +1051,19 @@ class DRT:
             print(f"-- Importing DRT data from {drt_file}...")
             
             # Import DRT parameters
-            drt_params = pd.read_excel(drt_file, sheet_name='DRT_Parameters')
-            self.parameter['Preprocessing']['num_cut_upper'] = int(drt_params['Nfh_cut'].values[0])
-            self.parameter['Preprocessing']['num_cut_lower'] = int(drt_params['Nfl_cut'].values[0])
-            self.parameter['DRT']['Lambda'] = float(drt_params['lambda'].values[0])
-            self.parameter['Sample']['CellArea'] = float(drt_params['CellArea/cm2'].values[0])
+            try:
+                drt_params = pd.read_excel(drt_file, sheet_name='DRT_Parameters')
+                self.parameter['DRT']['lambda'] = float(drt_params['lambda'].values[0])
+                self.parameter['DRT']['Lambda_selection'] = drt_params['Lambda_selection'].values[0]
+                self.parameter['DRT']['tknv_legend'] = drt_params['tknv_legend'].values[0]
+                self.parameter['DRT']['DRT_switch'] = bool(drt_params['DRT_switch'].values[0])
+                self.parameter['LambdaOpt']['lambda_min'] = float(drt_params['lambda_min'].values[0])
+                self.parameter['LambdaOpt']['lambda_max'] = float(drt_params['lambda_max'].values[0])
+                self.parameter['LambdaOpt']['n'] = int(drt_params['lambda_n'].values[0])
+                self.parameter['LambdaOpt']['lampda_opt'] = bool(drt_params['lampda_opt'].values[0])
+                self.parameter['LambdaOpt']['PlotFig'] = bool(drt_params['PlotFig'].values[0])
+            except Exception as e:
+                print(f"---- 'DRT_Parameters' sheet not found or could not be read: {str(e)}")
             
             # Initialize the tknv dictionaries if they don't exist
             self.tknv_truncated = {}

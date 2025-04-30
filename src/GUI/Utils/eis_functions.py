@@ -79,7 +79,7 @@ def load_parameters(sender, app_data, config, EIS):
             EIS_tmp.parameter["Extrapolation"]["fmin"] = float(dpg.get_value("extrapolation_fmin"))
             EIS_tmp.parameter["Extrapolation"]["fmax"] = float(dpg.get_value("extrapolation_fmax"))
             EIS_tmp.parameter["Extrapolation"]["PointsPerDecade"] = int(dpg.get_value("Extrapolation_PointsPerDecade"))
-            print(f"---- Parameters have been loaded successfully for {file_name_no_ext}.")
+            print(f"---- EIS parameters have been loaded successfully for {file_name_no_ext}.")
 
 def process_data(sender, app_data, config, EIS):
     for file_name in config.selected_files:
@@ -91,13 +91,13 @@ def process_data(sender, app_data, config, EIS):
             # 01 - Data cut based on the upper and lower numbers
             EIS_tmp.rm_hfc_lfc()
 
-            # 02 - Data cut due to outliers
-            if EIS_tmp.parameter['Rmoutliers']['Rmoutliers']:
-                EIS_tmp.rm_outliers()
-
-            # 03 - Data cut based on the significance values
+            # 02 - Data cut based on the significance values
             if EIS_tmp.parameter['RM_significance']['rm_significance']:
                 EIS_tmp.rm_significance()
+
+            # 03 - Data cut due to outliers
+            if EIS_tmp.parameter['Rmoutliers']['Rmoutliers']:
+                EIS_tmp.rm_outliers()
 
             # 04 - Data cut based on KK criterion
             if EIS_tmp.parameter['KKpreprocess']['OptimalCut']:

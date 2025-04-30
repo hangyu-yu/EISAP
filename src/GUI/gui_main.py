@@ -73,7 +73,7 @@ with dpg.window(label="Main Window", tag='fullscreen'):
     with dpg.tab_bar(tag="tab_bar_main"):
         gui.gui_tab_soceis(config, EIS, CNLS)
         gui.gui_tab_eis(config, EIS, CNLS)
-        # gui.gui_tab_drt(config, EIS, CNLS)
+        gui.gui_tab_drt(config, EIS, CNLS)
 
 # 05 - Show the window
 dpg.setup_dearpygui()

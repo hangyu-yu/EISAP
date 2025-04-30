@@ -20,7 +20,7 @@ def update_child_window_size():
     dpg.configure_item("child_window_eis_data", width=int(viewport_width * 0.33), height=-1)
     dpg.configure_item("child_window_eis_plot", width=-1, height=-1)
     dpg.configure_item("Button_data_import", width=int(viewport_width*0.075))
-    dpg.configure_item("Button_load_parameters", width=int(viewport_width*0.075))
+    dpg.configure_item("Button_drt_Process_dataters", width=int(viewport_width*0.075))
     dpg.configure_item("Button_Process_data", width=int(viewport_width*0.075))
     dpg.configure_item("Button_Save_EIS", width=-1)
 
@@ -272,14 +272,14 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_text("Extrap. PPD")
                                     dpg.add_input_text(tag="Extrapolation_PointsPerDecade", default_value=EIS.parameter["Extrapolation"]["PointsPerDecade"])
 
-                # Window for the data import buttons
+                # Window for the buttons
                 with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.082), horizontal_scrollbar=True, menubar=False, tag="child_window_eis_buttons"):
                     with dpg.group(horizontal=True):
                         dpg.add_button(tag="Button_data_import", label="Data import", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.eis_functions.data_import(s, a, config, EIS))
                         dpg.bind_item_theme("Button_data_import", blue_button_theme)
 
-                        dpg.add_button(tag="Button_load_parameters", label="Load parameters", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.eis_functions.load_parameters(s, a, config, EIS))
-                        dpg.bind_item_theme("Button_load_parameters", blue_button_theme)
+                        dpg.add_button(tag="Button_drt_Process_dataters", label="Load parameters", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.eis_functions.load_parameters(s, a, config, EIS))
+                        dpg.bind_item_theme("Button_drt_Process_dataters", blue_button_theme)
 
                         dpg.add_button(tag="Button_Process_data", label="Process data", width=int(viewport_width*0.075), callback=lambda s, a: callback_process_data(s, a, EIS, config))
                         dpg.bind_item_theme("Button_Process_data", blue_button_theme)
