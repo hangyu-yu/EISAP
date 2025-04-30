@@ -25,7 +25,10 @@ def update_selected_files(config, tag=None):
     for file in config.file_list:
         checkbox_tag = f"checkbox_{tag}_{os.path.basename(file)}"
         is_selected = os.path.basename(file) in config.selected_files
-    dpg.set_value(checkbox_tag, is_selected)
+    if dpg.does_item_exist(checkbox_tag):
+        dpg.set_value(checkbox_tag, is_selected)
+        
+    config.display_file = config.selected_files[0] if config.selected_files else None
     print("Selected files:", config.selected_files)
 
 def select_all_files(config, tag=None):
@@ -34,7 +37,8 @@ def select_all_files(config, tag=None):
     """
     for file in config.file_list:
         checkbox_tag = f"checkbox_{tag}_{os.path.basename(file)}"
-        dpg.set_value(checkbox_tag, True)
+        if dpg.does_item_exist(checkbox_tag):
+            dpg.set_value(checkbox_tag, True)
     update_selected_files(config, tag)
 
 def unselect_all_files(config, tag=None):
@@ -43,7 +47,8 @@ def unselect_all_files(config, tag=None):
     """
     for file in config.file_list:
         checkbox_tag = f"checkbox_{tag}_{os.path.basename(file)}"
-        dpg.set_value(checkbox_tag, False)
+        if dpg.does_item_exist(checkbox_tag):
+            dpg.set_value(checkbox_tag, False)
     update_selected_files(config, tag)
 
 def update_file_list(config, tag = None, EIS = None, CNLS = None):
