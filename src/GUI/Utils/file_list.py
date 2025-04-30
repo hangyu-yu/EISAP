@@ -29,6 +29,10 @@ def update_selected_files(config, tag=None):
         dpg.set_value(checkbox_tag, is_selected)
         
     config.display_file = config.selected_files[0] if config.selected_files else None
+    if dpg.does_item_exist("combo_eis_plot_file"):
+        dpg.configure_item("combo_eis_plot_file", items = config.selected_files, default_value = config.display_file)
+    if dpg.does_item_exist("combo_drt_plot_file"):
+        dpg.configure_item("combo_drt_plot_file", items = config.selected_files, default_value = config.display_file)
     print("Selected files:", config.selected_files)
 
 def select_all_files(config, tag=None):

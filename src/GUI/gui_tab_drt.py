@@ -65,7 +65,7 @@ def callback_process_data(sender, app_data, config):
     gui_utils.drt_functions.process_data(sender, app_data, config)
     gui_utils.drt_table.table_update(config)
     gui_utils.drt_plots.update_single_plots(config)
-    # gui_utils.drt_plots.update_all_plots(config)
+    gui_utils.drt_plots.update_all_plots(config)
 
 # Main tab function for EIS
 def gui_tab_drt(config, EIS, CNLS):
@@ -173,10 +173,10 @@ def gui_tab_drt(config, EIS, CNLS):
                     with dpg.tab(label="Single", tag="tab_drt_plot_single"):
                         with dpg.tab_bar(tag="tab_bar_drt_plot_single"):
                             gui_utils.drt_plots.update_single_plots(config)
-                    # with dpg.tab(label="All", tag="tab_drt_plot_all"):
-                    #     with dpg.tab_bar(tag="tab_bar_drt_plot_all"):
-                    #         gui_utils.drt_plots.update_all_plots(config)
-                            # pass
+                    with dpg.tab(label="All", tag="tab_drt_plot_all"):
+                        with dpg.tab_bar(tag="tab_bar_drt_plot_all"):
+                            gui_utils.drt_plots.update_all_plots(config)
+                            
     # Update the child window size when the viewport is resized
     dpg.set_viewport_resize_callback(update_child_window_size)
                             

@@ -93,3 +93,72 @@ def update_single_plots(config):
                             _update_nyquist_plot(data, f"tab_drt_{data_type}_{category}", category)
 
     print("---- DRT single plots updated successfully.")
+
+def update_all_plots(config):
+    """更新多文件DRT对比绘图（仅gamma分布图）"""
+    print("-- Updating DRT gamma distribution plots...")
+    
+    if not config.selected_files:
+        print("---- Skipped: No files selected.")
+        return
+
+    # 定义数据类型和分类
+    data_types = ["truncated", "smooth", "LCcorrect", "extrapolation"]
+    data_categories = ["ReIm", "Re", "Im"]
+
+    for data_type in data_types:
+        # 删除旧Tab并创建新Tab
+        dpg.delete_item(f"tab_drt_{data_type}_plot_all")
+        with dpg.tab(label=data_type.capitalize(), tag=f"tab_drt_{data_type}_plot_all", parent="tab_bar_drt_plot_all"):
+            
+            # 在data_type下创建分类Tab栏
+            dpg.delete_item(f"tab_bar_{data_type}_categories_all")
+            with dpg.tab_bar(tag=f"tab_bar_{data_type}_categories_all", parent=f"tab_drt_{data_type}_plot_all"):
+                
+                for category in data_categories:
+                    # 删除旧分类Tab并创建新Tab
+                    dpg.delete_item(f"tab_drt_{data_type}_{category}_all")
+                    with dpg.tab(label=category, tag=f"tab_drt_{data_type}_{category}_all"):
+                        
+                        # 创建gamma分布图
+                        with dpg.plot(
+                            tag=f"plot_gamma_{data_type}_{category}_all",
+                            width=-1,
+                            height=-1,  # 自适应高度
+                            no_menus=True
+                        ):
+                            # X轴（对数坐标）
+                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                            
+                            # Y轴
+                            y_axis = dpg.add_plot_axis(
+                                dpg.mvYAxis, 
+                                label="gamma [ohm·s·cm2]",
+                                tag=f"y_axis_{data_type}_{category}_all"
+                            )
+                            
+                            # 遍历所有文件并添加数据
+                            for file_name in config.selected_files:
+                                file_key = os.path.splitext(file_name)[0]
+                                if file_key in config.store and 'EIS' in config.store[file_key]:
+                                    data = config.store[file_key]['EIS']
+                                    if data[f"tknv_{data_type}"] is not None:
+                                        _add_series_to_plot(
+                                            {
+                                                'f': data[f"tknv_{data_type}"][category]['f'],
+                                                'y': data[f"tknv_{data_type}"][category]['g']
+                                            },
+                                            y_axis,
+                                            label=f"{file_key}",
+                                            is_line=True
+                                        )
+                            
+                            dpg.set_axis_limits(y_axis, 0, np.max(data[f"tknv_{data_type}"][category]['g']) * 1.1)
+                            
+                            # 添加图例
+                            dpg.add_plot_legend(
+                                parent=f"plot_gamma_{data_type}_{category}_all",
+                                location=dpg.mvPlot_Location_NorthEast  # 图例位置右上角
+                            )
+
+    print("---- DRT gamma distribution plots updated successfully.")
