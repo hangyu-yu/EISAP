@@ -19,7 +19,6 @@ class Config:
         self.data_import_function = []
         # Store
         self.store = {}
-        self.store['file_list'] = []
         # Load configuration
         self.load_config()
 

@@ -123,7 +123,7 @@ class DRT:
             'Rmoutliers': {
                 'mv_window_size': 5,   # Moving window size for outlier removal
                 'n_std': 5,            # Number of standard deviations for outlier removal
-                'Rmoutliers': True    # Remove outliers from EIS data
+                'Rmoutliers': False    # Remove outliers from EIS data
             },
             # Self-adaptive KK method
             'KKpreprocess': {
@@ -197,6 +197,7 @@ class DRT:
         self.truncated['Z'] = self.raw['Z'][Nfh_cut:leng-Nfl_cut]
         if self.raw['significance'] is not None:
             self.truncated['significance'] = self.raw['significance'][Nfh_cut:leng-Nfl_cut]
+        print("---- Cutting finished. Raw data points -", len(self.raw['f']), ", truncated data points -", len(self.truncated['f']))
         
     def rm_significance(self):
         """

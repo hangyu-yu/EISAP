@@ -103,4 +103,3 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                         CNLS.ImportCircuit()
 
                         print(f"---- Data imported from {file} successfully.")
-            breakpoint

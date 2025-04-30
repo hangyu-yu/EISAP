@@ -37,11 +37,16 @@ def data_import(sender, app_data, config, EIS):
             print('---- Data imported:', file_path)
         EIS_tmp.raw['Re'] = data['Re/Ohm'].to_numpy()
         EIS_tmp.raw['Im'] = data['Im/Ohm'].to_numpy()
-        EIS_tmp.raw['Z'] = data['impedance/Ohm'].to_numpy()
+        EIS_tmp.raw['Z'] = EIS_tmp.raw['Re'] + 1j * EIS_tmp.raw['Im']
         EIS_tmp.raw['f'] = data['Frequency/Hz'].to_numpy()
         EIS_tmp.raw['significance'] = data['Significance'].to_numpy()
         EIS_tmp.info = metadata
         EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, EIS_tmp.parameter['Sample'])
+
+        if dpg.does_item_exist("tab_eis_raw_data_table"):
+            dpg.configure_item("combo_eis_plot_file", items=config.selected_files)
+            config.display_file = config.selected_files[0] if config.selected_files else ""
+            dpg.set_value("combo_eis_plot_file", config.display_file)
 
 def load_parameters(sender, app_data, config, EIS):
     for file_name in config.selected_files:
@@ -84,7 +89,9 @@ def process_data(sender, app_data, config, EIS):
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
             # 01 - Data cut based on the upper and lower numbers
+            print(EIS_tmp.KK_data['f'])
             EIS_tmp.rm_hfc_lfc()
+            print(EIS_tmp.raw['f'])
 
             # 02 - Data cut due to outliers
             if EIS_tmp.parameter['Rmoutliers']['Rmoutliers']:
