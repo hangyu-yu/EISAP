@@ -89,9 +89,7 @@ def process_data(sender, app_data, config, EIS):
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
             # 01 - Data cut based on the upper and lower numbers
-            print(EIS_tmp.KK_data['f'])
             EIS_tmp.rm_hfc_lfc()
-            print(EIS_tmp.raw['f'])
 
             # 02 - Data cut due to outliers
             if EIS_tmp.parameter['Rmoutliers']['Rmoutliers']:
@@ -119,3 +117,10 @@ def process_data(sender, app_data, config, EIS):
             EIS_tmp.extrapolation = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Extrapolation'])
 
             print(f"---- Data has been processed successfully for {file_name_no_ext}.")
+
+def save_eis(sender, app_data, config):
+    print("-- Saving EIS data...")
+    if config.selected_files != [] and config.selected_files is not None:
+        for file_name in config.selected_files:
+            file_name_no_ext = os.path.splitext(file_name)[0]
+            config.store[file_name_no_ext]['EIS'].save_data_EIS()

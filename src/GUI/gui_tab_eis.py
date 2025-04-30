@@ -19,6 +19,10 @@ def update_child_window_size():
     dpg.configure_item("child_window_eis_buttons", width=int(viewport_width * 0.33), height=int(viewport_height * 0.082))
     dpg.configure_item("child_window_eis_data", width=int(viewport_width * 0.33), height=-1)
     dpg.configure_item("child_window_eis_plot", width=-1, height=-1)
+    dpg.configure_item("Button_data_import", width=int(viewport_width*0.075))
+    dpg.configure_item("Button_load_parameters", width=int(viewport_width*0.075))
+    dpg.configure_item("Button_Process_data", width=int(viewport_width*0.075))
+    dpg.configure_item("Button_Save_EIS", width=-1)
 
 def rm_significance_callback(sender, app_data, EIS):
     # Get the current value of the checkbox
@@ -101,7 +105,8 @@ def callback_process_data(sender, app_data, EIS, config):
     """
     gui_utils.eis_functions.process_data(sender, app_data, config, EIS)
     gui_utils.eis_table.table_update(config)
-    gui_utils.eis_plots.update_single_plot(config)
+    gui_utils.eis_plots.update_single_plots(config)
+    gui_utils.eis_plots.update_all_plots(config)
 
 # Main tab function for EIS
 def gui_tab_eis(config, EIS, CNLS):
@@ -270,14 +275,17 @@ def gui_tab_eis(config, EIS, CNLS):
                 # Window for the data import buttons
                 with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.082), horizontal_scrollbar=True, menubar=False, tag="child_window_eis_buttons"):
                     with dpg.group(horizontal=True):
-                        dpg.add_button(tag="Button_data_import", label="Data import", width=int(viewport_width*0.104), callback=lambda s, a: gui_utils.eis_functions.data_import(s, a, config, EIS))
+                        dpg.add_button(tag="Button_data_import", label="Data import", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.eis_functions.data_import(s, a, config, EIS))
                         dpg.bind_item_theme("Button_data_import", blue_button_theme)
 
-                        dpg.add_button(tag="Button_load_parameters", label="Load parameters", width=int(viewport_width*0.104), callback=lambda s, a: gui_utils.eis_functions.load_parameters(s, a, config, EIS))
+                        dpg.add_button(tag="Button_load_parameters", label="Load parameters", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.eis_functions.load_parameters(s, a, config, EIS))
                         dpg.bind_item_theme("Button_load_parameters", blue_button_theme)
 
-                        dpg.add_button(tag="Button_Process_data", label="Process data", width=-1, callback=lambda s, a: callback_process_data(s, a, EIS, config))
+                        dpg.add_button(tag="Button_Process_data", label="Process data", width=int(viewport_width*0.075), callback=lambda s, a: callback_process_data(s, a, EIS, config))
                         dpg.bind_item_theme("Button_Process_data", blue_button_theme)
+
+                        dpg.add_button(tag="Button_Save_EIS", label="Save EIS", width=-1, callback=lambda s, a: gui_utils.eis_functions.save_eis(s, a, config))
+                        dpg.bind_item_theme("Button_Save_EIS", blue_button_theme)
                     
                     config.display_file = config.selected_files[0] if config.selected_files else None
                     with dpg.group(horizontal=True):
@@ -300,9 +308,10 @@ def gui_tab_eis(config, EIS, CNLS):
                 with dpg.tab_bar(tag="tab_bar_eis_plot"):
                     with dpg.tab(label="Single", tag="tab_eis_plot_single"):
                         with dpg.tab_bar(tag="tab_bar_eis_plot_single"):
-                            gui_utils.eis_plots.update_single_plot(config)
+                            gui_utils.eis_plots.update_single_plots(config)
                     with dpg.tab(label="All", tag="tab_eis_plot_all"):
-                        pass
+                        with dpg.tab_bar(tag="tab_bar_eis_plot_all"):
+                            gui_utils.eis_plots.update_all_plots(config)
     # Update the child window size when the viewport is resized
     dpg.set_viewport_resize_callback(update_child_window_size)
                             

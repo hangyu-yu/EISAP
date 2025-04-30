@@ -32,12 +32,11 @@ def table_update(config):
             dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 10, 10)  # Adjust padding for centering
             dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 0, 0)    # Remove extra spacing
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 5)   # Adjust frame padding
-    
+    print("-- EIS data table updating...")
     for idx, data_category in enumerate(["KK_data", "raw", "truncated", "LCcorrect", "smooth",  "extrapolation"]):
         dpg.delete_item(f"tab_eis_{data_category}_data")
         with dpg.tab(label=data_category, tag=f"tab_eis_{data_category}_data", parent="tab_bar_eis_data"):
-            if config.display_file != []:
-                print("-- Updating table:", data_category)
+            if config.display_file != [] and config.display_file is not None:
                 # Clear existing table rows
                 dpg.delete_item(f"tab_eis_{data_category}_data_table")
 
@@ -90,9 +89,9 @@ def table_update(config):
                                         dpg.add_text(f"{data['delta_Re_kk'][idx]:.6f}")
                                         dpg.add_text(f"{data['delta_Im_kk'][idx]:.6f}")
                     dpg.bind_item_theme(f"tab_eis_{data_category}_data_table", table_theme)
-            
-                print(f"---- Table {data_category} updated successfully.")
-
             else:
-                print("---- Continue. The specified file does not exist, check 'eis_table.py' file.")
                 pass
+    if config.display_file != [] and config.display_file is not None:
+        print(f"---- EIS data table updated successfully.")
+    else:
+        print("---- Continue. The specified file does not exist, maybe check 'eis_table.py' file.")

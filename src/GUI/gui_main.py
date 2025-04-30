@@ -38,6 +38,7 @@ else:
 
 # Initialize the configuration
 config = Config()
+config.store['beacon_DRT_import'] = True
 EIS = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=12.56, n_cell=1, file_folder=config.folder_path, filename=None)
 CNLS = Circuit(file_folder=config.folder_path, filename=None, Elements = None, EIS = None, data_type = None)
 
@@ -72,6 +73,7 @@ with dpg.window(label="Main Window", tag='fullscreen'):
     with dpg.tab_bar(tag="tab_bar_main"):
         gui.gui_tab_soceis(config, EIS, CNLS)
         gui.gui_tab_eis(config, EIS, CNLS)
+        # gui.gui_tab_drt(config, EIS, CNLS)
 
 # 05 - Show the window
 dpg.setup_dearpygui()

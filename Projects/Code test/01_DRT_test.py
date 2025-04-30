@@ -38,11 +38,11 @@ EIS.parameter['KK']['KK_type']             = 'Mu_criterion' # KK type
 EIS.parameter['LambdaOpt']['lambda_opt']            = False # solve the optimum lambda
 EIS.parameter['DRT']['DRT_switch']                  = True  # DRT switch
 
-switch_data_save = False
-switch_plot_KK  = True
-switch_plot_EIS = True
-switch_plot_DRT = True
-switch_Plot_DRT_EIS = True
+switch_data_save = True
+switch_plot_KK  = False
+switch_plot_EIS = False
+switch_plot_DRT = False
+switch_Plot_DRT_EIS = False
 plot_EIS_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
 plot_DRT_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
 plot_DRT_EIS_list = {'ReIm', 'ReIm_s'} # {'Re' 'Im' 'ReIm' 'Re_s' 'Im_s' 'ReIm_s' 'Re_e' 'Im_e' 'ReIm_e'}
@@ -58,6 +58,8 @@ for file in txt_files:
         EIS.filename = filename
         print('---- File loaded:', file)
         print('-- file name:', filename)
+        EIS.import_data_EIS()
+        EIS.import_data_DRT()
     EIS.raw['Re'] = data['Re/Ohm'].to_numpy()
     EIS.raw['Im'] = data['Im/Ohm'].to_numpy()
     EIS.raw['Z'] = data['impedance/Ohm'].to_numpy()
@@ -121,7 +123,8 @@ for file in txt_files:
         
 # 05 - Data save
     if switch_data_save:
-        EIS.save_data()
+        EIS.save_data_EIS()
+        EIS.save_data_DRT()
     # break
 
     plt.show(block=True)

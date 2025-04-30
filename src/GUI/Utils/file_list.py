@@ -80,26 +80,55 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
             )
         
         # Import all the data if there is historical data
-        if (os.path.isdir(os.path.join(config.folder_path, "EIS")) and os.path.isdir(os.path.join(config.folder_path, "DRT"))) or os.path.isdir(os.path.join(config.folder_path, "CNLS")):
             for idx, file in enumerate(config.file_list):
                 file_name_no_ext = os.path.splitext(os.path.basename(file))[0]
-                if file_name_no_ext not in config.store.keys() and "[Error]" not in file:
-                    config.store[file_name_no_ext] = {}
-                    config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
-                    EIS_tmp = config.store[file_name_no_ext]['EIS']
-                    EIS_tmp.filename = os.path.basename(file)
-                    EIS_tmp.import_data()
+                if os.path.isdir(os.path.join(config.folder_path, "EIS")) and "[Error]" not in file:
+                    if file_name_no_ext not in config.store.keys() or "EIS" not in config.store[file_name_no_ext].keys():
+                        config.store[file_name_no_ext] = {}
+                        config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
+                        EIS_tmp = config.store[file_name_no_ext]['EIS']
+                        EIS_tmp.filename = os.path.basename(file)
+                        EIS_tmp.import_data_EIS()
+                    
+                        if idx == len(config.file_list) - 1:
+                            EIS.filename = os.path.basename(file)
+                            EIS.import_data_EIS()
+                            print(f"---- EIS data imported from {file} successfully.")
+                
+                if os.path.isdir(os.path.join(config.folder_path, "DRT")) and "[Error]" not in file:
+                    if file_name_no_ext not in config.store.keys() or "EIS" not in config.store[file_name_no_ext].keys():
+                        config.store[file_name_no_ext] = {}
+                        config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
+                        EIS_tmp = config.store[file_name_no_ext]['EIS']
+                        EIS_tmp.filename = os.path.basename(file)
+                        EIS_tmp.import_data_DRT()
 
-                    config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(CNLS)
-                    CNLS_tmp = config.store[file_name_no_ext]['CNLS']
-                    CNLS_tmp.file_folder = config.folder_path
-                    CNLS_tmp.filename = os.path.basename(file)
-                    CNLS_tmp.ImportCircuit()
-                    if idx == len(config.file_list) - 1:
-                        EIS.filename = os.path.basename(file)
-                        EIS.import_data()
-                        CNLS.file_folder = config.folder_path
-                        CNLS.filename = os.path.basename(file)
-                        CNLS.ImportCircuit()
+                        if idx == len(config.file_list) - 1:
+                            EIS.filename = os.path.basename(file)
+                            EIS.import_data_DRT()
+                            print(f"---- DRT data imported from {file} successfully.")
+                    elif config.store['beacon_DRT_import']:
+                        EIS_tmp = config.store[file_name_no_ext]['EIS']
+                        EIS_tmp.filename = os.path.basename(file)
+                        EIS_tmp.import_data_DRT()
 
-                        print(f"---- Data imported from {file} successfully.")
+                        if idx == len(config.file_list) - 1:
+                            EIS.filename = os.path.basename(file)
+                            EIS.import_data_DRT()
+                            print(f"---- DRT data imported from {file} successfully.")
+
+                if os.path.isdir(os.path.join(config.folder_path, "CNLS")) and "[Error]" not in file:
+                    if file_name_no_ext not in config.store.keys() or "CNLS" not in config.store[file_name_no_ext].keys():
+                        config.store[file_name_no_ext] = {}
+                        config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(CNLS)
+                        CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+                        CNLS_tmp.filename = os.path.basename(file)
+                        CNLS_tmp.ImportCircuit()
+                    
+                        if idx == len(config.file_list) - 1:
+                            CNLS.file_folder = config.folder_path
+                            CNLS.filename = os.path.basename(file)
+                            CNLS.import_data_DRT()
+                            print(f"---- CNLS data imported from {file} successfully.")
+            config.store['beacon_DRT_import'] = False
+
