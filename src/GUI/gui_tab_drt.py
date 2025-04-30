@@ -64,7 +64,7 @@ def callback_process_data(sender, app_data, config):
     """
     gui_utils.drt_functions.process_data(sender, app_data, config)
     gui_utils.drt_table.table_update(config)
-    # gui_utils.drt_plots.update_single_plots(config)
+    gui_utils.drt_plots.update_single_plots(config)
     # gui_utils.drt_plots.update_all_plots(config)
 
 # Main tab function for EIS

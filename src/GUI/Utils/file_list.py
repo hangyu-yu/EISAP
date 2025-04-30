@@ -100,6 +100,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                         config.store[file_name_no_ext] = {}
                         config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
                         EIS_tmp = config.store[file_name_no_ext]['EIS']
+                        EIS_tmp.file_folder = config.folder_path
                         EIS_tmp.filename = os.path.basename(file)
                         EIS_tmp.import_data_DRT()
 
@@ -109,10 +110,12 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             print(f"---- DRT data imported from {file} successfully.")
                     elif config.store['beacon_DRT_import']:
                         EIS_tmp = config.store[file_name_no_ext]['EIS']
+                        EIS_tmp.file_folder = config.folder_path
                         EIS_tmp.filename = os.path.basename(file)
                         EIS_tmp.import_data_DRT()
 
                         if idx == len(config.file_list) - 1:
+                            EIS.file_folder = config.folder_path
                             EIS.filename = os.path.basename(file)
                             EIS.import_data_DRT()
                             print(f"---- DRT data imported from {file} successfully.")
@@ -122,6 +125,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                         config.store[file_name_no_ext] = {}
                         config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(CNLS)
                         CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+                        CNLS_tmp.file_folder = config.folder_path
                         CNLS_tmp.filename = os.path.basename(file)
                         CNLS_tmp.ImportCircuit()
                     
@@ -131,4 +135,9 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             CNLS.import_data_DRT()
                             print(f"---- CNLS data imported from {file} successfully.")
             config.store['beacon_DRT_import'] = False
+    config.display_file = config.selected_files[0] if config.selected_files else None
+    if dpg.does_item_exist("combo_eis_plot_file"):
+        dpg.configure_item("combo_eis_plot_file", items = config.selected_files, default_value = config.display_file)
+    if dpg.does_item_exist("combo_drt_plot_file"):
+        dpg.configure_item("combo_drt_plot_file", items = config.selected_files, default_value = config.display_file)
 

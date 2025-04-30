@@ -69,25 +69,25 @@ def table_update(config):
                                         dpg.add_table_column(label="Im [Ohm·cm2]", width_stretch=True)
                                         if config.display_file is not None and config.display_file != []:
                                             data = config.store[os.path.splitext(config.display_file)[0]]['EIS']
-                                            if os.path.splitext(config.display_file)[0] in config.store.keys() and data[f"tknv_{data_type}"]:
-                                                for idx in range(len(data[f"tknv_{data_type}"][data_category]['f'])):
+                                            if os.path.splitext(config.display_file)[0] in config.store.keys() and data[f'tknv_{data_type}']:
+                                                for idx in range(len(data[f'tknv_{data_type}'][data_category]['f'])):
                                                     with dpg.table_row():
                                                         dpg.add_text(f"{idx + 1}")
-                                                        dpg.add_text(f"{data[f"tknv_{data_type}"][data_category]['f'][idx]:.2f}")
-                                                        dpg.add_text(f"{data[f"tknv_{data_type}"][data_category]['g'][idx]:.6f}")
-                                                        dpg.add_text(f"{data[f"tknv_{data_type}"][data_category]['Re'][idx]:.6f}")
-                                                        dpg.add_text(f"{data[f"tknv_{data_type}"][data_category]['Im'][idx]:.6f}")
+                                                        dpg.add_text(f"{data[f'tknv_{data_type}'][data_category]['f'][idx]:.2f}")
+                                                        dpg.add_text(f"{data[f'tknv_{data_type}'][data_category]['g'][idx]:.6f}")
+                                                        dpg.add_text(f"{data[f'tknv_{data_type}'][data_category]['Re'][idx]:.6f}")
+                                                        dpg.add_text(f"{data[f'tknv_{data_type}'][data_category]['Im'][idx]:.6f}")
                                     else:
                                         if config.display_file is not None and config.display_file != []:
                                             data = config.store[os.path.splitext(config.display_file)[0]]['EIS']
-                                            if os.path.splitext(config.display_file)[0] in config.store.keys() and data[f"tknv_{data_type}"]:
+                                            if os.path.splitext(config.display_file)[0] in config.store.keys() and data[f'tknv_{data_type}']:
                                                 dpg.add_table_column(label="Fitted resistances", width_stretch=True)
                                                 dpg.add_table_column(label="Resistance values [Ohm·cm2]", width_stretch=True)
                                                 for item in ["L-Re", "Rohm-Re", "Rpol-Re", "L-Im", "Rohm-Im", "Rpol-Im","L-ReIm", "Rohm-ReIm", "Rpol-ReIm"]:
                                                     item_idx = item.replace("-", "_").replace("ohm", "s").replace("pol", "p")
                                                     with dpg.table_row():
                                                         dpg.add_text(item)
-                                                        dpg.add_text(f"{float(data[f"tknv_{data_type}"]['RL'][item_idx]):.6f}")
+                                                        dpg.add_text(f"{float(data[f'tknv_{data_type}']['RL'][item_idx]):.6f}")
                                     if dpg.does_item_exist(f"tab_drt_{data_category}_data_table"):    
                                         dpg.bind_item_theme(f"tab_drt_{data_type}_{data_category}_data_table", table_theme)
                             else:
