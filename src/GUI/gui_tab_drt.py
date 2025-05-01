@@ -30,9 +30,16 @@ def display_file(sender, app_data, config):
     """
     # Update the displayed file name in the GUI
     config.display_file = dpg.get_value(sender)
-    dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
+    try:
+        dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
+    except:
+        dpg.set_value("text_optimal_lambda", "Non-calculated")
     
     # Print the selected file for debugging
+    gui_utils.drt_plots.update_single_plots(config)
+    gui_utils.eis_plots.update_single_plots(config)
+    gui_utils.drt_table.table_update(config)
+    gui_utils.eis_table.table_update(config)
     print(f"---- File to plot: {config.display_file}")
 
 def lambda_mode_callback(sender, app_data, EIS):

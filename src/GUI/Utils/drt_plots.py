@@ -76,8 +76,11 @@ def update_single_plots(config):
                     with dpg.plot(tag=f"tab_drt_{data_type}_data_plot_single", width=-1, height=-1, no_menus=True):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
+                        y_max_value = 0
                         for category in ["ReIm", "Re", "Im"]:
-                            dpg.set_axis_limits(y_axis, 0, np.max(data[f"tknv_{data_type}"][category]['g']) * 1.1)
+                            if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
+                                y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
+                            dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
                             _add_series_to_plot(
                                 {'f': data[f"tknv_{data_type}"][category]['f'], 'y': data[f"tknv_{data_type}"][category]['g']},
                                 y_axis, category
@@ -138,6 +141,7 @@ def update_all_plots(config):
                             )
                             
                             # 遍历所有文件并添加数据
+                            y_max_value = 0
                             for file_name in config.selected_files:
                                 file_key = os.path.splitext(file_name)[0]
                                 if file_key in config.store and 'EIS' in config.store[file_key]:
@@ -152,8 +156,10 @@ def update_all_plots(config):
                                             label=f"{file_key}",
                                             is_line=True
                                         )
-                            
-                            dpg.set_axis_limits(y_axis, 0, np.max(data[f"tknv_{data_type}"][category]['g']) * 1.1)
+                                        if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
+                                            y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
+
+                            dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
                             
                             # 添加图例
                             dpg.add_plot_legend(

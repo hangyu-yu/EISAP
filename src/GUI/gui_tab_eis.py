@@ -96,6 +96,13 @@ def display_file(sender, app_data, config):
     # Update the displayed file name in the GUI
     config.display_file = dpg.get_value(sender)
     
+    gui_utils.eis_table.table_update(config)
+    gui_utils.eis_plots.update_single_plots(config)
+    try:
+        gui_utils.drt_table.table_update(config)
+        gui_utils.drt_plots.update_single_plots(config)
+    except:
+        pass
     # Print the selected file for debugging
     print(f"---- File to plot: {config.display_file}")
 

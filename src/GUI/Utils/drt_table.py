@@ -67,7 +67,7 @@ def table_update(config):
                                         dpg.add_table_column(label="g [Ohm·s·cm2]", width_stretch=True)
                                         dpg.add_table_column(label="Re [Ohm·cm2]", width_stretch=True)
                                         dpg.add_table_column(label="Im [Ohm·cm2]", width_stretch=True)
-                                        if config.display_file is not None and config.display_file != []:
+                                        if config.display_file is not None and config.display_file != [] and os.path.splitext(config.display_file)[0] in config.store.keys() and config.store[os.path.splitext(config.display_file)[0]]['EIS'][f'tknv_{data_type}']:
                                             data = config.store[os.path.splitext(config.display_file)[0]]['EIS']
                                             if os.path.splitext(config.display_file)[0] in config.store.keys() and data[f'tknv_{data_type}']:
                                                 for idx in range(len(data[f'tknv_{data_type}'][data_category]['f'])):

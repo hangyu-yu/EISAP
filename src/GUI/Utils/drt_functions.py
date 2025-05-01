@@ -38,7 +38,7 @@ def lambdaopt(sender, app_data, config):
 
     dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
     dpg.set_value("text_average_lambda", f"{float(lambdaopt_tmp / len(config.selected_files)):.4e}")
-    print(f"---- Optimal lambda has been calculated successfully for {file_name_no_ext}.")
+    print(f"---- Optimal lambda has been calculated successfully for all selected files.")
         
 def process_data(sender, app_data, config):
     print("-- Processing DRT data based on tikhonov method...")
