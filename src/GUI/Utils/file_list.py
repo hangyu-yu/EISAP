@@ -2,6 +2,7 @@ import os
 import glob
 import copy
 import dearpygui.dearpygui as dpg
+import src.GUI.Utils as gui_utils
 
 def select_files(config, tag):
     """
@@ -150,3 +151,34 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
     if dpg.does_item_exist("combo_drt_plot_file"):
         dpg.configure_item("combo_drt_plot_file", items = config.selected_files, default_value = config.display_file)
 
+
+def display_file(sender, app_data, config):
+    """
+    Callback function to display the selected file in the combo box.
+    """
+    # Update the displayed file name in the GUI
+    config.display_file = dpg.get_value(sender)
+
+    # Update optimal lambda value in the DRT tab
+    try:
+        dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
+    except:
+        dpg.set_value("text_optimal_lambda", "Non-calculated")
+    
+    # Update the EIS table and plots
+    try:
+        gui_utils.eis_table.table_update(config)
+        gui_utils.eis_plots.update_single_plots(config)
+    except:
+        print("------ EIS plots update failed. Please check the EIS data.")
+        pass
+    
+    # Udpate the DRT table and plots
+    try:
+        gui_utils.drt_table.table_update(config)
+        gui_utils.drt_plots.update_single_plots(config)
+    except:
+        print("------ DRT plots update failed. Please check the DRT data.")
+        pass
+    # Print the selected file for debugging
+    print(f"---- File to plot: {config.display_file}")

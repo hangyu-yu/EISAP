@@ -89,23 +89,6 @@ def file_selector_cancel_callback(sender, app_data):
     print("Sender: ", sender)
     print("App Data: ", app_data)
 
-def display_file(sender, app_data, config):
-    """
-    Callback function to display the selected file in the combo box.
-    """
-    # Update the displayed file name in the GUI
-    config.display_file = dpg.get_value(sender)
-    
-    gui_utils.eis_table.table_update(config)
-    gui_utils.eis_plots.update_single_plots(config)
-    try:
-        gui_utils.drt_table.table_update(config)
-        gui_utils.drt_plots.update_single_plots(config)
-    except:
-        pass
-    # Print the selected file for debugging
-    print(f"---- File to plot: {config.display_file}")
-
 def callback_process_data(sender, app_data, EIS, config):
     """
     Callback function to process and update EIS data in the GUI.
@@ -302,7 +285,7 @@ def gui_tab_eis(config, EIS, CNLS):
                             default_value = config.display_file,
                             width = -1,
                             items = config.selected_files,
-                            callback=lambda s, a: display_file(s, a, config)
+                            callback=lambda s, a: gui_utils.file_list.display_file(s, a, config)
                     )
                 
                 # Window for the data display
