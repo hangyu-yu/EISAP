@@ -255,7 +255,7 @@ def gui_tab_soceis(config, EIS, CNLS):
         # Add the buttons
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="command_buttons_spacer")
-            with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="child_window_tool_box_soceis"):
+            with dpg.child_window(width=viewport_width*0.5, height=-1, horizontal_scrollbar=True, menubar=True, tag="child_window_tool_box_soceis"):
                 with dpg.menu_bar():
                     with dpg.menu(label="Tool box"):
                         dpg.add_menu_item(label="") 

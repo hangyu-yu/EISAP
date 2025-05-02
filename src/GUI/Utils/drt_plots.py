@@ -60,7 +60,7 @@ def _update_nyquist_plot(data, parent_tag, data_category):
 def update_single_plots(config):
     """Update single-file DRT plots."""
     print("-- Updating DRT single plots...")
-    if not config.display_file or os.path.splitext(config.display_file)[0] not in config.store:
+    if config.display_file is None or os.path.splitext(config.display_file)[0] not in config.store or config.store[os.path.splitext(config.display_file)[0]]['EIS'].tknv_truncated is None:
         print("---- Skipped: No valid file selected.")
         return
 
