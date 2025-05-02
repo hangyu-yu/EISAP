@@ -1,5 +1,6 @@
 import os
 import json
+import numpy as np
 
 class Config:
     def __init__(self, config_file="config.json"):

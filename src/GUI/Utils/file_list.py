@@ -93,10 +93,11 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
             for idx, file in enumerate(config.file_list):
                 file_name_no_ext = os.path.splitext(os.path.basename(file))[0]
                 if os.path.isdir(os.path.join(config.folder_path, "EIS")) and "[Error]" not in file:
-                    if file_name_no_ext not in config.store.keys() or "EIS" not in config.store[file_name_no_ext].keys():
+                    if file_name_no_ext not in config.store.keys() or "EIS" not in config.store[file_name_no_ext].keys() or config.store[file_name_no_ext]['EIS'].raw['Re'] is None:
                         config.store[file_name_no_ext] = {}
                         config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
                         EIS_tmp = config.store[file_name_no_ext]['EIS']
+                        EIS_tmp.file_folder = config.folder_path
                         EIS_tmp.filename = os.path.basename(file)
                         EIS_tmp.import_data_EIS()
                     
@@ -131,7 +132,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             print(f"---- DRT data imported from {file} successfully.")
 
                 if os.path.isdir(os.path.join(config.folder_path, "CNLS")) and "[Error]" not in file:
-                    if file_name_no_ext not in config.store.keys() or "CNLS" not in config.store[file_name_no_ext].keys():
+                    if file_name_no_ext not in config.store.keys() and "CNLS" not in config.store[file_name_no_ext].keys():
                         config.store[file_name_no_ext] = {}
                         config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(CNLS)
                         CNLS_tmp = config.store[file_name_no_ext]['CNLS']

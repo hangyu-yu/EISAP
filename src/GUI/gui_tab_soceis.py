@@ -1,7 +1,8 @@
 import os
-import dearpygui.dearpygui as dpg
 import glob
+import src.GUI as gui
 import src.GUI.Utils as gui_utils
+import dearpygui.dearpygui as dpg
 
 """
 SOCEIS GUI Module Documentation
@@ -120,6 +121,8 @@ def update_image_sizes():
     dpg.configure_item("welcome_text", wrap=int(viewport_width * 0.5))
     dpg.configure_item("version_text", wrap=int(viewport_width * 0.04))
 
+
+
 # Functions for file dialog callbacks
 def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
     """
@@ -129,6 +132,9 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
     print("Sender: ", sender)
     print("App Data: ", app_data)
     config.folder_path = app_data['file_path_name']
+    EIS.file_folder = config.folder_path
+    CNLS.file_folder = config.folder_path
+    config.store['beacon_DRT_import'] = True
     print("Folder path:", config.folder_path)
     dpg.set_value("selected_directory", config.folder_path)
     gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
@@ -160,7 +166,7 @@ def gui_tab_soceis(config, EIS, CNLS):
 
     images = load_images(icon_path, picture_list) # Load images and their properties
 
-    with dpg.tab(label="SOCEIS", tag="tab_soceis"):
+    with dpg.tab(label="SOCEIS", tag="tab_soceis", parent="tab_bar_main"):
         # Create texture registry
         create_texture_registry(images)
 
@@ -249,9 +255,14 @@ def gui_tab_soceis(config, EIS, CNLS):
         # Add the buttons
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="command_buttons_spacer")
-            dpg.add_button(label="EIS analysis", callback=())
-            dpg.add_button(label="DRT analysis", callback=())
-            dpg.add_button(label="CNLS fitting", callback=())
+            with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="child_window_tool_box_soceis"):
+                with dpg.menu_bar():
+                    with dpg.menu(label="Tool box"):
+                        dpg.add_menu_item(label="") 
+                with dpg.group(horizontal=True, horizontal_spacing=10):
+                    dpg.add_button(label="EIS analysis", callback=lambda: gui.gui_tab_eis(config, EIS, CNLS))
+                    dpg.add_button(label="DRT analysis", callback=lambda: gui.gui_tab_drt(config, EIS, CNLS))
+                    dpg.add_button(label="CNLS fitting", callback=lambda: gui.gui_tab_cnls(config, EIS, CNLS))
 
     # Set up viewport resize callback using correct API
     dpg.set_viewport_resize_callback(update_image_sizes)

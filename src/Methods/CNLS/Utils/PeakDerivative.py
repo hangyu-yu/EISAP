@@ -15,7 +15,7 @@ def gaussian(x, *params):
     return y
 
 # Function to analyze peaks in the derivative of a signal
-def peak_derivative(drt, f, mode, nbr_peaks_fixed=None, f_fixed=None):
+def peak_derivative(drt, f, mode, nbr_peaks_fixed=5, f_fixed=None):
     fmin = np.min(f)  # Minimum frequency
     fmax = np.max(f)  # Maximum frequency
 
@@ -39,17 +39,22 @@ def peak_derivative(drt, f, mode, nbr_peaks_fixed=None, f_fixed=None):
 
     # Peak selection based on the specified mode
     if mode == 'manual':
-        # Plot the signal and allow the user to manually select peaks
+        nbr_peaks = nbr_peaks_fixed
+        
+        # Plot the graph
         plt.semilogx(f, drt, '-b', f_peak_shoulder, x_peak_shoulder, 'r*')
         plt.xlim([0.1 * fmin, 10 * fmax])
         plt.axvline(fmin, linestyle=':', color='k', linewidth=1.5)
         plt.axvline(fmax, linestyle=':', color='k', linewidth=1.5)
-        plt.show()
 
-        nbr_peaks = int(input("Number of peaks from high frequency to low frequency: "))  # User inputs the number of peaks
-        f_input, y_input = plt.ginput(nbr_peaks, timeout=0)  # User selects peaks
-        f_input = np.array(f_input)
-        y_input = np.array(y_input)
+        # Get user-selected points
+        points = plt.ginput(nbr_peaks, timeout=0)  # This returns a list of (x, y) tuples
+        plt.show()
+        
+        # Extract x and y coordinates into separate arrays
+        f_input = np.array([p[0] for p in points])  # Extract all x-coordinates
+        y_input = np.array([p[1] for p in points])  # Extract all y-coordinates
+
 
     elif mode == 'auto':
         # Automatically use detected peaks and shoulders

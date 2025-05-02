@@ -25,7 +25,7 @@ EIS = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=None, n_cell=None, file
 Plot_data = True
 Save_data = False
 
-Data_type = 'truncated' # 'raw', 'truncated', 'LCcorrected', 'smooth', 'extrapolation'
+Data_type = 'smooth_DRT' # 'raw', 'truncated', 'LCcorrected', 'smooth', 'extrapolation', 'smooth_KK', 'smooth_DRT'
 
 # 03 - Data processing
 for file in txt_files:
@@ -36,22 +36,25 @@ for file in txt_files:
         EIS.filename = filename
         print('---- File loaded:', file)
         print('-- File name:', filename)
-        EIS.import_data()
+        EIS.import_data_DRT()
+        EIS.import_data_EIS()
     # Initiate the CNLS fit class
     CNLS = Circuit(file_folder=Folder_Path, filename=filename, Elements = None, EIS = EIS, data_type = Data_type)
+    # CNLS.ImportCircuit()
 
     # Get the initial guess based on the Gaussian fit
-    f_fixed = np.array([1e5, 1.3e3, 2e2, 3e1, 3e0, 3e-1])
-    R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS.PeakDerivative('fixed', f_fixed=f_fixed, nbr_peaks_fixed=len(f_fixed))
-    R_est = R_est*EIS['tknv_' + Data_type]['RL']['Rp_ReIm']/np.sum(R_est)
+    CNLS.f_fixed = np.array([1e5, 1.3e3, 2e2, 3e1, 3e0, 3e-1])
+    CNLS.f_mode  = 'fixed'
+    R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS.PeakDerivative(CNLS.f_mode, f_fixed=CNLS.f_fixed, nbr_peaks_fixed=len(CNLS.f_fixed))
+    R_est = R_est*EIS['tknv_' + Data_type.replace('_KK', '').replace('_DRT', '')]['RL']['Rp_ReIm']/np.sum(R_est)
 
     # Data import
     # CNLS.ImportCircuit()
 
     # Define the elements based on the Gaussian fit results
     CNLS.Elements = [
-        {'name': 'L1', 'type': 'Inductor', 'Param': [EIS['tknv_' + Data_type]['RL']['L_ReIm']], 'Ub': [], 'Lb': []},
-        {'name': 'R2', 'type': 'Resistor', 'Param': [EIS['tknv_' + Data_type]['RL']['Rs_ReIm']], 'Ub': [], 'Lb': []},
+        {'name': 'L1', 'type': 'Inductor', 'Param': [EIS['tknv_' + Data_type.replace('_KK', '').replace('_DRT', '')]['RL']['L_ReIm']], 'Ub': [], 'Lb': []},
+        {'name': 'R2', 'type': 'Resistor', 'Param': [EIS['tknv_' + Data_type.replace('_KK', '').replace('_DRT', '')]['RL']['Rs_ReIm']], 'Ub': [], 'Lb': []},
         {'name': 'RQ3', 'type': 'RQ', 'Param': [R_est[0], tau_est[0], alpha_est[0]], 'Ub': [], 'Lb': []},
         {'name': 'RQ4', 'type': 'RQ', 'Param': [R_est[1], tau_est[1], alpha_est[1]], 'Ub': [], 'Lb': []},
         {'name': 'RQ5', 'type': 'RQ', 'Param': [R_est[2], tau_est[2], alpha_est[2]], 'Ub': [], 'Lb': []},

@@ -1,9 +1,9 @@
 import os
-import dearpygui.dearpygui as dpg
 import glob
 import numpy as np
 import pandas as pd
 import src.GUI.Utils as gui_utils
+import dearpygui.dearpygui as dpg
 
 # Callback function to handle the options
 def update_child_window_size():
@@ -68,7 +68,7 @@ def gui_tab_drt(config, EIS, CNLS):
             dpg.add_theme_color(dpg.mvThemeCol_Button, (15, 86, 135, 255))  # Background color (blue)
             dpg.add_theme_color(dpg.mvThemeCol_Text, (255, 255, 255, 255))  # Text color (white)
 
-    with dpg.tab(label="DRT", tag="tab_drt"):
+    with dpg.tab(label="DRT", tag="tab_drt", parent="tab_bar_main"):
         with dpg.group(horizontal=True):
             with dpg.group():
                 # Window for file list
@@ -87,9 +87,9 @@ def gui_tab_drt(config, EIS, CNLS):
                         policy=dpg.mvTable_SizingStretchSame
                     ):
                         # Two columns for the sample name and the sample type
-                        dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//6))
-                        dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//12))
-                        dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//12))
+                        dpg.add_table_column(tag="drt_parameter_column1", width_fixed=True, init_width_or_weight=int(viewport_width//6))
+                        dpg.add_table_column(tag="drt_parameter_column2", width_fixed=True, init_width_or_weight=int(viewport_width//12))
+                        dpg.add_table_column(tag="drt_parameter_column3", width_fixed=True, init_width_or_weight=int(viewport_width//12))
                         
                         # Table content
                         with dpg.table_row():

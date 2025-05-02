@@ -1,9 +1,9 @@
 import os
-import dearpygui.dearpygui as dpg
 import glob
 import numpy as np
 import pandas as pd
 import src.GUI.Utils as gui_utils
+import dearpygui.dearpygui as dpg
 
 # Callback function to handle the options
 def update_child_window_size():
@@ -110,20 +110,12 @@ def gui_tab_eis(config, EIS, CNLS):
             dpg.add_theme_color(dpg.mvThemeCol_Button, (15, 86, 135, 255))  # Background color (blue)
             dpg.add_theme_color(dpg.mvThemeCol_Text, (255, 255, 255, 255))  # Text color (white)
 
-    with dpg.tab(label="EIS", tag="tab_eis"):
+    with dpg.tab(label="EIS", tag="tab_eis", parent="tab_bar_main"):
         with dpg.group(horizontal=True):
             with dpg.group():
                 # Window for file list
                 with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.2), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_eis"):
                     gui_utils.file_list.update_file_list(config, "child_window_file_list_eis", EIS, CNLS)
-                    # Monitor function to be updated
-                    # gui_utils.file_monitor.bind_tab_switch_update(
-                    #     tab_tag="tab_eis",
-                    #     config=config,
-                    #     update_callback=lambda: gui_utils.file_list.update_file_list(
-                    #         config, "child_window_file_list_eis"
-                    #     )
-                    # )
 
                 # Window for the parameters
                 with dpg.child_window(width=int(viewport_width * 0.33), height=int(viewport_height * 0.285), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_eis"):

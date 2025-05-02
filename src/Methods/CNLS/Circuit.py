@@ -54,10 +54,16 @@ class Circuit:
             print('---- DRT parameters not provided, please define f, w, DRTmes, Zmes, and DRTparameters.')
         else:
             self.DRTparameters = EIS.parameter['DRT'] # DRT parameters
-            self.Zmes  = EIS[self.data_type]['Z'] # Measured impedance data
-            self.DRTmes = EIS['tknv_' + self.data_type]['ReIm']['g'] # Measured DRT data
-            self.f = EIS[self.data_type]['f'] # Frequency array
-            self.w = self.f*(2*np.pi)    # Angular frequency array
+            if self.data_type == 'smooth_DRT':
+                self.Zmes  = EIS['tknv_truncated']['ReIm']['Re'] + EIS['tknv_truncated']['ReIm']['Im']*1j # Measured impedance data
+                self.DRTmes = EIS['tknv_truncated']['ReIm']['g'] # Measured DRT data
+                self.f = EIS['tknv_truncated']['ReIm']['f'] # Frequency array
+                self.w = self.f*(2*np.pi)    # Angular frequency array
+            else:
+                self.Zmes  = EIS[self.data_type.replace('_KK', '')]['Z'] # Measured impedance data
+                self.DRTmes = EIS['tknv_' + self.data_type.replace('_KK', '')]['ReIm']['g'] # Measured DRT data
+                self.f = EIS[self.data_type.replace('_KK', '')]['f'] # Frequency array
+                self.w = self.f*(2*np.pi)    # Angular frequency array
         self.Ztot0 = None # Initial total impedance
         self.Z0    = None # Initial impedance for each angular frequency
         self.Ztot  = None # Total impedance of the circuit
@@ -65,6 +71,9 @@ class Circuit:
         self.DRT   = None # DRT data
         self.ElementDRTs = None # DRT for each element
         self.store = {} # Store all the mess
+        self.iteration = 5 # Number of iterations for the fit
+        self.f_fixed = None # Fixed frequencies for peak identification
+        self.f_mode = 'fixed'
         
         # Initialize lists to store circuit elements configuration
         self.Elements = Elements     # List to store circuit elements
@@ -117,6 +126,19 @@ class Circuit:
             if 'name' in element and element['name'] in self.display_name:
                 raise ValueError(f"Duplicate element name found: {element['name']}")
             self.display_name.add(element.get('name', ''))
+        
+        # Check if the elements are imported
+        if self.Elements != []:
+            self.ElementsType = []
+        if self.ElementsParamValues != []:
+            self.ElementsParamValues = []
+        if self.ElementsParamVariance != []:
+            self.ElementsParamVariance = []
+        if self.ElementsParamNames != []:
+            self.ElementsParamNames = []
+        if self.LowerBound != []:
+            self.LowerBound = []
+            self.UpperBound = []
 
         # Iterate over the elements and assign parameter names
         for element in self.Elements:
@@ -588,6 +610,7 @@ class Circuit:
                 "SumNormResiduals": [self.SumNormResiduals],
                 "dof": [self.dof],
                 "data_type": [self.data_type],
+                "fixed_frequencies": [self.f_fixed.tolist() if self.f_fixed is not None else None],
             }
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name="Summary", index=False)
@@ -677,6 +700,7 @@ class Circuit:
                     self.dof = df["dof"].iloc[0]
                     self.ElementsNames = eval(df["ElementsNames"].iloc[0])
                     self.ElementsType = eval(df["ElementsType"].iloc[0])
+                    self.f_fixed = eval(df["fixed_frequencies"].iloc[0])
                 elif sheet_name == "Elements":
                     # Extract elements-related data
                     self.ElementsParamNames = df["ElementsParamNames"].tolist()

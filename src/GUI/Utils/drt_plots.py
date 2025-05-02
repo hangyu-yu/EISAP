@@ -3,20 +3,20 @@ import numpy as np
 import dearpygui.dearpygui as dpg
 
 def _ensure_contiguous(data):
-    """确保NumPy数组是C连续的，并处理NaN值"""
+    """Ensure that NumPy arrays are C-contiguous and handle NaN values."""
     if isinstance(data, dict):
         return {k: np.ascontiguousarray(v) if isinstance(v, np.ndarray) else v for k, v in data.items()}
     return np.ascontiguousarray(data)
 
 def _create_plot_with_axes(parent_tag, width, height, x_label, y_label, log_x=False):
-    """创建带有坐标轴的绘图区域"""
+    """Create a plot area with axes."""
     with dpg.plot(tag=parent_tag, width=width, height=height, no_menus=True):
         dpg.add_plot_axis(dpg.mvXAxis, label=x_label, log_scale=log_x)
         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
         return y_axis
 
 def _add_series_to_plot(plot_data, y_axis, label, is_line=True):
-    """添加线或散点序列到绘图"""
+    """Add a line or scatter series to the plot."""
     x_data = _ensure_contiguous(plot_data['f'])
     y_data = _ensure_contiguous(plot_data['y'])
     if is_line:
@@ -25,7 +25,7 @@ def _add_series_to_plot(plot_data, y_axis, label, is_line=True):
         dpg.add_scatter_series(x_data, y_data, parent=y_axis, label=label)
 
 def _update_bode_plots(data, parent_tag, data_category):
-    """更新Bode图（Re和Im）"""
+    """Update Bode plots (Re and Im)."""
     # Real part (Z')
     y_axis_re = _create_plot_with_axes(
         f"{parent_tag}_Re", -1, int(dpg.get_viewport_height() * 0.25),
@@ -47,7 +47,7 @@ def _update_bode_plots(data, parent_tag, data_category):
     dpg.add_plot_legend(parent=f"{parent_tag}_Im")
 
 def _update_nyquist_plot(data, parent_tag, data_category):
-    """更新Nyquist图"""
+    """Update Nyquist plot."""
     y_axis = _create_plot_with_axes(
         f"{parent_tag}_ReIm", -1, -1,
         "Z' [Ohm·cm2]", "-Z'' [Ohm·cm2]"
@@ -58,7 +58,7 @@ def _update_nyquist_plot(data, parent_tag, data_category):
     dpg.add_plot_legend(parent=f"{parent_tag}_ReIm")
 
 def update_single_plots(config):
-    """更新单文件DRT绘图"""
+    """Update single-file DRT plots."""
     print("-- Updating DRT single plots...")
     if not config.display_file or os.path.splitext(config.display_file)[0] not in config.store:
         print("---- Skipped: No valid file selected.")
@@ -98,49 +98,49 @@ def update_single_plots(config):
     print("---- DRT single plots updated successfully.")
 
 def update_all_plots(config):
-    """更新多文件DRT对比绘图（仅gamma分布图）"""
+    """Update multi-file DRT comparison plots (gamma distribution only)."""
     print("-- Updating DRT gamma distribution plots...")
     
     if not config.selected_files:
         print("---- Skipped: No files selected.")
         return
 
-    # 定义数据类型和分类
+    # Define data types and categories
     data_types = ["truncated", "smooth", "LCcorrect", "extrapolation"]
     data_categories = ["ReIm", "Re", "Im"]
 
     for data_type in data_types:
-        # 删除旧Tab并创建新Tab
+        # Delete old tabs and create new tabs
         dpg.delete_item(f"tab_drt_{data_type}_plot_all")
         with dpg.tab(label=data_type.capitalize(), tag=f"tab_drt_{data_type}_plot_all", parent="tab_bar_drt_plot_all"):
             
-            # 在data_type下创建分类Tab栏
+            # Create category tabs under data_type
             dpg.delete_item(f"tab_bar_{data_type}_categories_all")
             with dpg.tab_bar(tag=f"tab_bar_{data_type}_categories_all", parent=f"tab_drt_{data_type}_plot_all"):
                 
                 for category in data_categories:
-                    # 删除旧分类Tab并创建新Tab
+                    # Delete old category tabs and create new tabs
                     dpg.delete_item(f"tab_drt_{data_type}_{category}_all")
                     with dpg.tab(label=category, tag=f"tab_drt_{data_type}_{category}_all"):
                         
-                        # 创建gamma分布图
+                        # Create gamma distribution plot
                         with dpg.plot(
                             tag=f"plot_gamma_{data_type}_{category}_all",
                             width=-1,
-                            height=-1,  # 自适应高度
+                            height=-1,  # Adaptive height
                             no_menus=True
                         ):
-                            # X轴（对数坐标）
+                            # X-axis (log scale)
                             dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                             
-                            # Y轴
+                            # Y-axis
                             y_axis = dpg.add_plot_axis(
                                 dpg.mvYAxis, 
                                 label="gamma [ohm·s·cm2]",
                                 tag=f"y_axis_{data_type}_{category}_all"
                             )
                             
-                            # 遍历所有文件并添加数据
+                            # Iterate through all files and add data
                             y_max_value = 0
                             for file_name in config.selected_files:
                                 file_key = os.path.splitext(file_name)[0]
@@ -161,10 +161,10 @@ def update_all_plots(config):
 
                             dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
                             
-                            # 添加图例
+                            # Add legend
                             dpg.add_plot_legend(
                                 parent=f"plot_gamma_{data_type}_{category}_all",
-                                location=dpg.mvPlot_Location_NorthEast  # 图例位置右上角
+                                location=dpg.mvPlot_Location_NorthEast  # Legend position at top-right
                             )
 
     print("---- DRT gamma distribution plots updated successfully.")

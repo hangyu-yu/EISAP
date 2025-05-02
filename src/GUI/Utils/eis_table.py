@@ -63,7 +63,7 @@ def table_update(config):
                         dpg.add_table_column(label="Z [Ohm·cm2]", width_stretch=True)
                         dpg.add_table_column(label="Phase [deg]", width_stretch=True)
                         if config.display_file is not None and config.display_file != []:
-                            if os.path.splitext(config.display_file)[0] in config.store.keys():
+                            if os.path.splitext(config.display_file)[0] in config.store.keys() and config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['f'] is not None:
                                 data = config.store[os.path.splitext(config.display_file)[0]]['EIS'][data_category]
                                 for idx in range(len(data['f'])):
                                     with dpg.table_row():
@@ -80,7 +80,7 @@ def table_update(config):
                         dpg.add_table_column(label="Re residual [%]", width_stretch=True)
                         dpg.add_table_column(label="Im residual [%]", width_stretch=True)
                         if config.display_file is not None and config.display_file != []:
-                            if os.path.splitext(config.display_file)[0] in config.store.keys():
+                            if os.path.splitext(config.display_file)[0] in config.store.keys() and config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['f'] is not None:
                                 data = config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data
                                 for idx in range(len(data['f'])):
                                     with dpg.table_row():

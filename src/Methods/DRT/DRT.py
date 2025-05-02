@@ -903,17 +903,18 @@ class DRT:
                     'Residuals': self.tknv_LCcorrect['ReIm']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_ReIm_crct', index=False)
 
-                pd.DataFrame({
-                    'L/ohm·cm2 - DRT_Re': [self.tknv_truncated['RL']['L_Re']],
-                    'Rohm/ohm·cm2 - DRT_Re': [self.tknv_truncated['RL']['Rs_Re']],
-                    'Rp/ohm·cm2 - DRT_Re': [self.tknv_truncated['RL']['Rp_Re']],
-                    'L/ohm·cm2 - DRT_Im': [self.tknv_truncated['RL']['L_Im']],
-                    'Rohm/ohm·cm2 - DRT_Im': [self.tknv_truncated['RL']['Rs_Im']],
-                    'Rp/ohm·cm2 - DRT_Im': [self.tknv_truncated['RL']['Rp_Im']],
-                    'L/ohm·cm2 - DRT_ReIm': [self.tknv_truncated['RL']['L_ReIm']],
-                    'Rohm/ohm·cm2 - DRT_ReIm': [self.tknv_truncated['RL']['Rs_ReIm']],
-                    'Rp/ohm·cm2 - DRT_ReIm': [self.tknv_truncated['RL']['Rp_ReIm']]
-                }).to_excel(writer, sheet_name='Resistance', index=False)
+                for data_cat in ['truncated', 'smooth', 'extrapolation', 'LCcorrect']:
+                    pd.DataFrame({
+                        'L/ohm·cm2 - DRT_Re': [self['tknv_'+data_cat]['RL']['L_Re']],
+                        'Rohm/ohm·cm2 - DRT_Re': [self['tknv_'+data_cat]['RL']['Rs_Re']],
+                        'Rp/ohm·cm2 - DRT_Re': [self['tknv_'+data_cat]['RL']['Rp_Re']],
+                        'L/ohm·cm2 - DRT_Im': [self['tknv_'+data_cat]['RL']['L_Im']],
+                        'Rohm/ohm·cm2 - DRT_Im': [self['tknv_'+data_cat]['RL']['Rs_Im']],
+                        'Rp/ohm·cm2 - DRT_Im': [self['tknv_'+data_cat]['RL']['Rp_Im']],
+                        'L/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['L_ReIm']],
+                        'Rohm/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['Rs_ReIm']],
+                        'Rp/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['Rp_ReIm']]
+                    }).to_excel(writer, sheet_name='Resistance_'+data_cat, index=False)
 
         print("-- DRT data saved.")
 
@@ -1029,28 +1030,32 @@ class DRT:
             return False
 
     def import_data_DRT(self):
-        """
-        Import DRT data from Excel file.
-        
-        Returns:
-        - True if import was successful, False otherwise
-        """
-        if self.filename is None:
-            print("[Error] No filename specified!")
-            return False
-            
-        file_to_import = os.path.splitext(self.filename)[0]
-        folder_drt = os.path.join(self.file_folder, 'DRT')
-        drt_file = os.path.join(folder_drt, f"{file_to_import}.xlsx")
-        
-        if not os.path.exists(drt_file):
-            print(f"[Error] DRT file not found: {drt_file}")
-            return False
-        
+        """Import DRT data from Excel in a single function."""
         try:
+            # 1. Validate input file
+            if self.filename is None:
+                raise ValueError("No filename specified")
+                
+            file_to_import = os.path.splitext(self.filename)[0]
+            folder_drt = os.path.join(self.file_folder, 'DRT')
+            drt_file = os.path.join(folder_drt, f"{file_to_import}.xlsx")
+            
+            if not os.path.exists(drt_file):
+                raise FileNotFoundError(f"DRT file not found: {drt_file}")
+
             print(f"-- Importing DRT data from {drt_file}...")
             
-            # Import DRT parameters
+            # 2. Initialize data structure
+            self.tknv_truncated = {'RL': {
+                'Rs_Re': None, 'Rp_Re': None, 'L_Re': None,
+                'Rs_Im': None, 'Rp_Im': None, 'L_Im': None,
+                'Rs_ReIm': None, 'Rp_ReIm': None, 'L_ReIm': None
+            }}
+            self.tknv_smooth = {'RL': dict(self.tknv_truncated['RL'])}
+            self.tknv_extrapolation = {'RL': dict(self.tknv_truncated['RL'])}
+            self.tknv_LCcorrect = {'RL': dict(self.tknv_truncated['RL'])}
+            
+            # 3. Import parameter table
             try:
                 drt_params = pd.read_excel(drt_file, sheet_name='DRT_Parameters')
                 self.parameter['DRT']['lambda'] = float(drt_params['lambda'].values[0])
@@ -1063,81 +1068,62 @@ class DRT:
                 self.parameter['LambdaOpt']['lampda_opt'] = bool(drt_params['lampda_opt'].values[0])
                 self.parameter['LambdaOpt']['PlotFig'] = bool(drt_params['PlotFig'].values[0])
             except Exception as e:
-                print(f"---- 'DRT_Parameters' sheet not found or could not be read: {str(e)}")
+                print(f"---- Failed to import parameters: {str(e)}")
             
-            # Initialize the tknv dictionaries if they don't exist
-            self.tknv_truncated = {}
-            self.tknv_smooth = {}
-            self.tknv_extrapolation = {}
-            self.tknv_LCcorrect = {}
-            
-            # Create RL dictionaries for each tknv type
-            for tknv_dict in [self.tknv_truncated, self.tknv_smooth, self.tknv_extrapolation, self.tknv_LCcorrect]:
-                tknv_dict['RL'] = {
-                    'Rs_Re': None, 'Rp_Re': None, 'L_Re': None,
-                    'Rs_Im': None, 'Rp_Im': None, 'L_Im': None,
-                    'Rs_ReIm': None, 'Rp_ReIm': None, 'L_ReIm': None
-                }
-            
-            # Sheet mapping configuration
+            # 4. Define data table mapping
             sheet_map = {
-                ('Re', ''): 'Tknv_Re',
-                ('Im', ''): 'Tknv_Im',
-                ('ReIm', ''): 'Tknv_ReIm',
-                ('Re', 's'): 'Tknv_Re_s',
-                ('Im', 's'): 'Tknv_Im_s',
-                ('ReIm', 's'): 'Tknv_ReIm_s',
-                ('Re', 'e'): 'Tknv_Re_e',
-                ('Im', 'e'): 'Tknv_Im_e',
-                ('ReIm', 'e'): 'Tknv_ReIm_e',
-                ('Re', 'crct'): 'Tknv_Re_crct',
-                ('Im', 'crct'): 'Tknv_Im_crct',
-                ('ReIm', 'crct'): 'Tknv_ReIm_crct'
+                ('Re', ''): ('Tknv_Re', 'truncated'),
+                ('Im', ''): ('Tknv_Im', 'truncated'),
+                ('ReIm', ''): ('Tknv_ReIm', 'truncated'),
+                ('Re', 's'): ('Tknv_Re_s', 'smooth'),
+                ('Im', 's'): ('Tknv_Im_s', 'smooth'),
+                ('ReIm', 's'): ('Tknv_ReIm_s', 'smooth'),
+                ('Re', 'e'): ('Tknv_Re_e', 'extrapolation'),
+                ('Im', 'e'): ('Tknv_Im_e', 'extrapolation'),
+                ('ReIm', 'e'): ('Tknv_ReIm_e', 'extrapolation'),
+                ('Re', 'crct'): ('Tknv_Re_crct', 'LCcorrect'),
+                ('Im', 'crct'): ('Tknv_Im_crct', 'LCcorrect'),
+                ('ReIm', 'crct'): ('Tknv_ReIm_crct', 'LCcorrect')
             }
             
-            # Import resistance data once
-            resistance_data = pd.read_excel(drt_file, sheet_name='Resistance')
-            
-            # Import all available tknv data sheets
-            for (type_key, suffix), sheet_name in sheet_map.items():
+            # 5. Import all data tables
+            for (data_type, suffix), (sheet_name, data_cat) in sheet_map.items():
                 try:
+                    # Get target dictionary
+                    target_dict = getattr(self, f'tknv_{data_cat}')
+                    
+                    # Read data
                     tknv_data = pd.read_excel(drt_file, sheet_name=sheet_name)
                     
-                    # Determine target dictionary based on suffix
-                    target_dict = {
-                        '': self.tknv_truncated,
-                        's': self.tknv_smooth,
-                        'e': self.tknv_extrapolation,
-                        'crct': self.tknv_LCcorrect
-                    }[suffix]
+                    # Store data
+                    if data_type not in target_dict:
+                        target_dict[data_type] = {}
                     
-                    # Store the data
-                    if type_key not in target_dict:
-                        target_dict[type_key] = {}
+                    target_dict[data_type]['f'] = tknv_data['Frequency/Hz'].values
+                    target_dict[data_type]['g'] = tknv_data['gamma/ohm·s·cm2'].values
+                    target_dict[data_type]['Re'] = tknv_data['Re/ohm·cm2'].values
+                    target_dict[data_type]['Im'] = tknv_data['Im/ohm·cm2'].values
+                    target_dict[data_type]['Residuals'] = tknv_data['Residuals'].values
                     
-                    target_dict[type_key]['f'] = tknv_data['Frequency/Hz'].values
-                    target_dict[type_key]['g'] = tknv_data['gamma/ohm·s·cm2'].values
-                    target_dict[type_key]['Re'] = tknv_data['Re/ohm·cm2'].values
-                    target_dict[type_key]['Im'] = tknv_data['Im/ohm·cm2'].values
-                    target_dict[type_key]['Residuals'] = tknv_data['Residuals'].values
-                    
-                    # Set resistance values
-                    if suffix == '':
-                        prefix = type_key.replace('Im', 'Im').replace('ReIm', 'ReIm')  # Normalize key
-                        target_dict['RL'][f'Rs_{prefix}'] = resistance_data[f'Rohm/ohm·cm2 - DRT_{prefix}'].values[0]
-                        target_dict['RL'][f'Rp_{prefix}'] = resistance_data[f'Rp/ohm·cm2 - DRT_{prefix}'].values[0]
-                        target_dict['RL'][f'L_{prefix}'] = resistance_data[f'L/ohm·cm2 - DRT_{prefix}'].values[0]
-                    
+                    # Import resistance data
+                    res_sheet = f'Resistance_{data_cat}'
+                    resistance_data = pd.read_excel(drt_file, sheet_name=res_sheet)
+                    prefix = data_type.replace('Im', 'Im').replace('ReIm', 'ReIm')
+                    target_dict['RL'][f'L_{prefix}'] = resistance_data[f'L/ohm·cm2 - DRT_{prefix}'].values[0]
+                    target_dict['RL'][f'Rs_{prefix}'] = resistance_data[f'Rohm/ohm·cm2 - DRT_{prefix}'].values[0]
+                    target_dict['RL'][f'Rp_{prefix}'] = resistance_data[f'Rp/ohm·cm2 - DRT_{prefix}'].values[0]
+                        
                 except Exception as e:
-                    print(f"---- Sheet {sheet_name} not found or could not be read: {str(e)}")
-            
+                    print(f"---- Failed to import {sheet_name}: {str(e)}")
+
             print("---- DRT data import successful!")
             return True
             
         except Exception as e:
-            print(f"[Error] Failed to import DRT data: {str(e)}")
+            print(f"[Error] DRT import failed: {str(e)}")
             traceback.print_exc()
             return False
+
         
     # Function to get data
     def __getitem__(self, key):

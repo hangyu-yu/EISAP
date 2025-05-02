@@ -16,7 +16,7 @@ def update_single_plots(config):
     for idx, data_category in enumerate(["KK_data", "truncated", "LCcorrect", "smooth",  "extrapolation"]):
         dpg.delete_item(f"tab_eis_{data_category}_plot_single")
         with dpg.tab(label=data_category, tag=f"tab_eis_{data_category}_plot_single", parent="tab_bar_eis_plot_single"):
-            if config.display_file != [] and config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys():
+            if config.display_file != [] and config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys() and config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['f'] is not None:
                 # Clear existing plots
                 dpg.delete_item(f"tab_eis_{data_category}_data_plot_single_KK")
                 dpg.delete_item(f"tab_eis_{data_category}_data_plot_single_Z_Phase")
@@ -128,7 +128,7 @@ def update_all_plots(config):
     for idx, data_category in enumerate(["KK_data", "truncated", "LCcorrect", "smooth",  "extrapolation"]):
         dpg.delete_item(f"tab_eis_{data_category}_plot_all")
         with dpg.tab(label=data_category, tag=f"tab_eis_{data_category}_plot_all", parent="tab_bar_eis_plot_all"):
-            if config.display_file != [] and config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys():
+            if config.display_file != [] and config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys() and config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['f'] is not None:
                 # Clear existing table rows
                 dpg.delete_item(f"tab_eis_{data_category}_data_plot_all_KK")
                 dpg.delete_item(f"tab_eis_{data_category}_data_plot_all_Z_Phase")

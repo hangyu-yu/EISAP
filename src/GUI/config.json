@@ -1,27 +1,14 @@
 {
-    "folder_path": "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS",
+    "folder_path": "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\4_Models\\IS_analysis_V1\\_DataRef\\Zahner",
     "file_list": [
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1107_500_200-0-0_750_dc900mv_ac500ma_eis01.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1236_500_100-0-100_750_dc0ma_ac500ma_eis02.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1404_500_100-0-100_750_dc-2512ma_ac500ma_eis03.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1447_500_100-0-100_750_dc-5024ma_ac500ma_eis04.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1532_500_100-0-100_750_dc700mv_ac500ma_eis04b.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1614_500_100-0-100_750_dc2512ma_ac500ma_eis05.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1655_500_100-0-100_750_dc5024ma_ac500ma_eis06.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1737_500_100-0-100_750_dc1350mv_ac500ma_eis06b.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1831_475-25_100-0-100_750_dc0ma_ac500ma_eis07.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_1939_500_020-0-180_750_dc0ma_ac500ma_eis08.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_2057_500_190-0-010_750_dc0ma_ac500ma_eis09.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-24_hq_sp_cu-35_fp1_2207_500_020-130-050_780_dc0ma_ac500ma_eis10.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-25_hq_sp_cu-35_fp1_0003_500_050-130-020_720_dc0ma_ac500ma_eis11.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\2_Data\\01_Data\\01_Processed_Data\\AST2_CU35_EPFL\\FP1\\EIS\\2024-10-25_hq_sp_cu-35_fp1_0806_500_100-0-100_750_dc0ma_ac500ma_eis12.txt"
+        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\4_Models\\IS_analysis_V1\\_DataRef\\Zahner\\2023-08-25_hq_sp_cu-8_fp1_1444_500_200-0-0_750_dc900mv_ac500ma_eis01.txt",
+        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\4_Models\\IS_analysis_V1\\_DataRef\\Zahner\\2023-08-25_hq_sp_cu-8_fp1_1625_500_100-0-100_750_dc0ma_ac500ma_eis02.txt"
     ],
     "selected_files": [
-        "2024-10-24_hq_sp_cu-35_fp1_1107_500_200-0-0_750_dc900mv_ac500ma_eis01.txt",
-        "2024-10-24_hq_sp_cu-35_fp1_1236_500_100-0-100_750_dc0ma_ac500ma_eis02.txt",
-        "2024-10-24_hq_sp_cu-35_fp1_1404_500_100-0-100_750_dc-2512ma_ac500ma_eis03.txt"
+        "2023-08-25_hq_sp_cu-8_fp1_1444_500_200-0-0_750_dc900mv_ac500ma_eis01.txt",
+        "2023-08-25_hq_sp_cu-8_fp1_1625_500_100-0-100_750_dc0ma_ac500ma_eis02.txt"
     ],
     "file_extensions": ".txt",
-    "display_file": "2024-10-24_hq_sp_cu-35_fp1_1107_500_200-0-0_750_dc900mv_ac500ma_eis01.txt",
+    "display_file": "2023-08-25_hq_sp_cu-8_fp1_1444_500_200-0-0_750_dc900mv_ac500ma_eis01.txt",
     "data_import_function": "C:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_zahner_txt.py"
 }
