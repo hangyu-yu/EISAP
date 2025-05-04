@@ -6,8 +6,8 @@ sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import numpy as np
 import src.Functions as fn
 import matplotlib.pyplot as plt
-from src.Methods.CNLS.Circuit import Circuit
 from src.Methods.DRT.DRT import DRT
+from src.Methods.CNLS.Circuit import Circuit
 
 
 # 01 - Initialization
@@ -22,10 +22,10 @@ txt_files = glob.glob(os.path.join(Folder_Path, '*.txt'))
 EIS = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=None, n_cell=None, file_folder=Folder_Path, filename=None)
 
 # 02 - Command window
-Plot_data = True
-Save_data = False
+Plot_data = False
+Save_data = True
 
-Data_type = 'smooth_DRT' # 'raw', 'truncated', 'LCcorrected', 'smooth', 'extrapolation', 'smooth_KK', 'smooth_DRT'
+Data_type = 'truncated' # 'raw', 'truncated', 'LCcorrected', 'smooth', 'extrapolation', 'smooth_KK', 'smooth_DRT'
 
 # 03 - Data processing
 for file in txt_files:
@@ -45,6 +45,7 @@ for file in txt_files:
     # Get the initial guess based on the Gaussian fit
     CNLS.f_fixed = np.array([1e5, 1.3e3, 2e2, 3e1, 3e0, 3e-1])
     CNLS.f_mode  = 'fixed'
+    CNLS.constraint_type = 'segment'
     R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS.PeakDerivative(CNLS.f_mode, f_fixed=CNLS.f_fixed, nbr_peaks_fixed=len(CNLS.f_fixed))
     R_est = R_est*EIS['tknv_' + Data_type.replace('_KK', '').replace('_DRT', '')]['RL']['Rp_ReIm']/np.sum(R_est)
 
@@ -64,7 +65,7 @@ for file in txt_files:
     ]
 
     # Initialize the elements
-    CNLS.initialize_elements('segment')
+    CNLS.initialize_elements()
 
     # Fit the circuit
     for i in range(0,5):

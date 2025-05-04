@@ -3,6 +3,7 @@ import glob
 import copy
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
+from src.Methods.CNLS.Circuit import Circuit
 
 def select_files(config, tag):
     """
@@ -132,19 +133,22 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             print(f"---- DRT data imported from {file} successfully.")
 
                 if os.path.isdir(os.path.join(config.folder_path, "CNLS")) and "[Error]" not in file:
-                    if file_name_no_ext not in config.store.keys() and "CNLS" not in config.store[file_name_no_ext].keys():
-                        config.store[file_name_no_ext] = {}
-                        config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(CNLS)
+                    file_data = config.store.get(file_name_no_ext, {})
+                    if "CNLS" not in file_data:
+                        if file_name_no_ext not in config.store.keys():
+                            config.store[file_name_no_ext] = {}
+                        config.store[file_name_no_ext]['CNLS'] = Circuit(file_folder=config.folder_path, filename=os.path.basename(file), Elements = None, EIS = config.store[file_name_no_ext]['EIS'] if 'EIS' in config.store[file_name_no_ext].keys() else None, data_type = 'truncated')
                         CNLS_tmp = config.store[file_name_no_ext]['CNLS']
-                        CNLS_tmp.file_folder = config.folder_path
-                        CNLS_tmp.filename = os.path.basename(file)
                         CNLS_tmp.ImportCircuit()
                     
                         if idx == len(config.file_list) - 1:
                             CNLS.file_folder = config.folder_path
                             CNLS.filename = os.path.basename(file)
-                            CNLS.import_data_DRT()
+                            CNLS.ImportCircuit()
+                            config.store["Elements"] = CNLS.Elements if CNLS.Elements is not None else {}
+                            config.store["segment_constraints"] = CNLS.constraint_type
                             print(f"---- CNLS data imported from {file} successfully.")
+                            
             config.store['beacon_DRT_import'] = False
     config.display_file = config.selected_files[0] if config.selected_files else None
     if dpg.does_item_exist("combo_eis_plot_file"):

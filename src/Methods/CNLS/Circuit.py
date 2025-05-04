@@ -74,6 +74,7 @@ class Circuit:
         self.iteration = 5 # Number of iterations for the fit
         self.f_fixed = None # Fixed frequencies for peak identification
         self.f_mode = 'fixed'
+        self.constraint_type = 'segment'
         
         # Initialize lists to store circuit elements configuration
         self.Elements = Elements     # List to store circuit elements
@@ -100,7 +101,7 @@ class Circuit:
         self.FitSummary = None # DataFrame to store the fit summary
 
     # Function to initialize the circuit elements
-    def initialize_elements(self, Constraint_type = None):
+    def initialize_elements(self):
         # Initialize tracking indices for parameter positions
         StartIndex = 0              # Keeps track of the current parameter index
         counter = 0                 # Counter for element counting/naming
@@ -117,7 +118,9 @@ class Circuit:
             'fFLW': ['_R', '_tau0', '_alpha'],
             'FLW': ['_R', '_tau0'],
             'RandleC': ['_R', '_C', '_R_W', '_tau0_W'],
-            'RandleCPE': ['_R', '_Q', '_alpha_Q', '_R_W', '_tau0_W']
+            'RandleCPE': ['_R', '_Q', '_alpha_Q', '_R_W', '_tau0_W'],
+            'RandleCPEfFLW': ['_R', '_Q', '_alpha_Q', '_R_W', '_tau0_W', 'alpha_W'],
+            'RandleCfFLW': ['_R', '_C', '_R_W', '_tau0_W', 'alpha_W']
         }
 
         # Check for duplicate element names
@@ -139,9 +142,11 @@ class Circuit:
         if self.LowerBound != []:
             self.LowerBound = []
             self.UpperBound = []
+            self.ElementsStartIndex = []
+            self.ElementsEndIndex = []
 
         # Iterate over the elements and assign parameter names
-        for element in self.Elements:
+        for idx, element in enumerate(self.Elements):
             element_type = element['type']
             if element_type in element_param_map:
                 param_suffixes = element_param_map[element_type]
@@ -184,13 +189,21 @@ class Circuit:
                 self.UpperBound[i] = 1.0
                 self.LowerBound[i] = 0.4
 
-        if Constraint_type == 'segment':
+        TauIndex = [i for i, name in enumerate(self.ElementsParamNames) if 'tau' in name]
+        if self.constraint_type == 'segment':
             # Set the segment as bounds
-            TauIndex = [i for i, name in enumerate(self.ElementsParamNames) if 'tau' in name]
             tau = np.array(self.ElementsParamValues)[TauIndex]
             self.UpperBound[TauIndex] = np.concatenate([(tau[:-1] + tau[1:]) / 2, [10 * tau[-1]]])
             self.LowerBound[TauIndex] = np.concatenate([[0.1 * tau[0]], (tau[:-1] + tau[1:]) / 2])
-            breakpoint
+        else:
+            self.UpperBound[TauIndex] = np.inf
+            self.LowerBound[TauIndex] = -np.inf
+            
+        for idx, element in enumerate(self.Elements):
+            start_idx = self.ElementsStartIndex[idx]
+            end_idx = self.ElementsEndIndex[idx] + 1
+            self.Elements[idx]['Ub'] = self.UpperBound[start_idx:end_idx].tolist()
+            self.Elements[idx]['Lb'] = self.LowerBound[start_idx:end_idx].tolist()
 
     def PeakDerivative(self, mode, nbr_peaks_fixed=None, f_fixed=None):
         """
@@ -585,6 +598,75 @@ class Circuit:
             # Store the DRT for this element
             self.ElementDRTs[element_name] = DRT_fn.DRT_tikhonov(EIS_element, self.DRTparameters)
 
+    def _reconstruct_elements(self):
+        """
+        Reconstructs the Elements list by directly checking for type keywords (e.g., RQ, RC, fFLW) in parameter names.
+        """
+        # 支持的元件类型及其关键字
+        TYPE_KEYWORDS = {
+            'RQ': ['RQ'],
+            'RC': ['RC'],
+            'fFLW': ['fFLW'],
+            'FLW': ['FLW'],
+            'Gerisher': ['Gerisher'],
+            'RandleC': ['RandleC'],
+            'RandleCPE': ['RandleCPE'],
+            'Resistor': ['R'],
+            'Capacitor': ['C'],
+            'Inductor': ['L'],
+            'CPE': ['Q']
+        }
+
+        elements = []
+        current_element = None
+        param_index = 0
+
+        while param_index < len(self.ElementsParamNames):
+            param_name = self.ElementsParamNames[param_index]
+            
+            # Get element name（e.g., "RQ1" -> "RQ"）
+            element_type = None
+            element_name = None
+
+            # Check the element type based on keywords in the parameter name
+            for type_name, keywords in TYPE_KEYWORDS.items():
+                for keyword in keywords:
+                    if keyword in param_name:
+                        element_type = type_name
+                        # Extract element name (e.g., "RQ1" -> "RQ")
+                        element_name = param_name.split('_')[0]
+                        break
+                if element_type is not None:
+                    break
+
+            if element_type is None:
+                print(f"Warning: Unrecognized parameter {param_name}")
+                param_index += 1
+                continue
+
+            # Create or update the current element
+            if current_element is None or current_element['name'] != element_name:
+                if current_element is not None:
+                    elements.append(current_element)
+                current_element = {
+                    'name': element_name,
+                    'type': element_type,
+                    'Param': [],
+                    'Ub': [],
+                    'Lb': []
+                }
+
+            # Add the parameter to the current element
+            current_element['Param'].append(self.ElementsParamValues[param_index])
+            current_element['Ub'].append(self.UpperBound[param_index])
+            current_element['Lb'].append(self.LowerBound[param_index])
+            param_index += 1
+
+        # Add the last element if it exists
+        if current_element is not None:
+            elements.append(current_element)
+
+        return elements
 
     def ExportCircuit(self):
         """
@@ -611,6 +693,8 @@ class Circuit:
                 "dof": [self.dof],
                 "data_type": [self.data_type],
                 "fixed_frequencies": [self.f_fixed.tolist() if self.f_fixed is not None else None],
+                "constraint_type": [self.constraint_type],
+                "f_mode": [self.f_mode],
             }
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name="Summary", index=False)
@@ -696,6 +780,8 @@ class Circuit:
                 if sheet_name == "Summary":
                     # Convert the Summary sheet to a dictionary
                     self.data_type = df["data_type"].iloc[0]
+                    self.constraint_type = df["constraint_type"].iloc[0]
+                    self.f_mode = df["f_mode"].iloc[0]
                     self.SumNormResiduals = df["SumNormResiduals"].iloc[0]
                     self.dof = df["dof"].iloc[0]
                     self.ElementsNames = eval(df["ElementsNames"].iloc[0])
@@ -735,6 +821,7 @@ class Circuit:
                         if "DRT" in col and col != "DRT":
                             element_name = col.replace("DRT", "").replace("/ohm·s·cm2", "")
                             self.ElementDRTs[element_name] = {"ReIm": {"g": df[col].to_numpy()}}
+        self.Elements = self._reconstruct_elements()
         print(f"-- Circuit data imported successfully")
 
     # Software functions
@@ -764,7 +851,7 @@ class Circuit:
         if 'Ub' not in Element or Element['Ub'] == []:
             Element['Ub'] = [np.inf] * len(Element['Param'])
         if 'Lb' not in Element or Element['Lb'] == []:
-            Element['Lb'] = [1e-10] * len(Element['Param'])
+            Element['Lb'] = [-np.inf] * len(Element['Param'])
 
         self.UpperBound.extend(Element['Ub'])
         self.LowerBound.extend(Element['Lb'])

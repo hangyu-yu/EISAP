@@ -116,6 +116,7 @@ def update_image_sizes():
     # Update child window sizes
     dpg.configure_item("child_window_folder_directory", width=int(viewport_width * 0.5))
     dpg.configure_item("child_window_file_list_soceis", width=int(viewport_width * 0.5))
+    dpg.configure_item("child_window_tool_box_soceis", width=int(viewport_width * 0.5))
     
     # Update text wrapping
     dpg.configure_item("welcome_text", wrap=int(viewport_width * 0.5))

@@ -14,10 +14,10 @@ def update_child_window_size():
     viewport_height = dpg.get_viewport_height()
     
     # Set the width and height of the child window
-    dpg.configure_item("child_window_file_list_cnls", width=int(viewport_width * 0.33), height=int(viewport_height * 0.2))
-    dpg.configure_item("child_window_parameter_cnls", width=int(viewport_width * 0.33), height=int(viewport_height * 0.285))
-    dpg.configure_item("child_window_cnls_buttons", width=int(viewport_width * 0.33), height=int(viewport_height * 0.082))
-    dpg.configure_item("child_window_cnls_data", width=int(viewport_width * 0.33), height=-1)
+    dpg.configure_item("child_window_file_list_cnls", width=int(viewport_width * 0.4), height=int(viewport_height * 0.15))
+    dpg.configure_item("child_window_parameter_cnls", width=int(viewport_width * 0.4), height=int(viewport_height * 0.35))
+    dpg.configure_item("child_window_cnls_buttons", width=int(viewport_width * 0.4), height=int(viewport_height * 0.082))
+    dpg.configure_item("child_window_cnls_data", width=int(viewport_width * 0.4), height=-1)
     dpg.configure_item("child_window_cnls_plot", width=-1, height=-1)
     # dpg.configure_item("Button_calculate_lambdaopt", width=int(viewport_width*0.075))
     # dpg.configure_item("Button_cnls_load_parameters", width=int(viewport_width*0.075))
@@ -55,32 +55,28 @@ def gui_tab_cnls(config, EIS, CNLS):
         with dpg.group(horizontal=True):
             with dpg.group():
                 # Window for file list
-                with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.2), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_cnls"):
+                with dpg.child_window(width=int(viewport_width*0.4), height=int(viewport_height*0.15), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_cnls"):
                     gui_utils.file_list.update_file_list(config, "child_window_file_list_cnls", EIS, CNLS)
 
                 # Window for the parameters
-                with dpg.child_window(width=int(viewport_width * 0.33), height=int(viewport_height * 0.285), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_cnls"):
-                    with dpg.menu_bar(parent="child_window_parameter_cnls"):
+                with dpg.child_window(width=int(viewport_width * 0.4), height=int(viewport_height * 0.35), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_cnls"):
+                    with dpg.menu_bar(parent="child_window_parameter_cnls", tag="menu_cnls_parameters"):
                         with dpg.menu(label="Parameters"):
-                            dpg.add_menu_item(label="Add L", callback=())
-                            dpg.add_menu_item(label="Add La", callback=())
-                            dpg.add_menu_item(label="Add C", callback=())
-                            dpg.add_menu_item(label="Add Q", callback=())
-                            dpg.add_menu_item(label="Add RC", callback=())
-                            dpg.add_menu_item(label="Add RQ", callback=())
-                            dpg.add_menu_item(label="Add G", callback=())
-                            dpg.add_menu_item(label="Add fFLW", callback=())
-                            dpg.add_menu_item(label="Add FLW", callback=())
-                            dpg.add_menu_item(label="Add RandleC", callback=())
-                            dpg.add_menu_item(label="Add RandleQ", callback=())
-                            dpg.add_menu_item(label="Add RanbleQ_fFLW", callback=())
-                            dpg.add_menu_item(label="Add RanbleC_fFLW", callback=())
-                    with dpg.group(horizontal=True):
-                        with dpg.child_window(width=int(viewport_width*0.17), height=-1, horizontal_scrollbar=True, menubar=False, no_scrollbar= False, tag="child_window_cnls_elements"):
                             pass
-                            # gui_utils.cnls_functions.update_elements(config, CNLS)
+                        with dpg.menu(label="Add elements"):
+                            for header, element in config.store['element_list'].items():
+                                dpg.add_menu_item(
+                                    label=f"Add {header}",
+                                    callback=lambda s, a: gui_utils.cnls_elements.add_element(s, a, config)
+                                )
+                        gui_utils.cnls_elements.menu_remove_elements(config)
+                    
+                    # CNLS elements and parameter tables
+                    with dpg.group(horizontal=True):
+                        with dpg.child_window(width=int(viewport_width*0.28), height=-1, horizontal_scrollbar=True, menubar=False, no_scrollbar= False, tag="child_window_cnls_elements", border=False):
+                            gui_utils.cnls_elements.update_elements(config)
 
-                        
+                        # Window for the CNLS parameters
                         with dpg.child_window(width=-1, height=-1, border=False, horizontal_scrollbar=True, menubar=False, tag="child_window_cnls_parameters"):
                             with dpg.table(
                                 tag = "Table_cnls_parameters",
@@ -135,23 +131,27 @@ def gui_tab_cnls(config, EIS, CNLS):
                                     )
                                 gui_utils.cnls_functions.dynamic_peak_ids(0, 0, config)
 
+                            dpg.add_checkbox(
+                                tag="checkbox_cnls_segement_constraints",
+                                label="Segment constraints",
+                                default_value = True if config.store['segment_constraints'] == 'segment' else False,
+                                callback=lambda s, a: gui_utils.cnls_functions.segment_constraints(s, a, config)
+                            )
+
                 # Window for the buttons
-                with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.082), horizontal_scrollbar=True, menubar=False, tag="child_window_cnls_buttons"):
-                    # with dpg.group(horizontal=True):
-                    #     dpg.add_button(tag="Button_cnls_load_parameters", label="Load parameters", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.cnls_functions.load_parameters(s, a, config))
-                    #     dpg.bind_item_theme("Button_cnls_load_parameters", blue_button_theme)
+                with dpg.child_window(width=int(viewport_width*0.4), height=int(viewport_height*0.082), horizontal_scrollbar=True, menubar=False, tag="child_window_cnls_buttons"):
+                    with dpg.group(horizontal=True):
+                        dpg.add_button(tag="Button_cnls_initialize_parameters", label="Initialize param.", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.cnls_functions.initialize_parameters(s, a, config))
+                        dpg.bind_item_theme("Button_cnls_initialize_parameters", blue_button_theme)
 
-                    #     dpg.add_button(tag="Button_calculate_lambdaopt", label="Compute lambda", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.cnls_functions.lambdaopt(s, a, config))
-                    #     dpg.bind_item_theme("Button_calculate_lambdaopt", blue_button_theme)
+                        dpg.add_button(tag="Button_cnls_cnls_fit", label="CNLS fit", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.cnls_functions.cnls_fit(s, a, config))
+                        dpg.bind_item_theme("Button_cnls_cnls_fit", blue_button_theme)
 
-                    #     dpg.add_button(tag="Button_cnls_Process_data", label="Process data", width=int(viewport_width*0.075), callback=lambda s, a: callback_process_data(s, a, config))
-                    #     dpg.bind_item_theme("Button_cnls_Process_data", blue_button_theme)
-
-                    #     dpg.add_button(tag="Button_Save_CNLS", label="Save CNLS", width=-1, callback=lambda s, a: gui_utils.cnls_functions.save_cnls(s, a, config))
-                    #     dpg.bind_item_theme("Button_Save_CNLS", blue_button_theme)
+                        dpg.add_button(tag="Button_Save_CNLS", label="Save CNLS", width=-1, callback=lambda s, a: gui_utils.cnls_functions.save_cnls(s, a, config))
+                        dpg.bind_item_theme("Button_Save_CNLS", blue_button_theme)
                     
-                    # if config.display_file is None or config.display_file == "":
-                    #     config.display_file = config.selected_files[0] if config.selected_files else None
+                    if config.display_file is None or config.display_file == "":
+                        config.display_file = config.selected_files[0] if config.selected_files else None
 
                     with dpg.group(horizontal=True):
                         dpg.add_text("Displayed file:")
@@ -164,7 +164,7 @@ def gui_tab_cnls(config, EIS, CNLS):
                     )
                 
                 # Window for the data display
-                with dpg.child_window(width=int(viewport_width*0.33), height=-1, horizontal_scrollbar=True, menubar=False, border=False, tag="child_window_cnls_data"):
+                with dpg.child_window(width=int(viewport_width*0.4), height=-1, horizontal_scrollbar=True, menubar=False, border=False, tag="child_window_cnls_data"):
                     with dpg.tab_bar(tag="tab_bar_cnls_data"):
                         # gui_utils.cnls_table.table_update(config)
                         pass
