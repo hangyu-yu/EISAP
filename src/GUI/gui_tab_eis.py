@@ -100,6 +100,8 @@ def callback_process_data(sender, app_data, EIS, config):
 
 # Main tab function for EIS
 def gui_tab_eis(config, EIS, CNLS):
+    dpg.delete_item("file_dialog_eis")  # Delete the tab bar if it already exists
+    dpg.delete_item("tab_eis", children_only=False)  # Delete the tab if it already exists
     # Initialize the configuration
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()

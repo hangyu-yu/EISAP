@@ -130,8 +130,8 @@ def RandleCPE(w,param):
     R=param[0] # Resistance
     Q=param[1] # Constant phase element
     alpha_Q=param[2] # CPE exponent
-    R_W=param[2] # Warburg resistance
-    tau0_W=param[3] # Warburg time constant
+    R_W=param[3] # Warburg resistance
+    tau0_W=param[4] # Warburg time constant
             
     Z_CPE = CPE(w, [Q, alpha_Q])
     Z_W=FLW(w, [R_W, tau0_W])

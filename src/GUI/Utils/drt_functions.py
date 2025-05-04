@@ -36,8 +36,8 @@ def lambdaopt(sender, app_data, config):
             EIS_tmp.lambdaOPT(EIS_tmp.truncated)
             lambdaopt_tmp = lambdaopt_tmp + EIS_tmp.lambda_opt
 
-    dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
-    dpg.set_value("text_average_lambda", f"{float(lambdaopt_tmp / len(config.selected_files)):.4e}")
+    dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.3e}")
+    dpg.set_value("text_average_lambda", f"{float(lambdaopt_tmp / len(config.selected_files)):.3e}")
     print(f"---- Optimal lambda has been calculated successfully for all selected files.")
         
 def process_data(sender, app_data, config):

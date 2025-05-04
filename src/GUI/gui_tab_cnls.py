@@ -38,6 +38,7 @@ def _initialization_cnls(config, CNLS):
 
 # Main tab function for EIS
 def gui_tab_cnls(config, EIS, CNLS):
+    dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab content if it exists
     # Initialize the configuration
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
@@ -61,9 +62,21 @@ def gui_tab_cnls(config, EIS, CNLS):
                 with dpg.child_window(width=int(viewport_width * 0.33), height=int(viewport_height * 0.285), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_cnls"):
                     with dpg.menu_bar(parent="child_window_parameter_cnls"):
                         with dpg.menu(label="Parameters"):
-                            dpg.add_menu_item(label="Add RQ")
+                            dpg.add_menu_item(label="Add L", callback=())
+                            dpg.add_menu_item(label="Add La", callback=())
+                            dpg.add_menu_item(label="Add C", callback=())
+                            dpg.add_menu_item(label="Add Q", callback=())
+                            dpg.add_menu_item(label="Add RC", callback=())
+                            dpg.add_menu_item(label="Add RQ", callback=())
+                            dpg.add_menu_item(label="Add G", callback=())
+                            dpg.add_menu_item(label="Add fFLW", callback=())
+                            dpg.add_menu_item(label="Add FLW", callback=())
+                            dpg.add_menu_item(label="Add RandleC", callback=())
+                            dpg.add_menu_item(label="Add RandleQ", callback=())
+                            dpg.add_menu_item(label="Add RanbleQ_fFLW", callback=())
+                            dpg.add_menu_item(label="Add RanbleC_fFLW", callback=())
                     with dpg.group(horizontal=True):
-                        with dpg.child_window(width=int(viewport_width*0.21), height=-1, horizontal_scrollbar=True, menubar=False, no_scrollbar= False, tag="child_window_cnls_elements"):
+                        with dpg.child_window(width=int(viewport_width*0.17), height=-1, horizontal_scrollbar=True, menubar=False, no_scrollbar= False, tag="child_window_cnls_elements"):
                             pass
                             # gui_utils.cnls_functions.update_elements(config, CNLS)
 
@@ -78,7 +91,7 @@ def gui_tab_cnls(config, EIS, CNLS):
                                 policy=dpg.mvTable_SizingStretchSame
                             ):
                                 # Two columns for the sample name and the sample type
-                                dpg.add_table_column(tag="cnls_parameter_column1", width_fixed=True, init_width_or_weight=int(viewport_width*0.04))
+                                dpg.add_table_column(tag="cnls_parameter_column1", width_stretch=True)
                                 dpg.add_table_column(tag="cnls_parameter_column2", width_stretch=True)
 
                                 # Table contents

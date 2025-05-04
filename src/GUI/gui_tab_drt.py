@@ -58,6 +58,7 @@ def callback_process_data(sender, app_data, config):
 
 # Main tab function for EIS
 def gui_tab_drt(config, EIS, CNLS):
+    dpg.delete_item("tab_drt", children_only=False)  # Clear the tab content if it exists
     # Initialize the configuration
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
@@ -87,9 +88,9 @@ def gui_tab_drt(config, EIS, CNLS):
                         policy=dpg.mvTable_SizingStretchSame
                     ):
                         # Two columns for the sample name and the sample type
-                        dpg.add_table_column(tag="drt_parameter_column1", width_fixed=True, init_width_or_weight=int(viewport_width//6))
-                        dpg.add_table_column(tag="drt_parameter_column2", width_fixed=True, init_width_or_weight=int(viewport_width//12))
-                        dpg.add_table_column(tag="drt_parameter_column3", width_fixed=True, init_width_or_weight=int(viewport_width//12))
+                        dpg.add_table_column(tag="drt_parameter_column1", width_fixed=True, init_width_or_weight=int(viewport_width//7))
+                        dpg.add_table_column(tag="drt_parameter_column2", width_stretch=True)
+                        dpg.add_table_column(tag="drt_parameter_column3", width_stretch=True)
                         
                         # Table content
                         with dpg.table_row():
@@ -99,21 +100,19 @@ def gui_tab_drt(config, EIS, CNLS):
                                 default_value=False,
                                 callback=lambda sender, app_data: lambda_mode_callback(sender, app_data, EIS))
                             dpg.add_text("Lambda:", tag="text_lambda")
-                            dpg.add_input_text(tag="input_text_lambda", default_value=EIS.parameter["DRT"]["lambda"], enabled=True)
+                            dpg.add_input_text(tag="input_text_lambda", default_value=EIS.parameter["DRT"]["lambda"], enabled=True, width=-1)
                         with dpg.table_row():
-                            dpg.add_text("")
-                        with dpg.table_row():
-                            dpg.add_text("Optimal lambda parameters:")
+                            dpg.add_text("Optimal lambda param.:")
                             dpg.add_text("Min. lambda:", tag="text_min_lambda")
-                            dpg.add_input_text(tag="input_text_min_lambda", default_value=EIS.parameter["LambdaOpt"]["lambda_min"], enabled=True)
+                            dpg.add_input_text(tag="input_text_min_lambda", default_value=EIS.parameter["LambdaOpt"]["lambda_min"], enabled=True, width=-1)
                         with dpg.table_row():
                             dpg.add_text("")
                             dpg.add_text("Max. lambda:", tag="text_max_lambda")
-                            dpg.add_input_text(tag="input_text_max_lambda", default_value=EIS.parameter["LambdaOpt"]["lambda_max"], enabled=True)
+                            dpg.add_input_text(tag="input_text_max_lambda", default_value=EIS.parameter["LambdaOpt"]["lambda_max"], enabled=True, width=-1)
                         with dpg.table_row():
                             dpg.add_text("")
                             dpg.add_text("Lambda points:", tag="text_lambda_points")
-                            dpg.add_input_text(tag="input_text_lambda_points", default_value=EIS.parameter["LambdaOpt"]["n"], enabled=True)
+                            dpg.add_input_text(tag="input_text_lambda_points", default_value=EIS.parameter["LambdaOpt"]["n"], enabled=True, width=-1)
                         with dpg.table_row():
                             dpg.add_text("")
                             dpg.add_text("Optimal lambda:")

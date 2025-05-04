@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import dearpygui.dearpygui as dpg
+import src.GUI.Utils as gui_utils
 
 def _file_existence_check(config):
     """Check if the file exists in the store and contains valid CNLS data.
@@ -98,7 +99,7 @@ def peak_mode(sender, appdata, config):
     config.store[file_name_no_ext]['CNLS'].f_mode = appdata
     dynamic_peak_ids(sender, appdata, config)
 
-def update_data_type(sender, appdata,config):
+def update_data_type(sender, appdata, config):
     """Update the data type for CNLS fitting.
     
     Args:
@@ -113,3 +114,36 @@ def update_data_type(sender, appdata,config):
         raise ValueError("File does not exist or CNLS data is invalid.")
     
     print(f"---- Data type updated to {appdata}.")
+
+def nbr_iteration(sender, appdata, config):
+    """Update the number of iterations for CNLS fitting.
+    
+    Args:
+        sender: Sender of the callback.
+        appdata: Application data.
+        config: Configuration object.
+    """
+    file_name_no_ext = os.path.splitext(config.display_file)[0]
+    try:
+        config.store[file_name_no_ext]['CNLS'].iteration = appdata
+    except:
+        raise ValueError("File does not exist or CNLS data is invalid.")
+    
+    print(f"---- Number of iterations updated to {appdata}.")
+
+# Update the element tables
+def initialize_elements(config):
+    """Update the initial elements for CNLS fitting.
+    
+    Args:
+        config: Configuration object.
+    """
+    print("-- Initializing CNLS elements...")
+    try:
+        file_name_no_ext = os.path.splitext(config.display_file)[0]
+        config.store['elements'] = config.store[file_name_no_ext]['CNLS'].Elements
+        gui_utils.cnls_elements.initialize_element(config)
+        print(f"---- CNLS elements initialization finished.")
+    except:
+        print("---- No previous CNLS elements found.")
+    
