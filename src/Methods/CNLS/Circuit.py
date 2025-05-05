@@ -602,7 +602,7 @@ class Circuit:
         """
         Reconstructs the Elements list by directly checking for type keywords (e.g., RQ, RC, fFLW) in parameter names.
         """
-        # 支持的元件类型及其关键字
+        # Element type and name
         TYPE_KEYWORDS = {
             'RQ': ['RQ'],
             'RC': ['RC'],
@@ -611,9 +611,12 @@ class Circuit:
             'Gerisher': ['Gerisher'],
             'RandleC': ['RandleC'],
             'RandleCPE': ['RandleCPE'],
+            'RandleCPEfFLW': ['RandleCPEfFLW'],
+            'RandleCfFLW': ['RandleCfFLW'],
             'Resistor': ['R'],
             'Capacitor': ['C'],
             'Inductor': ['L'],
+            'Inducotr_a': ['La'],
             'CPE': ['Q']
         }
 

@@ -1,6 +1,7 @@
 import os
 import math
 import dearpygui.dearpygui as dpg
+import src.GUI.Utils as gui_utilis
 
 def table_update(config):
     """
@@ -67,7 +68,7 @@ def table_update(config):
                                         dpg.add_table_column(label="g [Ohm·s·cm2]", width_stretch=True)
                                         dpg.add_table_column(label="Re [Ohm·cm2]", width_stretch=True)
                                         dpg.add_table_column(label="Im [Ohm·cm2]", width_stretch=True)
-                                        if config.display_file is not None and config.display_file != [] and os.path.splitext(config.display_file)[0] in config.store.keys() and config.store[os.path.splitext(config.display_file)[0]]['EIS'][f'tknv_{data_type}']:
+                                        if config.display_file is not None and config.display_file != [] and os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]] and config.store[os.path.splitext(config.display_file)[0]]['EIS'][f'tknv_{data_type}']:
                                             data = config.store[os.path.splitext(config.display_file)[0]]['EIS']
                                             if os.path.splitext(config.display_file)[0] in config.store.keys() and data[f'tknv_{data_type}']:
                                                 for idx in range(len(data[f'tknv_{data_type}'][data_category]['f'])):
@@ -120,12 +121,12 @@ def table_update(config):
                                 dpg.add_table_column(label="Rpol-ReIm [Ohm·cm2]", width_stretch=True)
                                 
                                 if config.display_file is not None and config.display_file != []:
-                                    if os.path.splitext(config.display_file)[0] in config.store.keys() and config.store[os.path.splitext(config.display_file)[0]]['EIS'][f"tknv_truncated"]:
+                                    if os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]] and config.store[os.path.splitext(config.display_file)[0]]['EIS'][f"tknv_truncated"]:
                                         for file_name in config.selected_files:
                                             file_name_no_ext = os.path.splitext(file_name)[0]
                                             EIS_tmp = config.store[file_name_no_ext]['EIS']
                                             with dpg.table_row():
-                                                dpg.add_text(f"{file_name_no_ext[:15]}...{file_name_no_ext[-15:]}" if len(file_name_no_ext) > 30 else file_name_no_ext)
+                                                dpg.add_text(gui_utilis.small_functions.string_abbreviation(file_name_no_ext, 12, 12))
                                                 dpg.add_text(f"{float(EIS_tmp.tknv_truncated['RL']['L_ReIm']):.6f}" if EIS_tmp.tknv_truncated['RL']['L_ReIm'] is not None else "N/A")
                                                 dpg.add_text(f"{float(EIS_tmp.tknv_truncated['RL']['Rs_ReIm']):.6f}" if EIS_tmp.tknv_truncated['RL']['Rs_ReIm'] is not None else "N/A")
                                                 dpg.add_text(f"{float(EIS_tmp.tknv_truncated['RL']['Rp_ReIm']):.6f}" if EIS_tmp.tknv_truncated['RL']['Rp_ReIm'] is not None else "N/A")

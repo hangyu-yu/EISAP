@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import dearpygui.dearpygui as dpg
+import src.GUI.Utils as gui_utils
 
 # In-module functions
 def _table_setup(element):
@@ -168,7 +169,7 @@ def build_element_table(config, element, element_idx):
     _table_setup(element)
     _column_setup(config, element)
     with dpg.table_row(parent=parent_table):
-        dpg.add_text(element['name'])
+        dpg.add_text(gui_utils.small_functions.string_abbreviation(element['name'], 2, 3))
         dpg.add_combo(
             items=list(config.store['element_list']),
             default_value=element['type'],

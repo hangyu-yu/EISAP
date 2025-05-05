@@ -14,10 +14,10 @@ def update_child_window_size():
     viewport_height = dpg.get_viewport_height()
     
     # Set the width and height of the child window
-    dpg.configure_item("child_window_file_list_cnls", width=int(viewport_width * 0.4), height=int(viewport_height * 0.15))
-    dpg.configure_item("child_window_parameter_cnls", width=int(viewport_width * 0.4), height=int(viewport_height * 0.35))
-    dpg.configure_item("child_window_cnls_buttons", width=int(viewport_width * 0.4), height=int(viewport_height * 0.082))
-    dpg.configure_item("child_window_cnls_data", width=int(viewport_width * 0.4), height=-1)
+    dpg.configure_item("child_window_file_list_cnls", width=int(viewport_width * 0.45), height=int(viewport_height * 0.15))
+    dpg.configure_item("child_window_parameter_cnls", width=int(viewport_width * 0.45), height=int(viewport_height * 0.35))
+    dpg.configure_item("child_window_cnls_buttons", width=int(viewport_width * 0.45), height=int(viewport_height * 0.082))
+    dpg.configure_item("child_window_cnls_data", width=int(viewport_width * 0.45), height=-1)
     dpg.configure_item("child_window_cnls_plot", width=-1, height=-1)
     # dpg.configure_item("Button_calculate_lambdaopt", width=int(viewport_width*0.075))
     # dpg.configure_item("Button_cnls_load_parameters", width=int(viewport_width*0.075))
@@ -55,11 +55,11 @@ def gui_tab_cnls(config, EIS, CNLS):
         with dpg.group(horizontal=True):
             with dpg.group():
                 # Window for file list
-                with dpg.child_window(width=int(viewport_width*0.4), height=int(viewport_height*0.15), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_cnls"):
+                with dpg.child_window(width=int(viewport_width * 0.45), height=int(viewport_height*0.15), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_cnls"):
                     gui_utils.file_list.update_file_list(config, "child_window_file_list_cnls", EIS, CNLS)
 
                 # Window for the parameters
-                with dpg.child_window(width=int(viewport_width * 0.4), height=int(viewport_height * 0.35), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_cnls"):
+                with dpg.child_window(width=int(viewport_width * 0.45), height=int(viewport_height * 0.35), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_cnls"):
                     with dpg.menu_bar(parent="child_window_parameter_cnls", tag="menu_cnls_parameters"):
                         with dpg.menu(label="Parameters"):
                             pass
@@ -73,7 +73,7 @@ def gui_tab_cnls(config, EIS, CNLS):
                     
                     # CNLS elements and parameter tables
                     with dpg.group(horizontal=True):
-                        with dpg.child_window(width=int(viewport_width*0.28), height=-1, horizontal_scrollbar=True, menubar=False, no_scrollbar= False, tag="child_window_cnls_elements", border=False):
+                        with dpg.child_window(width=int(viewport_width*0.3), height=-1, horizontal_scrollbar=True, menubar=False, no_scrollbar= False, tag="child_window_cnls_elements", border=False):
                             gui_utils.cnls_elements.update_elements(config)
 
                         # Window for the CNLS parameters
@@ -139,12 +139,12 @@ def gui_tab_cnls(config, EIS, CNLS):
                             )
 
                 # Window for the buttons
-                with dpg.child_window(width=int(viewport_width*0.4), height=int(viewport_height*0.082), horizontal_scrollbar=True, menubar=False, tag="child_window_cnls_buttons"):
+                with dpg.child_window(width=int(viewport_width * 0.45), height=int(viewport_height*0.082), horizontal_scrollbar=True, menubar=False, tag="child_window_cnls_buttons"):
                     with dpg.group(horizontal=True):
-                        dpg.add_button(tag="Button_cnls_initialize_parameters", label="Initialize param.", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.cnls_functions.initialize_parameters(s, a, config))
+                        dpg.add_button(tag="Button_cnls_initialize_parameters", label="Initialize param.", width=int(viewport_width*0.15), callback=lambda s, a: gui_utils.cnls_functions.initialize_parameters(s, a, config))
                         dpg.bind_item_theme("Button_cnls_initialize_parameters", blue_button_theme)
 
-                        dpg.add_button(tag="Button_cnls_cnls_fit", label="CNLS fit", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.cnls_functions.cnls_fit(s, a, config))
+                        dpg.add_button(tag="Button_cnls_cnls_fit", label="CNLS fit", width=int(viewport_width*0.15), callback=lambda s, a: gui_utils.cnls_functions.cnls_fit(s, a, config))
                         dpg.bind_item_theme("Button_cnls_cnls_fit", blue_button_theme)
 
                         dpg.add_button(tag="Button_Save_CNLS", label="Save CNLS", width=-1, callback=lambda s, a: gui_utils.cnls_functions.save_cnls(s, a, config))
@@ -164,21 +164,21 @@ def gui_tab_cnls(config, EIS, CNLS):
                     )
                 
                 # Window for the data display
-                with dpg.child_window(width=int(viewport_width*0.4), height=-1, horizontal_scrollbar=True, menubar=False, border=False, tag="child_window_cnls_data"):
+                with dpg.child_window(width=int(viewport_width * 0.45), height=-1, horizontal_scrollbar=True, menubar=False, border=False, tag="child_window_cnls_data"):
                     with dpg.tab_bar(tag="tab_bar_cnls_data"):
-                        # gui_utils.cnls_table.table_update(config)
-                        pass
+                        gui_utils.cnls_table.table_update(config)
 
             # Window for the plot display
-            with dpg.child_window(width=-1, height=-1, horizontal_scrollbar=True, menubar=False, border=True, tag="child_window_cnls_plot"):
-                pass
-                # with dpg.tab_bar(tag="tab_bar_cnls_plot"):
-                #     with dpg.tab(label="Single", tag="tab_cnls_plot_single"):
-                #         with dpg.tab_bar(tag="tab_bar_cnls_plot_single"):
-                #             gui_utils.cnls_plots.update_single_plots(config)
-                #     with dpg.tab(label="All", tag="tab_cnls_plot_all"):
-                #         with dpg.tab_bar(tag="tab_bar_cnls_plot_all"):
-                #             gui_utils.cnls_plots.update_all_plots(config)
+            with dpg.group():
+                with dpg.child_window(width=-1, height=-1, horizontal_scrollbar=True, menubar=False, border=True, tag="child_window_cnls_plot"):
+                    pass
+                    # with dpg.tab_bar(tag="tab_bar_cnls_plot"):
+                    #     with dpg.tab(label="Single", tag="tab_cnls_plot_single"):
+                    #         with dpg.tab_bar(tag="tab_bar_cnls_plot_single"):
+                    #             gui_utils.cnls_plots.update_single_plots(config)
+                    #     with dpg.tab(label="All", tag="tab_cnls_plot_all"):
+                    #         with dpg.tab_bar(tag="tab_bar_cnls_plot_all"):
+                    #             gui_utils.cnls_plots.update_all_plots(config)
                             
     # Update the child window size when the viewport is resized
     dpg.set_viewport_resize_callback(update_child_window_size)

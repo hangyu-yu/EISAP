@@ -71,7 +71,7 @@ with dpg.window(label="Main Window", tag='fullscreen'):
 
         dpg.add_menu_item(label="Help", callback=print_me)
 
-    with dpg.tab_bar(tag="tab_bar_main"):
+    with dpg.tab_bar(tag="tab_bar_main", reorderable=True):
         gui.gui_tab_soceis(config, EIS, CNLS)
 
 # 05 - Show the window

@@ -22,8 +22,8 @@ txt_files = glob.glob(os.path.join(Folder_Path, '*.txt'))
 EIS = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=None, n_cell=None, file_folder=Folder_Path, filename=None)
 
 # 02 - Command window
-Plot_data = False
-Save_data = True
+Plot_data = True
+Save_data = False
 
 Data_type = 'truncated' # 'raw', 'truncated', 'LCcorrected', 'smooth', 'extrapolation', 'smooth_KK', 'smooth_DRT'
 

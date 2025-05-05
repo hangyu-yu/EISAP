@@ -137,7 +137,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                     if "CNLS" not in file_data:
                         if file_name_no_ext not in config.store.keys():
                             config.store[file_name_no_ext] = {}
-                        config.store[file_name_no_ext]['CNLS'] = Circuit(file_folder=config.folder_path, filename=os.path.basename(file), Elements = None, EIS = config.store[file_name_no_ext]['EIS'] if 'EIS' in config.store[file_name_no_ext].keys() else None, data_type = 'truncated')
+                        config.store[file_name_no_ext]['CNLS'] = Circuit(file_folder=config.folder_path, filename=os.path.basename(file), Elements = None, EIS = config.store[file_name_no_ext]['EIS'] if 'EIS' in config.store[file_name_no_ext].keys() and config.store[file_name_no_ext]['EIS'].tknv_truncated is not None else None, data_type = 'truncated')
                         CNLS_tmp = config.store[file_name_no_ext]['CNLS']
                         CNLS_tmp.ImportCircuit()
                     
@@ -166,24 +166,36 @@ def display_file(sender, app_data, config):
 
     # Update optimal lambda value in the DRT tab
     try:
-        dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
+        if dpg.does_item_exist("text_optimal_lambda"):
+            dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
     except:
-        dpg.set_value("text_optimal_lambda", "Non-calculated")
+        if dpg.does_item_exist("text_optimal_lambda"):
+            dpg.set_value("text_optimal_lambda", "Non-calculated")
     
     # Update the EIS table and plots
     try:
-        gui_utils.eis_table.table_update(config)
-        gui_utils.eis_plots.update_single_plots(config)
+        if dpg.does_item_exist("tab_eis"):
+            gui_utils.eis_table.table_update(config)
+            gui_utils.eis_plots.update_single_plots(config)
     except:
         print("------ EIS plots update failed. Please check the EIS data.")
         pass
     
     # Udpate the DRT table and plots
     try:
-        gui_utils.drt_table.table_update(config)
-        gui_utils.drt_plots.update_single_plots(config)
+        if dpg.does_item_exist("tab_drt"):
+            gui_utils.drt_table.table_update(config)
+            gui_utils.drt_plots.update_single_plots(config)
     except:
         print("------ DRT plots update failed. Please check the DRT data.")
         pass
+
+    # Update the CNLS table and plots
+    try:    
+        if dpg.does_item_exist("tab_cnls"):
+            gui_utils.cnls_table.table_update(config)
+            # gui_utils.cnls_plots.update_single_plots(config)
+    except:
+        print("------ CNLS plots update failed. Please check the CNLS data.")
     # Print the selected file for debugging
     print(f"---- File to plot: {config.display_file}")

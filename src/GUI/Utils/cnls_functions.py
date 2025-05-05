@@ -190,6 +190,7 @@ def initialize_parameters(sender, appdata, config):
                 data_type = dpg.get_value('combo_cnls_data_type'))
 
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+            CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
@@ -243,3 +244,19 @@ def initialize_parameters(sender, appdata, config):
             print(f"---- CNLS parameters initialized for {file_name}.")
     config.store["Elements"] = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements
     gui_utils.cnls_elements.update_elements(config)
+
+# Run the CNLS fitting
+def cnls_fit(sender, appdata, config):
+    print(f"---- CNLS fit onging...")
+    for file_name in config.selected_files:
+        file_name_no_ext = os.path.splitext(file_name)[0]
+        if file_name_no_ext not in config.store.keys():
+            raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
+        else:
+            CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+            CNLS_tmp.Elements = config.store['Elements']
+            for i in range(0, CNLS_tmp.iteration):
+                CNLS_tmp.FitCircuit()
+            CNLS_tmp.EvaluateCircuitDRT()
+            gui_utils.cnls_table.table_update(config)
+            
