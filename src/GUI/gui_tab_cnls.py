@@ -172,10 +172,11 @@ def gui_tab_cnls(config, EIS, CNLS):
             with dpg.group():
                 with dpg.child_window(width=-1, height=-1, horizontal_scrollbar=True, menubar=False, border=True, tag="child_window_cnls_plot"):
                     pass
-                    # with dpg.tab_bar(tag="tab_bar_cnls_plot"):
-                    #     with dpg.tab(label="Single", tag="tab_cnls_plot_single"):
-                    #         with dpg.tab_bar(tag="tab_bar_cnls_plot_single"):
-                    #             gui_utils.cnls_plots.update_single_plots(config)
+                    with dpg.tab_bar(tag="tab_bar_cnls_plot"):
+                        with dpg.tab(label="Single", tag="tab_cnls_plot_single"):
+                            with dpg.tab_bar(tag="tab_bar_cnls_plot_single"):
+                                pass
+                                # gui_utils.cnls_plots.update_single_plots(config)
                     #     with dpg.tab(label="All", tag="tab_cnls_plot_all"):
                     #         with dpg.tab_bar(tag="tab_bar_cnls_plot_all"):
                     #             gui_utils.cnls_plots.update_all_plots(config)

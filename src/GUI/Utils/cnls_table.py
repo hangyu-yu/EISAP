@@ -68,12 +68,12 @@ def table_update(config):
                 for idx, variable in enumerate(CNLS_tmp.ElementsParamNames):
                     with dpg.table_row():
                         dpg.add_text(variable)
-                        dpg.add_text(str(CNLS_tmp.ElementsParamValues[idx]))
-                        dpg.add_text(str(CNLS_tmp.UpperBound[idx]))
-                        dpg.add_text(str(CNLS_tmp.LowerBound[idx]))
-                        dpg.add_text(str(CNLS_tmp.ElementsParamVariance[idx]))
-                        dpg.add_text(str(CNLS_tmp.ElementsParamStandardErrors[idx]))
-                        dpg.add_text(str(CNLS_tmp.ElementsParamPValues[idx]))
+                        dpg.add_text(_smart_format(CNLS_tmp.ElementsParamValues[idx]) % CNLS_tmp.ElementsParamValues[idx])
+                        dpg.add_text(_smart_format(CNLS_tmp.UpperBound[idx]) % CNLS_tmp.UpperBound[idx])
+                        dpg.add_text(_smart_format(CNLS_tmp.LowerBound[idx]) % CNLS_tmp.LowerBound[idx])
+                        dpg.add_text(_smart_format(CNLS_tmp.ElementsParamVariance[idx]) % CNLS_tmp.ElementsParamVariance[idx])
+                        dpg.add_text(_smart_format(CNLS_tmp.ElementsParamStandardErrors[idx]) % CNLS_tmp.ElementsParamStandardErrors[idx])
+                        dpg.add_text(_smart_format(CNLS_tmp.ElementsParamPValues[idx]) % CNLS_tmp.ElementsParamPValues[idx])
                 print(f"---- CNLS data table updated successfully.")
             except:
                 print("[Warning] CNLS data not available for the selected file, check cnls_table.py function.")
@@ -111,10 +111,10 @@ def table_update(config):
                             for idx in range(CNLS_tmp.Z.shape[0]):
                                 with dpg.table_row():
                                     dpg.add_text(str(CNLS_tmp.f[idx]))
-                                    dpg.add_text(str(np.real(CNLS_tmp.Z[element][idx])))
-                                    dpg.add_text(str(np.imag(CNLS_tmp.Z[element][idx])))
-                                    dpg.add_text(str(np.abs(CNLS_tmp.Z[element][idx])))
-                                    dpg.add_text(str(np.angle(CNLS_tmp.Z[element][idx], deg=True)))
+                                    dpg.add_text(_smart_format(np.real(CNLS_tmp.Z[element][idx])) % np.real(CNLS_tmp.Z[element][idx]))
+                                    dpg.add_text(_smart_format(np.imag(CNLS_tmp.Z[element][idx])) % np.imag(CNLS_tmp.Z[element][idx]))
+                                    dpg.add_text(_smart_format(np.abs(CNLS_tmp.Z[element][idx])) % np.abs(CNLS_tmp.Z[element][idx]))
+                                    dpg.add_text(_smart_format(np.angle(CNLS_tmp.Z[element][idx], deg=True)) % np.angle(CNLS_tmp.Z[element][idx], deg=True))
         print(f"---- CNLS impedance data table updated successfully.")
     except:
         print("[Warning] CNLS impedance data not available for the selected file, check cnls_table.py function.")

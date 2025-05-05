@@ -3,62 +3,9 @@ import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
 
-def _ensure_contiguous(data):
-    """Ensure that NumPy arrays are C-contiguous and handle NaN values."""
-    if isinstance(data, dict):
-        return {k: np.ascontiguousarray(v) if isinstance(v, np.ndarray) else v for k, v in data.items()}
-    return np.ascontiguousarray(data)
-
-def _create_plot_with_axes(parent_tag, width, height, x_label, y_label, log_x=False):
-    """Create a plot area with axes."""
-    with dpg.plot(tag=parent_tag, width=width, height=height, no_menus=True):
-        dpg.add_plot_axis(dpg.mvXAxis, label=x_label, log_scale=log_x)
-        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
-        return y_axis
-
-def _add_series_to_plot(plot_data, y_axis, label, is_line=True):
-    """Add a line or scatter series to the plot."""
-    x_data = _ensure_contiguous(plot_data['f'])
-    y_data = _ensure_contiguous(plot_data['y'])
-    if is_line:
-        dpg.add_line_series(x_data, y_data, parent=y_axis, label=label)
-    else:
-        dpg.add_scatter_series(x_data, y_data, parent=y_axis, label=label)
-
-def _update_bode_plots(data, parent_tag, data_category):
-    """Update Bode plots (Re and Im)."""
-    # Real part (Z')
-    y_axis_re = _create_plot_with_axes(
-        f"{parent_tag}_Re", -1, int(dpg.get_viewport_height() * 0.25),
-        "Frequency [Hz]", "Z' [Ohm·cm2]", log_x=True
-    )
-    _add_series_to_plot({'f': data.truncated['f'], 'y': data.truncated['Re']}, y_axis_re, f"{data_category}_truncated", False)
-    _add_series_to_plot({'f': data.smooth['f'], 'y': data.smooth['Re']}, y_axis_re, f"{data_category}_KK_smooth")
-    _add_series_to_plot({'f': data.tknv_truncated[data_category]['f'], 'y': data.tknv_truncated[data_category]['Re']}, y_axis_re, f"{data_category}_DRT_smooth")
-    dpg.add_plot_legend(parent=f"{parent_tag}_Re")
-
-    # Imaginary part (-Z'')
-    y_axis_im = _create_plot_with_axes(
-        f"{parent_tag}_Im", -1, int(dpg.get_viewport_height() * 0.25),
-        "Frequency [Hz]", "-Z'' [Ohm·cm2]", log_x=True
-    )
-    _add_series_to_plot({'f': data.truncated['f'], 'y': -data.truncated['Im']}, y_axis_im, f"{data_category}_truncated", False)
-    _add_series_to_plot({'f': data.smooth['f'], 'y': -data.smooth['Im']}, y_axis_im, f"{data_category}_KK_smooth")
-    _add_series_to_plot({'f': data.tknv_truncated[data_category]['f'], 'y': -data.tknv_truncated[data_category]['Im']}, y_axis_im, f"{data_category}_DRT_smooth")
-    dpg.add_plot_legend(parent=f"{parent_tag}_Im")
-
-def _update_nyquist_plot(data, parent_tag, data_category):
-    """Update Nyquist plot."""
-    y_axis = _create_plot_with_axes(
-        f"{parent_tag}_ReIm", -1, -1,
-        "Z' [Ohm·cm2]", "-Z'' [Ohm·cm2]"
-    )
-    _add_series_to_plot({'f': data.truncated['Re'], 'y': -data.truncated['Im']}, y_axis, f"{data_category}_truncated", False)
-    _add_series_to_plot({'f': data.smooth['Re'], 'y': -data.smooth['Im']}, y_axis, f"{data_category}_KK_smooth")
-    _add_series_to_plot({'f': data.tknv_truncated[data_category]['Re'], 'y': -data.tknv_truncated[data_category]['Im']}, y_axis, f"{data_category}_DRT_smooth")
-    dpg.add_plot_legend(parent=f"{parent_tag}_ReIm")
-
 def update_single_plots(config):
+    viewport_width = dpg.get_viewport_width()
+    viewport_height = dpg.get_viewport_height()
     """Update single-file DRT plots."""
     print("-- Updating DRT single plots...")
     try:
@@ -70,7 +17,16 @@ def update_single_plots(config):
         return
 
     file_key = os.path.splitext(config.display_file)[0]
-    data = config.store[file_key]['EIS']
+    data = config.store[file_key]['CNLS']
+
+    # Plot the residual
+    dpg.delete_item("tab_cnls_residual_plot_single")
+    with dpg.tab(label="Residual", tag="tab_cnls_residual_plot_single", parent="tab_bar_cnls_plot_single"):
+        with dpg.plot(tag="plot_cnls_residual_single", width=int(viewport_width*0.5), height=int(viewport_height*0.33), no_menus=True):
+            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+            y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Residual [%]")
+            dpg.add_scatter_series(data.f, )
+            dpg.add_plot_legend()
 
     for data_type in ["truncated", "smooth", "LCcorrect", "extrapolation", "EIS_truncated"]:
         dpg.delete_item(f"tab_drt_{data_type}_plot_single")
