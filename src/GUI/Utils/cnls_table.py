@@ -82,8 +82,8 @@ def table_update(config):
     try:
         print('-- Updating CNLS impedance data table...')
         Impedance_data_columns = CNLS_tmp.Z.columns.tolist()
-        Impedance_data_columns.remove('Zmes')
-        Impedance_data_columns.remove('Ztot0')
+        Impedance_data_columns.remove('Zmes') if 'Zmes' in Impedance_data_columns else None
+        Impedance_data_columns.remove('Ztot0') if 'Ztot0' in Impedance_data_columns else None
         dpg.delete_item(f"tab_cnls_data_impedance")
         with dpg.tab(label="Impedance", tag="tab_cnls_data_impedance", parent="tab_bar_cnls_data"):
             with dpg.tab_bar(tag=f"tab_bar_impedance_data", parent="tab_cnls_data_impedance"):

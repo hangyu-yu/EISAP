@@ -181,5 +181,6 @@ def gui_tab_cnls(config, EIS, CNLS):
                     #             gui_utils.cnls_plots.update_all_plots(config)
                             
     # Update the child window size when the viewport is resized
+    dpg.set_value("tab_bar_main", 'tab_cnls')
     dpg.set_viewport_resize_callback(update_child_window_size)
                             

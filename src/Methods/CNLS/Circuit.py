@@ -276,7 +276,9 @@ class Circuit:
             'fFLW': CNLS_fn.ImpedanceFunctions.fFLW,
             'FLW': CNLS_fn.ImpedanceFunctions.FLW,
             'RandleC': CNLS_fn.ImpedanceFunctions.RandleC,
-            'RandleCPE': CNLS_fn.ImpedanceFunctions.RandleCPE
+            'RandleCPE': CNLS_fn.ImpedanceFunctions.RandleCPE,
+            'RandleCPEfFLW': CNLS_fn.ImpedanceFunctions.RandleCPEfFLW,
+            'RandleCfFLW': CNLS_fn.ImpedanceFunctions.RandleCfFLW
         }
         
         # Iterate over the elements and compute their impedances

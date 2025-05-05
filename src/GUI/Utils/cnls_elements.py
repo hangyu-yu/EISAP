@@ -57,6 +57,7 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
     element['Lb'] = [element['Lb'][0]]
     config.store["Elements"][int(element_nbr)-1] = element
     build_element_table(config, element, int(element_nbr)-1)
+    menu_remove_elements(config)
 
 def _update_param_callback(sender, app_data, config, element, i):
     """Callback function for updating the parameter in the table.

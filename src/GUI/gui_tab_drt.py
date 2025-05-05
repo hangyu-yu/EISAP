@@ -166,5 +166,6 @@ def gui_tab_drt(config, EIS, CNLS):
                             gui_utils.drt_plots.update_all_plots(config)
                             
     # Update the child window size when the viewport is resized
+    dpg.set_value("tab_bar_main", 'tab_drt')
     dpg.set_viewport_resize_callback(update_child_window_size)
                             

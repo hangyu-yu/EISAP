@@ -297,5 +297,7 @@ def gui_tab_eis(config, EIS, CNLS):
                         with dpg.tab_bar(tag="tab_bar_eis_plot_all"):
                             gui_utils.eis_plots.update_all_plots(config)
     # Update the child window size when the viewport is resized
+    dpg.set_value("tab_bar_main", 'tab_eis')
     dpg.set_viewport_resize_callback(update_child_window_size)
+
                             
