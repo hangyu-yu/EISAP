@@ -1,4 +1,5 @@
 import os
+import copy
 import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
@@ -19,7 +20,7 @@ def _file_existence_check(config):
             config.store[file_name_no_ext].get('CNLS') is not None and 
             config.store[file_name_no_ext]['CNLS'].f_fixed is not None)
 
-def _update_peak_fixed(sender, app_data, i, config):
+def _update_peak_fixed(sender, app_data, config):
     print("-- Updating peak fixed frequency...")
     file_name_no_ext = os.path.splitext(config.display_file)[0]
     if app_data == 0:
@@ -31,8 +32,8 @@ def _update_peak_fixed(sender, app_data, i, config):
                 config.store["peak_fixed_frequencies"].append(10**(dpg.get_value("input_nbr_peaks")-j-2))
         print("---- Peak fixed frequencies updated.")
     else:
-        config.store["peak_fixed_frequencies"][i] = app_data
-        print(f"---- Peak fixed frequency {i} updated to {app_data}.")
+        config.store["peak_fixed_frequencies"][int(sender[-1])] = app_data
+        print(f"---- Peak fixed frequency {int(sender[-1])+1} updated to {app_data}.")
 
     try:
         config.store[file_name_no_ext]['CNLS'].f_fixed = config.store["peak_fixed_frequencies"]
@@ -47,7 +48,7 @@ def dynamic_peak_ids(sender, appdata, config):
     """
     nbr_peaks = dpg.get_value("input_nbr_peaks")
     enable_state = (dpg.get_value("combo_peak_ID") == "fixed")
-    _update_peak_fixed(None, 0, 0, config)
+    _update_peak_fixed(None, 0, config)
     if 'nbr_peaks' in config.store.keys():
         for i in range(config.store['nbr_peaks']):
             dpg.delete_item(f"table_row_peak_{i}")
@@ -81,7 +82,7 @@ def dynamic_peak_ids(sender, appdata, config):
                 step_fast=0,
                 min_value=1e-100,
                 max_value=1e100,
-                callback=lambda s, a, idx=i: _update_peak_fixed(s, a, idx, config)
+                callback=lambda s, a: _update_peak_fixed(s, a, config)
             )
     config.store['nbr_peaks'] = nbr_peaks
 
@@ -182,12 +183,12 @@ def initialize_parameters(sender, appdata, config):
             raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
-            config.store[file_name_no_ext]['CNLS'] = Circuit(
+            config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(
                 file_folder=config.folder_path, 
                 filename=file_name, 
                 Elements = config.store['Elements'], 
                 EIS = EIS_tmp, 
-                data_type = dpg.get_value('combo_cnls_data_type'))
+                data_type = dpg.get_value('combo_cnls_data_type')))
 
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
@@ -245,18 +246,61 @@ def initialize_parameters(sender, appdata, config):
     config.store["Elements"] = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements
     gui_utils.cnls_elements.update_elements(config)
 
-# Run the CNLS fitting
-def cnls_fit(sender, appdata, config):
-    print(f"---- CNLS fit onging...")
+# Load the parameters for the CNLS fitting
+def load_parameters(sender, appdata, config):
+    """Load the parameters for CNLS fitting.
+    
+    Args:
+        sender: Sender of the callback.
+        appdata: Application data.
+        config: Configuration object.
+    """
+    print("-- Loading CNLS parameters...")
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
         if file_name_no_ext not in config.store.keys():
             raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
         else:
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+            CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
+            CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
+            CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
+            CNLS_tmp.constraint_type = config.store["segment_constraints"]
             CNLS_tmp.Elements = config.store['Elements']
+            CNLS_tmp.data_type = dpg.get_value('combo_cnls_data_type')
+            CNLS_tmp.initialize_elements(change_UBLB = False)
+            print(f"---- CNLS parameters loaded for {file_name}.")
+
+# Run the CNLS fitting
+def cnls_fit(sender, appdata, config):
+    print(f"-- CNLS fit onging...")
+    for file_name in config.selected_files:
+        file_name_no_ext = os.path.splitext(file_name)[0]
+        if file_name_no_ext not in config.store.keys():
+            raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
+        else:
+            CNLS_tmp = config.store[file_name_no_ext]['CNLS']
             for i in range(0, CNLS_tmp.iteration):
                 CNLS_tmp.FitCircuit()
             CNLS_tmp.EvaluateCircuitDRT()
-            gui_utils.cnls_table.table_update(config)
+    gui_utils.cnls_table.table_update(config)
+
+# Save the CNLS fitting results
+def save_cnls(sender, appdata, config):
+    """Save the CNLS fitting results.
+    
+    Args:
+        sender: Sender of the callback.
+        appdata: Application data.
+        config: Configuration object.
+    """
+    print(f"-- Saving CNLS fitting results...")
+    for file_name in config.selected_files:
+        file_name_no_ext = os.path.splitext(file_name)[0]
+        if file_name_no_ext not in config.store.keys():
+            raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
+        else:
+            CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+            CNLS_tmp.ExportCircuit()
+            print(f"---- CNLS fitting results saved for {file_name}.")
             

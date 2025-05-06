@@ -36,6 +36,25 @@ def update_selected_files(config, tag=None):
     if dpg.does_item_exist("combo_drt_plot_file"):
         dpg.configure_item("combo_drt_plot_file", items = config.selected_files, default_value = config.display_file)
     print("Selected files:", config.selected_files)
+    
+    # Update the display file in the GUI
+    if dpg.does_item_exist("group_eis_display_file"):
+        gui_utils.file_list.update_file_list_and_display(0, 0, config, "combo_eis_plot_file", "group_eis_display_file")
+    if dpg.does_item_exist("group_drt_display_file"):
+        gui_utils.file_list.update_file_list_and_display(0, 0, config, "combo_drt_plot_file", "group_drt_display_file")
+    if dpg.does_item_exist("group_cnls_display_file"):
+        gui_utils.file_list.update_file_list_and_display(0, 0, config, "combo_display_file_cnls", "group_cnls_display_file")
+
+    # Update the plots-All in the GUI
+    try:
+        if dpg.does_item_exist("tab_bar_eis_plot_all"):
+            gui_utils.eis_plots.update_all_plots(config)
+        if dpg.does_item_exist("tab_bar_drt_plot_all"):
+            gui_utils.drt_plots.update_all_plots(config)
+        if dpg.does_item_exist("tab_bar_cnls_plot_all"):
+            gui_utils.cnls_plots.update_all_plots(config)
+    except:
+        print("[Warning] EIS/DRT/CNLS ALL-plots update failed. Please check the EIS/DRT/CNLS data, or come to file_list.update_seleted_files and check.")
 
 def select_all_files(config, tag=None):
     """
@@ -150,12 +169,6 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             print(f"---- CNLS data imported from {file} successfully.")
                             
             config.store['beacon_DRT_import'] = False
-    config.display_file = config.selected_files[0] if config.selected_files else None
-    if dpg.does_item_exist("combo_eis_plot_file"):
-        dpg.configure_item("combo_eis_plot_file", items = config.selected_files, default_value = config.display_file)
-    if dpg.does_item_exist("combo_drt_plot_file"):
-        dpg.configure_item("combo_drt_plot_file", items = config.selected_files, default_value = config.display_file)
-
 
 def display_file(sender, app_data, config):
     """
@@ -166,7 +179,7 @@ def display_file(sender, app_data, config):
 
     # Update optimal lambda value in the DRT tab
     try:
-        if dpg.does_item_exist("text_optimal_lambda"):
+        if dpg.does_item_exist("text_optimal_lambda") and config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt:
             dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
     except:
         if dpg.does_item_exist("text_optimal_lambda"):
@@ -194,8 +207,28 @@ def display_file(sender, app_data, config):
     try:    
         if dpg.does_item_exist("tab_cnls"):
             gui_utils.cnls_table.table_update(config)
-            # gui_utils.cnls_plots.update_single_plots(config)
+            gui_utils.cnls_elements.update_elements(config)
+            dpg.configure_item("combo_cnls_data_type", default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].data_type)
+            dpg.configure_item("combo_peak_ID", default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].f_mode)
+            dpg.configure_item("input_nbr_iters", default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].iteration)
+            dpg.configure_item("input_nbr_peaks", default_value = len(config.store[os.path.splitext(config.display_file)[0]]['CNLS'].f_fixed))
+            gui_utils.cnls_functions.dynamic_peak_ids(0, 0, config)
+            gui_utils.cnls_table.table_update(config)
+            gui_utils.cnls_plots.update_single_plots(config)
     except:
         print("------ CNLS plots update failed. Please check the CNLS data.")
     # Print the selected file for debugging
     print(f"---- File to plot: {config.display_file}")
+
+def update_file_list_and_display(sender, app_data, config, tag_name, parent_tag):
+    if config.display_file is None or config.display_file == "":
+        config.display_file = config.selected_files[0] if config.selected_files else None
+    dpg.delete_item(tag_name)
+    dpg.add_combo(
+        parent=parent_tag,
+        tag=tag_name,
+        default_value = config.display_file,
+        width = -1,
+        items = config.selected_files,
+        callback=lambda s, a: gui_utils.file_list.display_file(s, a, config)
+    )

@@ -18,11 +18,11 @@ def _smart_format(value):
             return " ".join([_smart_format(v) for v in np.ravel(value)])
     elif isinstance(value, (float, int, np.float64, np.int64)):
         if value == 0:
-            return "%.4f"  # Avoid scientific notation for zero
+            return "%.3f"  # Avoid scientific notation for zero
         elif abs(value) < 0.001:
-            return "%.4e"  # Scientific notation (e.g., 1.234e-05)
+            return "%.3e"  # Scientific notation (e.g., 1.234e-05)
         else:
-            return "%.4f"  # Standard float (e.g., 0.1234)
+            return "%.3f"  # Standard float (e.g., 0.1234)
     else:
         return "%s"  # Fallback for non-numeric types (e.g., strings)
 def table_update(config):

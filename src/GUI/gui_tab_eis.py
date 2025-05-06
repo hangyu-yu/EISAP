@@ -270,17 +270,10 @@ def gui_tab_eis(config, EIS, CNLS):
 
                         dpg.add_button(tag="Button_Save_EIS", label="Save EIS", width=-1, callback=lambda s, a: gui_utils.eis_functions.save_eis(s, a, config))
                         dpg.bind_item_theme("Button_Save_EIS", blue_button_theme)
-                    
-                    config.display_file = config.selected_files[0] if config.selected_files else None
-                    with dpg.group(horizontal=True):
+                        
+                    with dpg.group(horizontal=True, tag="group_eis_display_file"):
                         dpg.add_text("Displayed file:")
-                        dpg.add_combo(
-                            tag="combo_eis_plot_file",
-                            default_value = config.display_file,
-                            width = -1,
-                            items = config.selected_files,
-                            callback=lambda s, a: gui_utils.file_list.display_file(s, a, config)
-                    )
+                        gui_utils.file_list.update_file_list_and_display(0, 0, config, "combo_eis_plot_file", "group_eis_display_file")
                 
                 # Window for the data display
                 with dpg.child_window(width=int(viewport_width*0.33), height=-1, horizontal_scrollbar=True, menubar=False, border=False, tag="child_window_eis_data"):

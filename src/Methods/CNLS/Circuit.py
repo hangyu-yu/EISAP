@@ -101,7 +101,7 @@ class Circuit:
         self.FitSummary = None # DataFrame to store the fit summary
 
     # Function to initialize the circuit elements
-    def initialize_elements(self):
+    def initialize_elements(self, change_UBLB=True):
         # Initialize tracking indices for parameter positions
         StartIndex = 0              # Keeps track of the current parameter index
         counter = 0                 # Counter for element counting/naming
@@ -131,15 +131,15 @@ class Circuit:
             self.display_name.add(element.get('name', ''))
         
         # Check if the elements are imported
-        if self.Elements != []:
+        if len(self.Elements) != 0:
             self.ElementsType = []
-        if self.ElementsParamValues != []:
+        if len(self.ElementsParamValues) != 0:
             self.ElementsParamValues = []
-        if self.ElementsParamVariance != []:
+        if len(self.ElementsParamVariance) != 0:
             self.ElementsParamVariance = []
-        if self.ElementsParamNames != []:
+        if len(self.ElementsParamNames) != 0:
             self.ElementsParamNames = []
-        if self.LowerBound != []:
+        if len(self.LowerBound) != 0:
             self.LowerBound = []
             self.UpperBound = []
             self.ElementsStartIndex = []
@@ -190,18 +190,18 @@ class Circuit:
                 self.LowerBound[i] = 0.4
 
         TauIndex = [i for i, name in enumerate(self.ElementsParamNames) if 'tau' in name]
-        if self.constraint_type == 'segment':
+        if self.constraint_type == 'segment' and change_UBLB:
             # Set the segment as bounds
             tau = np.array(self.ElementsParamValues)[TauIndex]
             self.UpperBound[TauIndex] = np.concatenate([(tau[:-1] + tau[1:]) / 2, [10 * tau[-1]]])
             self.LowerBound[TauIndex] = np.concatenate([[0.1 * tau[0]], (tau[:-1] + tau[1:]) / 2])
         else:
-            self.UpperBound[TauIndex] = np.inf
-            self.LowerBound[TauIndex] = -np.inf
+            pass
             
         for idx, element in enumerate(self.Elements):
             start_idx = self.ElementsStartIndex[idx]
             end_idx = self.ElementsEndIndex[idx] + 1
+            self.Elements[idx]['Param'] = self.ElementsParamValues[start_idx:end_idx]
             self.Elements[idx]['Ub'] = self.UpperBound[start_idx:end_idx].tolist()
             self.Elements[idx]['Lb'] = self.LowerBound[start_idx:end_idx].tolist()
 
@@ -332,7 +332,16 @@ class Circuit:
         initial_params = np.array(self.ElementsParamValues)
 
         # Perform the weighted least squares fit
-        result = opt.least_squares(residuals, initial_params,
+        adjusted_x0 = np.where(
+            initial_params < self.LowerBound,
+            self.LowerBound * 1.1,  # 低于下界 → 设为下界的 110%
+            np.where(
+                initial_params > self.UpperBound,
+                self.UpperBound * 0.9,  # 高于上界 → 设为上界的 90%
+                initial_params  # 否则保持原值
+            )
+        )
+        result = opt.least_squares(residuals, adjusted_x0,
                         bounds=(self.LowerBound, self.UpperBound))
 
         # Update the circuit with the fitted parameters
