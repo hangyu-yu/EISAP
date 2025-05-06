@@ -23,8 +23,8 @@ class Config:
         self.store['element_list'] = {"Resistor": "R", "Inductor": "L", "Inductor_a": "La", "Capacitor": "C", "CPE": "Q", "RC": "RC", "RQ": "RQ", "Gerisher": "G", "fFLW": "fFLW", "FLW": "FLW", "RandleC": "RandleC", "RandleCPE": "RandleCPE", "RandleCPEfFLW": "RandleCPEfFLW", "RandleCfFLW": "RandleCfFLW"}
         self.store["peak_fixed_frequencies"] = []
         self.store["Elements"] = [
-            {'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [-np.inf]},
-            {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [-np.inf]},
+            {'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
+            {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
         ]
         self.store["segment_constraints"] = 'segment'
         # Load configuration

@@ -757,7 +757,7 @@ class DRT:
                 'Rp/ohm·cm2 - KK': self.KK_data['res_pol_kk'],
             }).to_excel(writer, sheet_name='Resistance', index=False)
 
-        print("-- EIS data saved.")
+        print(f"-- EIS data saved for {self.filename}.")
 
     def save_data_DRT(self):
         """
@@ -916,7 +916,7 @@ class DRT:
                         'Rp/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['Rp_ReIm']]
                     }).to_excel(writer, sheet_name='Resistance_'+data_cat, index=False)
 
-        print("-- DRT data saved.")
+        print(f"-- DRT data saved for {self.filename}.")
 
     # Function for import data
     def import_data_EIS(self):

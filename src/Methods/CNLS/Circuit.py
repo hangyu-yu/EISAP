@@ -139,6 +139,7 @@ class Circuit:
             self.ElementsParamVariance = []
         if len(self.ElementsParamNames) != 0:
             self.ElementsParamNames = []
+            self.ElementsNparam = []
         if len(self.LowerBound) != 0:
             self.LowerBound = []
             self.UpperBound = []
@@ -169,8 +170,8 @@ class Circuit:
             # Check if upper and lower bounds are provided
             if 'Ub' not in element or element['Ub'] == []:
                 element['Ub'] = [np.inf] * len(element['Param'])
-            if 'Lb' not in element or element['Lb'] == []:
-                element['Lb'] = [-np.inf] * len(element['Param'])
+            if 'Lb' not in element or element['Lb'] == [] or any(lb == -np.inf for lb in element['Lb']):
+                element['Lb'] = [1e-10] * len(element['Param'])
             self.UpperBound.extend(element['Ub'])
             self.LowerBound.extend(element['Lb'])
 
@@ -709,6 +710,9 @@ class Circuit:
                 "fixed_frequencies": [self.f_fixed.tolist() if self.f_fixed is not None else None],
                 "constraint_type": [self.constraint_type],
                 "f_mode": [self.f_mode],
+                "ElementsEndIndex": [self.ElementsEndIndex],
+                "ElementsStartIndex": [self.ElementsStartIndex],
+                "ElementsNparam": [self.ElementsNparam],
             }
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name="Summary", index=False)
@@ -801,6 +805,9 @@ class Circuit:
                     self.ElementsNames = eval(df["ElementsNames"].iloc[0])
                     self.ElementsType = eval(df["ElementsType"].iloc[0])
                     self.f_fixed = eval(df["fixed_frequencies"].iloc[0])
+                    self.ElementsEndIndex = eval(df["ElementsEndIndex"].iloc[0])
+                    self.ElementsStartIndex = eval(df["ElementsStartIndex"].iloc[0])
+                    self.ElementsNparam = eval(df["ElementsNparam"].iloc[0])
                 elif sheet_name == "Elements":
                     # Extract elements-related data
                     self.ElementsParamNames = df["ElementsParamNames"].tolist()

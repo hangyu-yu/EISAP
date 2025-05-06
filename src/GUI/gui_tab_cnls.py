@@ -170,9 +170,9 @@ def gui_tab_cnls(config, EIS, CNLS):
                         with dpg.tab(label="Single", tag="tab_cnls_plot_single"):
                             with dpg.tab_bar(tag="tab_bar_cnls_plot_single"):
                                 gui_utils.cnls_plots.update_single_plots(config)
-                    #     with dpg.tab(label="All", tag="tab_cnls_plot_all"):
-                    #         with dpg.tab_bar(tag="tab_bar_cnls_plot_all"):
-                    #             gui_utils.cnls_plots.update_all_plots(config)
+                        with dpg.tab(label="All", tag="tab_cnls_plot_all"):
+                            with dpg.tab_bar(tag="tab_bar_cnls_plot_all"):
+                                gui_utils.cnls_plots.update_all_plots(config)
                             
     # Update the child window size when the viewport is resized
     dpg.set_value("tab_bar_main", 'tab_cnls')

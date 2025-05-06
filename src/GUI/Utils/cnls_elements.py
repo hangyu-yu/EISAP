@@ -118,7 +118,7 @@ def _add_parameters_bounds(config, element, idx, _PARAM_RULES, element_idx):
         default_value_lb = element['Lb'][idx] if (len(element['Lb']) > idx and element['Lb'][idx] is not None) else 0.4
     else:
         default_value_ub = element['Ub'][idx] if (len(element['Ub']) > idx and element['Ub'][idx] is not None) else np.inf
-        default_value_lb = element['Lb'][idx] if (len(element['Lb']) > idx and element['Lb'][idx] is not None) else -np.inf
+        default_value_lb = element['Lb'][idx] if (len(element['Lb']) > idx and element['Lb'][idx] is not None) else 1e-10
     
 
     dpg.add_input_float(default_value=default_value_param,
@@ -236,20 +236,20 @@ def add_element(sender, appdata, config):
     # Initialize the element parameters
     element_type = dpg.get_item_label(sender)[4:]
     _PARAM_List = {
-        'Inductor': ([1], [np.inf], [-np.inf]),
-        'Resistor': ([1], [np.inf], [-np.inf]),
-        'Capacitor': ([1], [np.inf], [-np.inf]),
-        'CPE': ([1, 1], [np.inf, 1], [-np.inf, 0.4]),
-        'Inductor_a': ([1, 1], [np.inf, 1], [-np.inf, 0.4]),
-        'RC': ([1, 1], [np.inf, np.inf], [-np.inf, -np.inf]),
-        'RQ': ([1, 1, 1], [np.inf, np.inf, 1], [-np.inf, -np.inf, 0.4]),
-        'Gerisher': ([1, 1], [np.inf, np.inf], [-np.inf, -np.inf]),
-        'fFLW': ([1, 1, 1], [np.inf, np.inf, 1], [-np.inf, -np.inf, 0.4]),
-        'FLW': ([1, 1], [np.inf, np.inf], [-np.inf, -np.inf]),
-        'RandleC': ([1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf], [-np.inf, -np.inf, -np.inf, -np.inf]),
-        'RandleCfFLW': ([1, 1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf, 1], [-np.inf, -np.inf, -np.inf, -np.inf, 0.4]),
-        'RandleCPE': ([1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf], [-np.inf, -np.inf, 0.4, -np.inf, -np.inf]),
-        'RandleCPEfFLW': ([1, 1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf, 1], [-np.inf, -np.inf, 0.4, -np.inf, -np.inf, 0.4])
+        'Inductor': ([1], [np.inf], [1e-10]),
+        'Resistor': ([1], [np.inf], [1e-10]),
+        'Capacitor': ([1], [np.inf], [1e-10]),
+        'CPE': ([1, 1], [np.inf, 1], [1e-10, 0.4]),
+        'Inductor_a': ([1, 1], [np.inf, 1], [1e-10, 0.4]),
+        'RC': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+        'RQ': ([1, 1, 1], [np.inf, np.inf, 1], [1e-10, 1e-10, 0.4]),
+        'Gerisher': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+        'fFLW': ([1, 1, 1], [np.inf, np.inf, 1], [1e-10, 1e-10, 0.4]),
+        'FLW': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+        'RandleC': ([1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf], [1e-10, 1e-10, 1e-10, 1e-10]),
+        'RandleCfFLW': ([1, 1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf, 1], [1e-10, 1e-10, 1e-10, 1e-10, 0.4]),
+        'RandleCPE': ([1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf], [1e-10, 1e-10, 0.4, 1e-10, 1e-10]),
+        'RandleCPEfFLW': ([1, 1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf, 1], [1e-10, 1e-10, 0.4, 1e-10, 1e-10, 0.4])
     }
     param, ub, lb = _PARAM_List[element_type]
     # Get the number of existing elements

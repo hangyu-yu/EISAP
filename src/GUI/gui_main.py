@@ -57,6 +57,12 @@ with dpg.font_registry():
     second_font = dpg.add_font(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "fonts", "MiSans-Light.otf"), 10)
 dpg.bind_font(default_font)
 
+with dpg.theme() as plot_theme:
+    with dpg.theme_component(dpg.mvAll):
+        dpg.add_theme_style(dpg.mvPlotStyleVar_LineWeight, 3, category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, value=[0,0,0,0], category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerWeight, 2, category=dpg.mvThemeCat_Plots)
+
 # 02 - Set up different windows
 with dpg.window(label="Main Window", tag='fullscreen'):
     with dpg.menu_bar():
@@ -69,6 +75,7 @@ with dpg.window(label="Main Window", tag='fullscreen'):
             dpg.add_menu_item(label="Setting 2", callback=print_me)
 
         dpg.add_menu_item(label="Help", callback=print_me)
+        dpg.bind_theme(plot_theme)
 
     with dpg.tab_bar(tag="tab_bar_main", reorderable=True):
         gui.gui_tab_soceis(config, EIS, CNLS)

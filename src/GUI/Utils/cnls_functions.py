@@ -157,7 +157,7 @@ def initialize_elements(config):
         gui_utils.cnls_elements.initialize_element(config)
         print(f"---- CNLS elements initialization finished.")
     except:
-        print("---- No previous CNLS elements found.")
+        print("[Warning] No previous CNLS elements found.")
     
 # Initialize the CNLS element parameters
 def initialize_parameters(sender, appdata, config):
@@ -283,7 +283,12 @@ def cnls_fit(sender, appdata, config):
             for i in range(0, CNLS_tmp.iteration):
                 CNLS_tmp.FitCircuit()
             CNLS_tmp.EvaluateCircuitDRT()
-    gui_utils.cnls_table.table_update(config)
+    try:
+        gui_utils.cnls_table.table_update(config)
+        gui_utils.cnls_table.update_single_plots(config)
+        gui_utils.cnls_table.update_all_plots(config)
+    except:
+        print("[Warning] CNLS table and plots all or partial update failed. Please check the CNLS fitting results, or enter cnls_functions.py.")
 
 # Save the CNLS fitting results
 def save_cnls(sender, appdata, config):

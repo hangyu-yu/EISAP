@@ -171,6 +171,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                         callback=lambda: dpg.show_item("file_dialog_eis"),
                                         tag="button_data_import_function"
                                     )
+                                    dpg.bind_item_theme("button_data_import_function", blue_button_theme)
                                 with dpg.table_row():
                                     dpg.add_text("Upper cut:", tag="text_num_cut_upper")
                                     dpg.add_input_text(tag="num_cut_upper", default_value=EIS.parameter["Preprocessing"]["num_cut_upper"])

@@ -11,7 +11,8 @@ def _ensure_contiguous(data):
 
 def _create_plot_with_axes(parent_tag, width, height, x_label, y_label, log_x=False):
     """Create a plot area with axes."""
-    with dpg.plot(tag=parent_tag, width=width, height=height, no_menus=True):
+    equal_aspects_switch = True if "Z'" in x_label and "Z''" in y_label else False
+    with dpg.plot(tag=parent_tag, width=width, height=height, no_menus=True, equal_aspects=equal_aspects_switch):
         dpg.add_plot_axis(dpg.mvXAxis, label=x_label, log_scale=log_x)
         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
         return y_axis

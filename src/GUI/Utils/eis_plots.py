@@ -101,6 +101,7 @@ def update_single_plots(config):
                         width = -1,
                         height= -1,
                         no_menus=True,
+                        equal_aspects = True
                     ):
                         x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Z' [Ohm·cm2]")
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [Ohm·cm2]")
@@ -205,6 +206,7 @@ def update_all_plots(config):
                         width=-1,
                         height=-1,
                         no_menus=True,
+                        equal_aspects = True
                     )
                     dpg.add_plot_axis(dpg.mvXAxis, label="Z' [Ohm·cm2]", parent=f"tab_eis_{data_category}_data_plot_all_ReIm")
                     y_axis_Nyquist = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [Ohm·cm2]", parent=f"tab_eis_{data_category}_data_plot_all_ReIm")
