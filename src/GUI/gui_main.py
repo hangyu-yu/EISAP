@@ -4,10 +4,13 @@ sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import ctypes
 import platform
 import src.GUI as gui
+import src.GUI.Utils as gui_utils
 import dearpygui.dearpygui as dpg
 from src.GUI.config import Config
 from src.Methods.DRT.DRT import DRT
 from src.Methods.CNLS.Circuit import Circuit
+
+gui_utils.small_functions.install_and_check_dependencies()
 
 # 00 - Function Definitions
 # Utility function to print the sender of the callback

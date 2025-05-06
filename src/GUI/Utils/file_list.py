@@ -103,7 +103,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
         # Add checkbox with proper callback
         with dpg.group(parent=tag, horizontal=True):
             dpg.add_checkbox(
-                label=filename,
+                label=gui_utils.small_functions.string_abbreviation(filename, 38, 38) if tag == "child_window_file_list_soceis" else gui_utils.small_functions.string_abbreviation(filename, 22, 22),
                 tag=checkbox_tag,
                 default_value=should_check,
                 callback=lambda s, a, f=filename: update_selected_files(config, tag)
@@ -227,8 +227,8 @@ def update_file_list_and_display(sender, app_data, config, tag_name, parent_tag)
     dpg.add_combo(
         parent=parent_tag,
         tag=tag_name,
-        default_value = config.display_file,
+        default_value = gui_utils.small_functions.string_abbreviation(config.display_file, 17, 17),
         width = -1,
-        items = config.selected_files,
+        items=config.selected_files,
         callback=lambda s, a: gui_utils.file_list.display_file(s, a, config)
     )

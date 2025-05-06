@@ -18,11 +18,13 @@ def update_child_window_size():
     dpg.configure_item("child_window_parameter_cnls", width=int(viewport_width * 0.45), height=int(viewport_height * 0.35))
     dpg.configure_item("child_window_cnls_buttons", width=int(viewport_width * 0.45), height=int(viewport_height * 0.082))
     dpg.configure_item("child_window_cnls_data", width=int(viewport_width * 0.45), height=-1)
+    dpg.configure_item("child_window_cnls_elements", width=int(viewport_width * 0.3), height=-1)
     dpg.configure_item("child_window_cnls_plot", width=-1, height=-1)
-    # dpg.configure_item("Button_calculate_lambdaopt", width=int(viewport_width*0.075))
-    # dpg.configure_item("Button_cnls_load_parameters", width=int(viewport_width*0.075))
-    # dpg.configure_item("Button_cnls_Process_data", width=int(viewport_width*0.075))
-    # dpg.configure_item("Button_Save_CNLS", width=-1)
+    dpg.configure_item("child_window_cnls_parameters", width=-1, height=-1)
+    dpg.configure_item("Button_cnls_cnls_fit", width=int(viewport_width*0.1))
+    dpg.configure_item("Button_cnls_load_parameters", width=int(viewport_width*0.1))
+    dpg.configure_item("Button_cnls_initialize_parameters", width=int(viewport_width*0.1))
+    dpg.configure_item("Button_Save_CNLS", width=-1)
 
 def _initialization_cnls(config, CNLS):
     for file_name in config.selected_files:

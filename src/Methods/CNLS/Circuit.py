@@ -61,6 +61,7 @@ class Circuit:
                 self.w = self.f*(2*np.pi)    # Angular frequency array
             else:
                 self.Zmes  = EIS[self.data_type.replace('_KK', '')]['Z'] # Measured impedance data
+                print(EIS['tknv_' + self.data_type.replace('_KK', '')])
                 self.DRTmes = EIS['tknv_' + self.data_type.replace('_KK', '')]['ReIm']['g'] # Measured DRT data
                 self.f = EIS[self.data_type.replace('_KK', '')]['f'] # Frequency array
                 self.w = self.f*(2*np.pi)    # Angular frequency array
@@ -707,7 +708,7 @@ class Circuit:
                 "SumNormResiduals": [self.SumNormResiduals],
                 "dof": [self.dof],
                 "data_type": [self.data_type],
-                "fixed_frequencies": [self.f_fixed.tolist() if self.f_fixed is not None else None],
+                "fixed_frequencies": [self.f_fixed if self.f_fixed is not None else None],
                 "constraint_type": [self.constraint_type],
                 "f_mode": [self.f_mode],
                 "ElementsEndIndex": [self.ElementsEndIndex],

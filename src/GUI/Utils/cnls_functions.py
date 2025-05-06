@@ -285,8 +285,8 @@ def cnls_fit(sender, appdata, config):
             CNLS_tmp.EvaluateCircuitDRT()
     try:
         gui_utils.cnls_table.table_update(config)
-        gui_utils.cnls_table.update_single_plots(config)
-        gui_utils.cnls_table.update_all_plots(config)
+        gui_utils.cnls_plots.update_single_plots(config)
+        gui_utils.cnls_plots.update_all_plots(config)
     except:
         print("[Warning] CNLS table and plots all or partial update failed. Please check the CNLS fitting results, or enter cnls_functions.py.")
 

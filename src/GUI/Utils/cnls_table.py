@@ -81,40 +81,41 @@ def table_update(config):
     # Impedance data
     try:
         print('-- Updating CNLS impedance data table...')
-        Impedance_data_columns = CNLS_tmp.Z.columns.tolist()
-        Impedance_data_columns.remove('Zmes') if 'Zmes' in Impedance_data_columns else None
-        Impedance_data_columns.remove('Ztot0') if 'Ztot0' in Impedance_data_columns else None
-        dpg.delete_item(f"tab_cnls_data_impedance")
-        with dpg.tab(label="Impedance", tag="tab_cnls_data_impedance", parent="tab_bar_cnls_data"):
-            with dpg.tab_bar(tag=f"tab_bar_impedance_data", parent="tab_cnls_data_impedance"):
-                for element in Impedance_data_columns:
-                        dpg.add_tab(label=element, tag=f"tab_impedance_data_{element}", parent=f"tab_bar_impedance_data")
-                        with dpg.table(
-                            parent=f"tab_impedance_data_{element}",
-                            tag=f"table_cnls_impedance_data_{element}",
-                            header_row=True,
-                            borders_innerV=True,  # Show vertical column lines
-                            borders_outerV=True,
-                            borders_outerH=True,
-                            row_background=True,  # Enable alternating row colors
-                            reorderable=True,     # Allow column reordering via drag-and-drop
-                            freeze_rows=1,        # Freeze header row (fixed during scrolling)
-                            scrollX=True,         # Enable horizontal scrolling
-                            scrollY=True,         # Enable vertical scrolling
-                            policy=dpg.mvTable_SizingFixedFit,  # Automatically adjust column width
-                        ):
-                            dpg.add_table_column(label="Frequency [Hz]", width_stretch=True)
-                            dpg.add_table_column(label="Re [Ohm·cm2]", width_stretch=True)
-                            dpg.add_table_column(label="Im [Ohm·cm2]", width_stretch=True)
-                            dpg.add_table_column(label="Z [Ohm·cm2]", width_stretch=True)
-                            dpg.add_table_column(label="Phase [deg]", width_stretch=True)
-                            for idx in range(CNLS_tmp.Z.shape[0]):
-                                with dpg.table_row():
-                                    dpg.add_text(str(CNLS_tmp.f[idx]))
-                                    dpg.add_text(_smart_format(np.real(CNLS_tmp.Z[element][idx])) % np.real(CNLS_tmp.Z[element][idx]))
-                                    dpg.add_text(_smart_format(np.imag(CNLS_tmp.Z[element][idx])) % np.imag(CNLS_tmp.Z[element][idx]))
-                                    dpg.add_text(_smart_format(np.abs(CNLS_tmp.Z[element][idx])) % np.abs(CNLS_tmp.Z[element][idx]))
-                                    dpg.add_text(_smart_format(np.angle(CNLS_tmp.Z[element][idx], deg=True)) % np.angle(CNLS_tmp.Z[element][idx], deg=True))
+        if CNLS_tmp.Z is not None:
+            Impedance_data_columns = CNLS_tmp.Z.columns.tolist()
+            Impedance_data_columns.remove('Zmes') if 'Zmes' in Impedance_data_columns else None
+            Impedance_data_columns.remove('Ztot0') if 'Ztot0' in Impedance_data_columns else None
+            dpg.delete_item(f"tab_cnls_data_impedance")
+            with dpg.tab(label="Impedance", tag="tab_cnls_data_impedance", parent="tab_bar_cnls_data"):
+                with dpg.tab_bar(tag=f"tab_bar_impedance_data", parent="tab_cnls_data_impedance"):
+                    for element in Impedance_data_columns:
+                            dpg.add_tab(label=element, tag=f"tab_impedance_data_{element}", parent=f"tab_bar_impedance_data")
+                            with dpg.table(
+                                parent=f"tab_impedance_data_{element}",
+                                tag=f"table_cnls_impedance_data_{element}",
+                                header_row=True,
+                                borders_innerV=True,  # Show vertical column lines
+                                borders_outerV=True,
+                                borders_outerH=True,
+                                row_background=True,  # Enable alternating row colors
+                                reorderable=True,     # Allow column reordering via drag-and-drop
+                                freeze_rows=1,        # Freeze header row (fixed during scrolling)
+                                scrollX=True,         # Enable horizontal scrolling
+                                scrollY=True,         # Enable vertical scrolling
+                                policy=dpg.mvTable_SizingFixedFit,  # Automatically adjust column width
+                            ):
+                                dpg.add_table_column(label="Frequency [Hz]", width_stretch=True)
+                                dpg.add_table_column(label="Re [Ohm·cm2]", width_stretch=True)
+                                dpg.add_table_column(label="Im [Ohm·cm2]", width_stretch=True)
+                                dpg.add_table_column(label="Z [Ohm·cm2]", width_stretch=True)
+                                dpg.add_table_column(label="Phase [deg]", width_stretch=True)
+                                for idx in range(CNLS_tmp.Z.shape[0]):
+                                    with dpg.table_row():
+                                        dpg.add_text(str(CNLS_tmp.f[idx]))
+                                        dpg.add_text(_smart_format(np.real(CNLS_tmp.Z[element][idx])) % np.real(CNLS_tmp.Z[element][idx]))
+                                        dpg.add_text(_smart_format(np.imag(CNLS_tmp.Z[element][idx])) % np.imag(CNLS_tmp.Z[element][idx]))
+                                        dpg.add_text(_smart_format(np.abs(CNLS_tmp.Z[element][idx])) % np.abs(CNLS_tmp.Z[element][idx]))
+                                        dpg.add_text(_smart_format(np.angle(CNLS_tmp.Z[element][idx], deg=True)) % np.angle(CNLS_tmp.Z[element][idx], deg=True))
         print(f"---- CNLS impedance data table updated successfully.")
     except:
         print("[Warning] CNLS impedance data not available for the selected file, check cnls_table.py function.")
@@ -141,27 +142,28 @@ def table_update(config):
                 dpg.add_table_column(label="Frequency [Hz]", width_fixed=True)
                 dpg.add_table_column(label="Origin", width_fixed=True)
                 dpg.add_table_column(label="Total", width_fixed=True)
-                for idx in range(len(CNLS_tmp.Elements)):
-                    dpg.add_table_column(label=CNLS_tmp.Elements[idx]['name'], width_fixed=True)
-                
-                for idx in range(len(CNLS_tmp.f)):
-                    with dpg.table_row():
-                        # Frequency column (already a scalar)
-                        freq = CNLS_tmp.f[idx]
-                        dpg.add_text(str(freq))
-                        
-                        # DRTmes data (ensure scalar)
-                        drt_mes = CNLS_tmp.DRTmes[idx]
-                        dpg.add_text(_smart_format(drt_mes) % drt_mes)
-                        
-                        # DRT["ReIm"]["g"] data (ensure scalar)
-                        drt_g = CNLS_tmp.DRT["ReIm"]["g"][idx]
-                        dpg.add_text(_smart_format(drt_g) % drt_g)
-                        
-                        # Element-wise DRT data (ensure scalar)
-                        for element in CNLS_tmp.Elements:
-                            element_value = CNLS_tmp.ElementDRTs[element['name']]['ReIm']['g'][idx]
-                            dpg.add_text(_smart_format(element_value) % element_value)
+                if CNLS_tmp.Elements is not None:
+                    for idx in range(len(CNLS_tmp.Elements)):
+                        dpg.add_table_column(label=CNLS_tmp.Elements[idx]['name'], width_fixed=True)
+                    
+                    for idx in range(len(CNLS_tmp.f)):
+                        with dpg.table_row():
+                            # Frequency column (already a scalar)
+                            freq = CNLS_tmp.f[idx]
+                            dpg.add_text(str(freq))
+                            
+                            # DRTmes data (ensure scalar)
+                            drt_mes = CNLS_tmp.DRTmes[idx]
+                            dpg.add_text(_smart_format(drt_mes) % drt_mes)
+                            
+                            # DRT["ReIm"]["g"] data (ensure scalar)
+                            drt_g = CNLS_tmp.DRT["ReIm"]["g"][idx]
+                            dpg.add_text(_smart_format(drt_g) % drt_g)
+                            
+                            # Element-wise DRT data (ensure scalar)
+                            for element in CNLS_tmp.Elements:
+                                element_value = CNLS_tmp.ElementDRTs[element['name']]['ReIm']['g'][idx]
+                                dpg.add_text(_smart_format(element_value) % element_value)
                 print(f"---- CNLS DRT data table updated successfully.")
         except:
             print("[Warning] CNLS DRT data not available for the selected file, check cnls_table.py function.")
