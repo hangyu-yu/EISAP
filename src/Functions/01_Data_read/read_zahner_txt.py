@@ -49,12 +49,16 @@ def read_zahner_txt(file):
     file_name = lines[0].split(':', 1)[1].strip()
 
     # Extract Potential value (fourth line)
-    potential = lines[3].split(':', 1)[1].strip()
-
-    # Extract Current and Ampl values (fifth line)
-    current_line = lines[4].split(':', 1)[1].strip()
-    current, ampl = current_line.split(', Ampl:')
-    current = current.strip()
+    if 'Ampl' in lines[3].split(':', 1)[1].strip():
+        Ampl_line = lines[3].split(':', 1)[1].strip()
+        potential, ampl = Ampl_line.split(', Ampl:')
+        potential = potential.strip()
+        current = lines[4].split(':', 1)[1].strip()
+    elif 'Ampl' in lines[4].split(':', 1)[1].strip():
+        Ampl_line = lines[4].split(':', 1)[1].strip()
+        current, ampl = Ampl_line.split(', Ampl:')
+        current = current.strip()
+        potential = lines[3].split(':', 1)[1].strip()
     ampl = ampl.strip()
 
     # Save extracted information to a dictionary
@@ -68,6 +72,8 @@ def read_zahner_txt(file):
     # Read the 19th line as the header and the data starting from the 20th line
     header = lines[18].strip().split()
     data = pd.read_csv(file, skiprows=19, sep=r'\s+', names=header)
+    # Sort the data by 'Frequency/Hz' column in descending order
+    data = data.sort_values(by='Frequency/Hz', ascending=False)
 
     # Calculate Re and Im columns based on Imp_module and Imp_phase
     data['Re/Ohm'] = data['impedance/Ohm'] * np.cos(np.deg2rad(data['Phase/deg']))

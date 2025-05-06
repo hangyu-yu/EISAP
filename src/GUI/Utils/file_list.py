@@ -156,7 +156,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                     if "CNLS" not in file_data:
                         if file_name_no_ext not in config.store.keys():
                             config.store[file_name_no_ext] = {}
-                        config.store[file_name_no_ext]['CNLS'] = Circuit(file_folder=config.folder_path, filename=os.path.basename(file), Elements = None, EIS = config.store[file_name_no_ext]['EIS'] if 'EIS' in config.store[file_name_no_ext].keys() and config.store[file_name_no_ext]['EIS'].tknv_truncated is not None else None, data_type = 'truncated')
+                        config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(file_folder=config.folder_path, filename=os.path.basename(file), Elements = None, EIS = config.store[file_name_no_ext]['EIS'] if 'EIS' in config.store[file_name_no_ext].keys() and config.store[file_name_no_ext]['EIS'].tknv_truncated is not None else None, data_type = 'truncated'))
                         CNLS_tmp = config.store[file_name_no_ext]['CNLS']
                         CNLS_tmp.ImportCircuit()
                     
@@ -211,7 +211,7 @@ def display_file(sender, app_data, config):
             dpg.configure_item("combo_cnls_data_type", default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].data_type)
             dpg.configure_item("combo_peak_ID", default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].f_mode)
             dpg.configure_item("input_nbr_iters", default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].iteration)
-            dpg.configure_item("input_nbr_peaks", default_value = len(config.store[os.path.splitext(config.display_file)[0]]['CNLS'].f_fixed))
+            dpg.configure_item("input_nbr_peaks", default_value = len(config.store[os.path.splitext(config.display_file)[0]]['CNLS'].f_fixed)) if config.store[os.path.splitext(config.display_file)[0]]['CNLS'].f_fixed is not None else 6
             gui_utils.cnls_functions.dynamic_peak_ids(0, 0, config)
             gui_utils.cnls_table.table_update(config)
             gui_utils.cnls_plots.update_single_plots(config)

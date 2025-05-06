@@ -26,5 +26,7 @@ def ConvertToASR(EIS_Data, Parameters):
     EIS_Data['tau'] = 1 / (2 * np.pi * EIS_Data['f'])
     EIS_Data['Re'] = Parameters['CellArea'] * EIS_Data['Re']
     EIS_Data['Im'] = Parameters['CellArea'] * EIS_Data['Im']
+    if 'Z' in EIS_Data.keys():
+        EIS_Data['Z'] = Parameters['CellArea'] * EIS_Data['Z']
     
     return EIS_Data

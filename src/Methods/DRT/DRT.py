@@ -1041,7 +1041,7 @@ class DRT:
             drt_file = os.path.join(folder_drt, f"{file_to_import}.xlsx")
             
             if not os.path.exists(drt_file):
-                raise FileNotFoundError(f"DRT file not found: {drt_file}")
+                print(f"[Warning] DRT file not found: {drt_file}")
 
             print(f"-- Importing DRT data from {drt_file}...")
             

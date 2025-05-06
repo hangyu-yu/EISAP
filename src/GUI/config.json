@@ -1,22 +1,25 @@
 {
-    "folder_path": "/Users/atlas/Downloads/Test_data",
+    "folder_path": "/Users/atlas/Downloads/Durability1",
     "file_list": [
-        "/Users/atlas/Downloads/Test_data/2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-        "/Users/atlas/Downloads/Test_data/2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
-        "/Users/atlas/Downloads/Test_data/2025-02-19_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt",
-        "/Users/atlas/Downloads/Test_data/2025-02-20_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis04.txt",
-        "/Users/atlas/Downloads/Test_data/2025-02-21_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis05.txt",
-        "/Users/atlas/Downloads/Test_data/2025-02-22_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis06.txt"
+        "/Users/atlas/Downloads/Durability1/2025-04-10_1625_hyspire_ncepu_cu-01_durability1.1V_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis01.txt",
+        "/Users/atlas/Downloads/Durability1/2025-04-11_1018_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis02.txt",
+        "/Users/atlas/Downloads/Durability1/2025-04-12_0851_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis03.txt",
+        "/Users/atlas/Downloads/Durability1/2025-04-13_0918_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis04.txt",
+        "/Users/atlas/Downloads/Durability1/2025-04-14_0926_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis05.txt",
+        "/Users/atlas/Downloads/Durability1/2025-04-15_0929_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis06.txt",
+        "/Users/atlas/Downloads/Durability1/2025-04-16_0920_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis07.txt",
+        "/Users/atlas/Downloads/Durability1/2025-04-17_1454_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis08.txt",
+        "/Users/atlas/Downloads/Durability1/2025-04-18_0931_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis09.txt",
+        "/Users/atlas/Downloads/Durability1/2025-04-19_0021_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis10.txt"
     ],
     "selected_files": [
-        "2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-        "2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
-        "2025-02-19_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt",
-        "2025-02-20_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis04.txt",
-        "2025-02-21_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis05.txt",
-        "2025-02-22_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis06.txt"
+        "2025-04-10_1625_hyspire_ncepu_cu-01_durability1.1V_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis01.txt",
+        "2025-04-11_1018_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis02.txt",
+        "2025-04-12_0851_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis03.txt",
+        "2025-04-13_0918_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis04.txt",
+        "2025-04-14_0926_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis05.txt"
     ],
     "file_extensions": ".txt",
-    "display_file": "2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
-    "data_import_function": []
+    "display_file": "2025-04-11_1018_hyspire_ncepu_cu-01_durability1.1v_15.8-4.2-180_100-94-6_650_dc1100mv_ac10mv_eis02.txt",
+    "data_import_function": "/Users/atlas/Desktop/Git/SOCEIS/src/Functions/01_Data_read/read_zahner_txt.py"
 }
