@@ -112,7 +112,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
         # Import all the data if there is historical data
             for idx, file in enumerate(config.file_list):
                 file_name_no_ext = os.path.splitext(os.path.basename(file))[0]
-                if os.path.isdir(os.path.join(config.folder_path, "EIS")) and "[Error]" not in file:
+                if os.path.isdir(os.path.join(config.folder_path, "EIS")) and "[Error]" not in file and os.path.exists(os.path.join(os.path.join(config.folder_path, "EIS"), file_name_no_ext+".xlsx")):
                     if file_name_no_ext not in config.store.keys() or "EIS" not in config.store[file_name_no_ext].keys() or config.store[file_name_no_ext]['EIS'].raw['Re'] is None:
                         config.store[file_name_no_ext] = {}
                         config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
@@ -126,7 +126,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             EIS.import_data_EIS()
                             print(f"---- EIS data imported from {file} successfully.")
                 
-                if os.path.isdir(os.path.join(config.folder_path, "DRT")) and "[Error]" not in file:
+                if os.path.isdir(os.path.join(config.folder_path, "DRT")) and "[Error]" not in file and os.path.exists(os.path.join(os.path.join(config.folder_path, "DRT"), file_name_no_ext+".xlsx")):
                     if file_name_no_ext not in config.store.keys() or "EIS" not in config.store[file_name_no_ext].keys():
                         config.store[file_name_no_ext] = {}
                         config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
@@ -150,15 +150,18 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             EIS.filename = os.path.basename(file)
                             EIS.import_data_DRT()
                             print(f"---- DRT data imported from {file} successfully.")
-
-                if os.path.isdir(os.path.join(config.folder_path, "CNLS")) and "[Error]" not in file:
+                if os.path.isdir(os.path.join(config.folder_path, "CNLS")) and "[Error]" not in file and os.path.exists(os.path.join(os.path.join(config.folder_path, "EIS"), file_name_no_ext+".xlsx")):
                     file_data = config.store.get(file_name_no_ext, {})
                     if "CNLS" not in file_data:
                         if file_name_no_ext not in config.store.keys():
                             config.store[file_name_no_ext] = {}
-                        config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(file_folder=config.folder_path, filename=os.path.basename(file), Elements = None, EIS = config.store[file_name_no_ext]['EIS'] if 'EIS' in config.store[file_name_no_ext].keys() and config.store[file_name_no_ext]['EIS'].tknv_truncated is not None else None, data_type = 'truncated'))
-                        CNLS_tmp = config.store[file_name_no_ext]['CNLS']
-                        CNLS_tmp.ImportCircuit()
+                        if "ReIm" in config.store[file_name_no_ext]['EIS']['tknv_truncated'].keys():
+                            config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(file_folder=config.folder_path, filename=os.path.basename(file), Elements = None, EIS = config.store[file_name_no_ext]['EIS'] if 'EIS' in config.store[file_name_no_ext].keys() and config.store[file_name_no_ext]['EIS'].tknv_truncated is not None else None, data_type = 'truncated'))
+                            CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+                            CNLS_tmp.ImportCircuit()
+                        else:
+                            print("[Warning] The file does not concern the impedance data. Or check file_list.py.")
+                            continue
                     
                         if idx == len(config.file_list) - 1:
                             CNLS.file_folder = config.folder_path

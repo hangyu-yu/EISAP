@@ -12,7 +12,7 @@ def _ensure_contiguous(data):
 def _create_plot_with_axes(parent_tag, width, height, x_label, y_label, log_x=False):
     """Create a plot area with axes."""
     equal_aspects_switch = True if "Z'" in x_label and "Z''" in y_label else False
-    with dpg.plot(tag=parent_tag, width=width, height=height, no_menus=True, equal_aspects=equal_aspects_switch):
+    with dpg.plot(tag=parent_tag, width=width, height=height, no_menus=False, equal_aspects=equal_aspects_switch):
         dpg.add_plot_axis(dpg.mvXAxis, label=x_label, log_scale=log_x)
         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
         return y_axis
@@ -79,7 +79,7 @@ def update_single_plots(config):
             if data_type != "EIS_truncated":
                 if data[f"tknv_{data_type}"]:
                     dpg.delete_item(f"tab_drt_{data_type}_data_plot_single")
-                    with dpg.plot(tag=f"tab_drt_{data_type}_data_plot_single", width=-1, height=-1, no_menus=True):
+                    with dpg.plot(tag=f"tab_drt_{data_type}_data_plot_single", width=-1, height=-1, no_menus=False):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
                         y_max_value = 0
@@ -134,7 +134,7 @@ def update_all_plots(config):
                             tag=f"plot_gamma_{data_type}_{category}_all",
                             width=-1,
                             height=-1,  # Adaptive height
-                            no_menus=True
+                            no_menus=False
                         ):
                             # X-axis (log scale)
                             dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)

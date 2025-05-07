@@ -35,7 +35,7 @@ def update_single_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_single_KK",
                         width = -1,
                         height=int(dpg.get_viewport_height() * 0.3),
-                        no_menus=True,
+                        no_menus=False,
                     ):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, 
@@ -50,7 +50,7 @@ def update_single_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_single_Z_Phase",
                         width = -1,
                         height= -1,
-                        no_menus=True,
+                        no_menus=False,
                     ):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis1 = dpg.add_plot_axis(dpg.mvYAxis, label="Z [Ohm·cm2]")
@@ -73,7 +73,7 @@ def update_single_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_single_Re",
                         width = -1,
                         height=int(dpg.get_viewport_height() * 0.25),
-                        no_menus=True,
+                        no_menus=False,
                     ):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Z' [Ohm·cm2]")
@@ -86,7 +86,7 @@ def update_single_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_single_Im",
                         width = -1,
                         height=int(dpg.get_viewport_height() * 0.25),
-                        no_menus=True,
+                        no_menus=False,
                     ):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [Ohm·cm2]")
@@ -100,7 +100,7 @@ def update_single_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_single_ReIM",
                         width = -1,
                         height= -1,
-                        no_menus=True,
+                        no_menus=False,
                         equal_aspects = True
                     ):
                         x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Z' [Ohm·cm2]")
@@ -146,7 +146,7 @@ def update_all_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_all_KK",
                         width = -1,
                         height=int(dpg.get_viewport_height() * 0.3),
-                        no_menus=True,
+                        no_menus=False,
                     )
                     dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True, parent=f"tab_eis_{data_category}_data_plot_all_KK")
                     y_axis_KK = dpg.add_plot_axis(dpg.mvYAxis, label="Residual [%]", parent=f"tab_eis_{data_category}_data_plot_all_KK")
@@ -157,7 +157,7 @@ def update_all_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_all_Z_Phase",
                         width = -1,
                         height= -1,
-                        no_menus=True,
+                        no_menus=False,
                     )
                     dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True, parent=f"tab_eis_{data_category}_data_plot_all_Z_Phase")
                     y_axis1_Z_Phase = dpg.add_plot_axis(dpg.mvYAxis, label="Z [Ohm·cm2]", parent=f"tab_eis_{data_category}_data_plot_all_Z_Phase")
@@ -184,7 +184,7 @@ def update_all_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_all_Re",
                         width=-1,
                         height=int(dpg.get_viewport_height() * 0.25),
-                        no_menus=True,
+                        no_menus=False,
                     )
                     dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True, parent=f"tab_eis_{data_category}_data_plot_all_Re")
                     y_axis_Re = dpg.add_plot_axis(dpg.mvYAxis, label="Z' [Ohm·cm2]", parent=f"tab_eis_{data_category}_data_plot_all_Re")
@@ -194,7 +194,7 @@ def update_all_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_all_Im",
                         width=-1,
                         height=int(dpg.get_viewport_height() * 0.25),
-                        no_menus=True,
+                        no_menus=False,
                     )
                     dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True, parent=f"tab_eis_{data_category}_data_plot_all_Im")
                     y_axis_Im = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [Ohm·cm2]", parent=f"tab_eis_{data_category}_data_plot_all_Im")
@@ -205,7 +205,7 @@ def update_all_plots(config):
                         tag=f"tab_eis_{data_category}_data_plot_all_ReIm",
                         width=-1,
                         height=-1,
-                        no_menus=True,
+                        no_menus=False,
                         equal_aspects = True
                     )
                     dpg.add_plot_axis(dpg.mvXAxis, label="Z' [Ohm·cm2]", parent=f"tab_eis_{data_category}_data_plot_all_ReIm")

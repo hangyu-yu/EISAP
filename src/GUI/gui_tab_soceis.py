@@ -114,15 +114,13 @@ def update_image_sizes():
     configure_spacers(viewport_width, spacers)
     
     # Update child window sizes
-    dpg.configure_item("child_window_folder_directory", width=int(viewport_width * 0.5))
-    dpg.configure_item("child_window_file_list_soceis", width=int(viewport_width * 0.5))
-    dpg.configure_item("child_window_tool_box_soceis", width=int(viewport_width * 0.5))
+    dpg.configure_item("child_window_folder_directory", width=int(viewport_width * 0.5), height=80)
+    dpg.configure_item("child_window_file_list_soceis", width=int(viewport_width * 0.5), height=int(viewport_height * 0.35))
+    dpg.configure_item("child_window_tool_box_soceis", width=int(viewport_width * 0.5), height=-1)
     
     # Update text wrapping
     dpg.configure_item("welcome_text", wrap=int(viewport_width * 0.5))
     dpg.configure_item("version_text", wrap=int(viewport_width * 0.04))
-
-
 
 # Functions for file dialog callbacks
 def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
@@ -198,8 +196,8 @@ def gui_tab_soceis(config, EIS, CNLS):
                 
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
-                    dpg.add_spacer(width=int(viewport_width*0.49), tag="version_spacer")
-                    dpg.add_text("Beta V0.1", wrap=int(viewport_width * 0.04), tag="version_text")
+                    dpg.add_spacer(width=int(viewport_width*0.47), tag="version_spacer")
+                    dpg.add_text("Beta V0.1", wrap=int(viewport_width * 0.6), tag="version_text")
                 
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
@@ -213,6 +211,7 @@ def gui_tab_soceis(config, EIS, CNLS):
         dpg.add_file_dialog(
             directory_selector=True, 
             show=False, 
+            default_path=config.folder_path if config.folder_path is not None and "[Error]" not in config.folder_path else os.getcwd(),
             callback=lambda sender, app_data: folder_selector_ok_callback(sender, app_data, config, EIS, CNLS),
             tag="file_dialog_soceis",
             cancel_callback=lambda sender, app_data: folder_selector_cancel_callback(sender, app_data),
@@ -225,7 +224,7 @@ def gui_tab_soceis(config, EIS, CNLS):
         
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="Directory_child_before_spacer")
-            with dpg.child_window(width=viewport_width*0.5, height=83, horizontal_scrollbar=True, menubar=True, tag="child_window_folder_directory"):
+            with dpg.child_window(width=int(viewport_width*0.5), height=80, horizontal_scrollbar=True, menubar=True, tag="child_window_folder_directory"):
                 with dpg.menu_bar():
                     with dpg.menu(label="Selected directory"):
                         dpg.add_menu_item(label="")
@@ -250,7 +249,7 @@ def gui_tab_soceis(config, EIS, CNLS):
 
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
-            with dpg.child_window(width=viewport_width*0.5, height=200, horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_soceis"):
+            with dpg.child_window(width=int(viewport_width*0.5), height=int(viewport_height*0.3), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_soceis"):
                 gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
 
         # Add the buttons
