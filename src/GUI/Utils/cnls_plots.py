@@ -172,13 +172,23 @@ def update_all_plots(config):
             data_list = []
             y_min_value = 0.00
             y_max_value = 0.00
+            if 'tau' in param_name.split('_')[1]:
+                y_label = "tau [s]"
+            elif 'R' in param_name.split('_')[1]:
+                y_label = "Resistance [ohm·cm2]"
+            elif 'alpha' in param_name.split('_')[1]:
+                y_label = "Dispersion factor"
+            elif 'L' in param_name.split('_')[1]:
+                y_label = "Inductance [H·cm2]"
+            else:
+                y_label = "Unit"
             dpg.delete_item(f"tab_cnls_all_{param_name}")
             with dpg.tab(label=param_name, tag=f"tab_cnls_all_{param_name}", parent="tab_bar_cnls_plot_all"):
                 with dpg.plot(tag=f"plot_cnls_all_{param_name}", width=-1, height=-1, no_menus=True, parent=""):
-                    x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Name list", log_scale=True)
-                    y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
+                    x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Measurements", log_scale=False)
+                    y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
                     for file_name in config.selected_files:
-                        file_name_list.append(gui_utils.small_functions.string_abbreviation(os.path.splitext(file_name)[0], 10, 10))
+                        file_name_list.append(gui_utils.small_functions.string_abbreviation(os.path.splitext(file_name)[0], 3, 5))
                         file_key = os.path.splitext(file_name)[0]
                         CNLS_tmp = config.store[file_key]['CNLS']
                         data_list.append(CNLS_tmp.ElementsParamValues[idx])
@@ -188,9 +198,9 @@ def update_all_plots(config):
                     label_pairs = tuple(zip(file_name_list, x_data))
                     dpg.add_line_series(x_data, data_list, parent=y_axis)
                     dpg.add_scatter_series(x_data, data_list, parent=y_axis)
-                    # dpg.set_axis_limits(y_axis, y_min_value*0.5, y_max_value * 1.1)
-                    # dpg.set_axis_limits(x_axis, 0, len(file_name_list) + 1)
-                    # dpg.set_axis_ticks(x_axis, label_pairs)
+                    dpg.set_axis_limits(y_axis, y_min_value*0.5, y_max_value * 1.1)
+                    dpg.set_axis_limits(x_axis, 0, len(file_name_list) + 1)
+                    dpg.set_axis_ticks(x_axis, label_pairs)
 
         print("---- DRT gamma distribution plots updated successfully.")
     except:
