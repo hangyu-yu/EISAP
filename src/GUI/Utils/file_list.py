@@ -172,6 +172,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             print(f"---- CNLS data imported from {file} successfully.")
                             
             config.store['beacon_DRT_import'] = False
+    file_alignment(config)
 
 def display_file(sender, app_data, config):
     """
@@ -235,3 +236,36 @@ def update_file_list_and_display(sender, app_data, config, tag_name, parent_tag)
         items=config.selected_files,
         callback=lambda s, a: gui_utils.file_list.display_file(s, a, config)
     )
+
+def file_alignment(config):
+    """
+    Align the file list and display file in the GUI.
+    """
+    # Iterate through the file list and check for alignment
+    print("-- File alignment check:")
+    # Check files in EIS folder for alignment with config.file_list
+    eis_folder = os.path.join(config.folder_path, "EIS")
+    if os.path.isdir(eis_folder):
+        for existing_file in glob.glob(os.path.join(eis_folder, "*.xlsx")):
+            file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
+            if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
+                os.remove(existing_file)
+                print(f"[Warning] Removed unaligned file in EIS: {existing_file}")
+
+    # Check files in DRT folder for alignment with config.file_list
+    drt_folder = os.path.join(config.folder_path, "DRT")
+    if os.path.isdir(drt_folder):
+        for existing_file in glob.glob(os.path.join(drt_folder, "*.xlsx")):
+            file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
+            if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
+                os.remove(existing_file)
+                print(f"[Warning] Removed unaligned file in DRT: {existing_file}")
+
+    # Check files in CNLS folder for alignment with config.file_list
+    cnls_folder = os.path.join(config.folder_path, "CNLS")
+    if os.path.isdir(cnls_folder):
+        for existing_file in glob.glob(os.path.join(cnls_folder, "*.xlsx")):
+            file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
+            if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
+                os.remove(existing_file)
+                print(f"[Warning] Removed unaligned file in CNLS: {existing_file}")
