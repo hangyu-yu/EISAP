@@ -102,7 +102,7 @@ def update_image_sizes():
     spacers = {
         "main_icon_spacer": 0.45,
         "logos_spacer": (0.97 - total_logos_width / viewport_width) / 2,
-        "version_spacer": 0.49,
+        "version_spacer": 0.48,
         "welcome_spacer": 0.25,
         "file_dialog_before_spacer": 0.05,
         "Directory_before_spacer": 0.25,
@@ -115,8 +115,8 @@ def update_image_sizes():
     
     # Update child window sizes
     dpg.configure_item("child_window_folder_directory", width=int(viewport_width * 0.5), height=80)
-    dpg.configure_item("child_window_file_list_soceis", width=int(viewport_width * 0.5), height=int(viewport_height * 0.35))
-    dpg.configure_item("child_window_tool_box_soceis", width=int(viewport_width * 0.5), height=160)
+    dpg.configure_item("child_window_file_list_soceis", width=int(viewport_width * 0.5), height=int(viewport_height * 0.2))
+    dpg.configure_item("child_window_tool_box_soceis", width=int(viewport_width * 0.5), height=int(viewport_height*0.1))
     
     # Update text wrapping
     dpg.configure_item("welcome_text", wrap=int(viewport_width * 0.5))
@@ -196,8 +196,8 @@ def gui_tab_soceis(config, EIS, CNLS):
                 
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
-                    dpg.add_spacer(width=int(viewport_width*0.47), tag="version_spacer")
-                    dpg.add_text("Beta V0.2", wrap=int(viewport_width * 0.6), tag="version_text")
+                    dpg.add_spacer(width=int(viewport_width*0.48), tag="version_spacer")
+                    dpg.add_text("Beta V0.2", tag="version_text")
                 
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
@@ -249,13 +249,13 @@ def gui_tab_soceis(config, EIS, CNLS):
 
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
-            with dpg.child_window(width=int(viewport_width*0.5), height=int(viewport_height*0.3), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_soceis"):
+            with dpg.child_window(width=int(viewport_width*0.5), height=int(viewport_height*0.2), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_soceis"):
                 gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
 
         # Add the buttons
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="command_buttons_spacer")
-            with dpg.child_window(width=viewport_width*0.5, height=160, horizontal_scrollbar=True, menubar=True, tag="child_window_tool_box_soceis"):
+            with dpg.child_window(width=int(viewport_width*0.5), height=int(viewport_height*0.1), horizontal_scrollbar=True, menubar=True, tag="child_window_tool_box_soceis"):
                 with dpg.menu_bar():
                     with dpg.menu(label="Tool box"):
                         dpg.add_menu_item(label="") 
