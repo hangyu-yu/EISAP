@@ -4,6 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import ctypes
 import platform
 import src.GUI as gui
+from pathlib import Path
 import src.GUI.Utils as gui_utils
 gui_utils.small_functions.install_and_check_dependencies()
 import dearpygui.dearpygui as dpg
@@ -48,15 +49,16 @@ CNLS = Circuit(file_folder=config.folder_path, filename=None, Elements = None, E
 dpg.create_context()
 dpg.create_viewport(title='SOCEIS', width=window_width, height=window_height)
 
-# Setup the icon
-icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "icons", "app_icon.ico")
-dpg.set_viewport_small_icon(icon_path)
-dpg.set_viewport_large_icon(icon_path)
-
-# Setup the fonts
+# Setup the icon and fonts
+root_dir = Path(__file__).resolve().parent.parent.parent
+icon_path = root_dir / "assets" / "icons" / "app_icon.ico"
+font_path_medium = root_dir / "assets" / "fonts" / "MiSans-Medium.otf"
+font_path_light = root_dir / "assets" / "fonts" / "MiSans-Light.otf"
+dpg.set_viewport_small_icon(str(icon_path))
+dpg.set_viewport_large_icon(str(icon_path))
 with dpg.font_registry():
-    default_font = dpg.add_font(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "fonts", "MiSans-Medium.otf"), 20)
-    second_font = dpg.add_font(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "fonts", "MiSans-Light.otf"), 10)
+    default_font = dpg.add_font(str(font_path_medium), 20)
+    second_font = dpg.add_font(str(font_path_light), 10)
 dpg.bind_font(default_font)
 
 with dpg.theme() as plot_theme:

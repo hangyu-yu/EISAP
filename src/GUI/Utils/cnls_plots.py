@@ -167,40 +167,47 @@ def update_all_plots(config):
     print("-- CNLS data all plots updating...")
     try:
         CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS']
-        for idx, param_name in enumerate(CNLS_tmp.ElementsParamNames):
-            file_name_list = []
-            data_list = []
-            y_min_value = 0.00
-            y_max_value = 0.00
-            if 'tau' in param_name.split('_')[1]:
-                y_label = "tau [s]"
-            elif 'R' in param_name.split('_')[1]:
-                y_label = "Resistance [ohm·cm2]"
-            elif 'alpha' in param_name.split('_')[1]:
-                y_label = "Dispersion factor"
-            elif 'L' in param_name.split('_')[1]:
-                y_label = "Inductance [H·cm2]"
-            else:
-                y_label = "Unit"
+        name_list = [element['name'] for element in CNLS_tmp.Elements]
+        for idx, param_name in enumerate(name_list):
             dpg.delete_item(f"tab_cnls_all_{param_name}")
             with dpg.tab(label=param_name, tag=f"tab_cnls_all_{param_name}", parent="tab_bar_cnls_plot_all"):
-                with dpg.plot(tag=f"plot_cnls_all_{param_name}", width=-1, height=-1, no_menus=True, parent=""):
-                    x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Measurements", log_scale=False)
-                    y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
-                    for file_name in config.selected_files:
-                        file_name_list.append(gui_utils.small_functions.string_abbreviation(os.path.splitext(file_name)[0], 3, 5))
-                        file_key = os.path.splitext(file_name)[0]
-                        CNLS_tmp = config.store[file_key]['CNLS']
-                        data_list.append(CNLS_tmp.ElementsParamValues[idx])
-                        y_min_value = np.min([y_min_value, CNLS_tmp.ElementsParamValues[idx]])
-                        y_max_value = np.max([y_max_value, CNLS_tmp.ElementsParamValues[idx]])
-                    x_data = list(range(1, len(file_name_list) + 1))
-                    label_pairs = tuple(zip(file_name_list, x_data))
-                    dpg.add_line_series(x_data, data_list, parent=y_axis)
-                    dpg.add_scatter_series(x_data, data_list, parent=y_axis)
-                    dpg.set_axis_limits(y_axis, y_min_value*0.5, y_max_value * 1.1)
-                    dpg.set_axis_limits(x_axis, 0, len(file_name_list) + 1)
-                    dpg.set_axis_ticks(x_axis, label_pairs)
+                with dpg.tab_bar(tag=f"tab_bar_cnls_all_{param_name}", parent = f"tab_cnls_all_{param_name}"):
+                    start_idx = CNLS_tmp.ElementsStartIndex[idx]
+                    end_idx = CNLS_tmp.ElementsEndIndex[idx]
+                    for para_idx in range(start_idx, end_idx + 1):
+                        file_name_list = []
+                        data_list = []
+                        y_min_value = 0.00
+                        y_max_value = 0.00
+                        param = CNLS_tmp.ElementsParamNames[para_idx]
+                        if 'tau' in param.split('_')[1]:
+                            y_label = "tau [s]"
+                        elif 'R' in param.split('_')[1]:
+                            y_label = "Resistance [ohm·cm2]"
+                        elif 'alpha' in param.split('_')[1]:
+                            y_label = "Dispersion factor"
+                        elif 'L' in param.split('_')[1]:
+                            y_label = "Inductance [H·cm2]"
+                        else:
+                            y_label = "Unit"
+                        with dpg.tab(label=param, tag=f"tab_cnls_all_{param}", parent=f"tab_bar_cnls_all_{param_name}"):
+                            with dpg.plot(tag=f"plot_cnls_all_{param}", width=-1, height=-1, no_menus=True):
+                                x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Measurements", log_scale=False)
+                                y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
+                                for file_name in config.selected_files:
+                                    file_name_list.append(gui_utils.small_functions.string_abbreviation(os.path.splitext(file_name)[0], 3, 5))
+                                    file_key = os.path.splitext(file_name)[0]
+                                    CNLS_tmp = config.store[file_key]['CNLS']
+                                    data_list.append(CNLS_tmp.ElementsParamValues[para_idx])
+                                    y_min_value = np.min([y_min_value, CNLS_tmp.ElementsParamValues[para_idx]])
+                                    y_max_value = np.max([y_max_value, CNLS_tmp.ElementsParamValues[para_idx]])
+                                x_data = list(range(1, len(file_name_list) + 1))
+                                label_pairs = tuple(zip(file_name_list, x_data))
+                                dpg.add_line_series(x_data, data_list, parent=y_axis)
+                                dpg.add_scatter_series(x_data, data_list, parent=y_axis)
+                                dpg.set_axis_limits(y_axis, y_min_value*0.5, y_max_value * 1.1)
+                                dpg.set_axis_limits(x_axis, 0, len(file_name_list) + 1)
+                                dpg.set_axis_ticks(x_axis, label_pairs)
 
         print("---- DRT gamma distribution plots updated successfully.")
     except:
