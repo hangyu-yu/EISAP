@@ -269,3 +269,16 @@ def file_alignment(config):
             if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
                 os.remove(existing_file)
                 print(f"[Warning] Removed unaligned file in CNLS: {existing_file}")
+
+    # Ensure all files in config.selected_files exist in the target folders
+    aligned_selected_files = []
+    file_list_base_names = [os.path.basename(file) for file in config.file_list]
+
+    for file_name in config.selected_files:
+        if file_name in file_list_base_names:
+            aligned_selected_files.append(file_name)
+        else:
+            print(f"[Warning] Removed unaligned file in selected_files: {file_name}")
+
+    # Update config.selected_files with the aligned list
+    config.selected_files = aligned_selected_files
