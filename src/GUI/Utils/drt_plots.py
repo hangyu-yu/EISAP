@@ -59,6 +59,26 @@ def _update_nyquist_plot(data, parent_tag, data_category):
     _add_series_to_plot({'f': data.tknv_truncated[data_category]['Re'], 'y': -data.tknv_truncated[data_category]['Im']}, y_axis, f"{data_category}_DRT_smooth")
     dpg.add_plot_legend(parent=f"{parent_tag}_ReIm")
 
+def _update_residual_plots(data, parent_tag):
+    """Update residual plots (ReIm and Re)."""
+    # Real part (Z')
+    y_axis_re = _create_plot_with_axes(
+        f"{parent_tag}_ReIm_residual", -1, int(dpg.get_viewport_height() * 0.4),
+        "Frequency [Hz]", "Residual [%]", log_x=True
+    )
+    _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Re']-data.tknv_truncated['ReIm']['Re'])/np.abs(data.truncated['Z'])*100}, y_axis_re, f"ReIm_Re", False)
+    _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Im']-data.tknv_truncated['ReIm']['Im'])/np.abs(data.truncated['Z'])*100}, y_axis_re, f"ReIm_Im", False)
+    dpg.add_plot_legend(parent=f"{parent_tag}_ReIm_residual")
+
+    # Imaginary part (-Z'')
+    y_axis_im = _create_plot_with_axes(
+        f"{parent_tag}_Re_residual", -1, int(dpg.get_viewport_height() * 0.4),
+        "Frequency [Hz]", "Residual [%]", log_x=True
+    )
+    _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Re']-data.tknv_truncated['Re']['Re']) / np.abs(data.truncated['Z']) * 100}, y_axis_im, f"Re_Re", False)
+    _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Im']-data.tknv_truncated['Re']['Im']) / np.abs(data.truncated['Z']) * 100}, y_axis_im, f"Re_Im", False)
+    dpg.add_plot_legend(parent=f"{parent_tag}_Re_residual")
+
 def update_single_plots(config):
     """Update single-file DRT plots."""
     print("-- Updating DRT single plots...")
@@ -100,6 +120,11 @@ def update_single_plots(config):
                         with dpg.tab(label=category, tag=f"tab_drt_{data_type}_{category}_plot_single"):
                             _update_bode_plots(data, f"tab_drt_{data_type}_{category}", category)
                             _update_nyquist_plot(data, f"tab_drt_{data_type}_{category}", category)
+                    
+                    # Residuals
+                    dpg.delete_item(f"tab_drt_{data_type}_residual_plot_single")
+                    with dpg.tab(label=f"Residuals", tag=f"tab_drt_{data_type}_residuals_plot_single"):
+                        _update_residual_plots(data, f"tab_drt_{data_type}_residuals")
 
     print("---- DRT single plots updated successfully.")
 

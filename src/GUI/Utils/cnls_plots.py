@@ -28,12 +28,8 @@ def update_single_plots(config):
                 y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
                 file_name_no_ext = os.path.splitext(config.display_file)[0]
                 EIS_tmp = config.store[file_key]['EIS']
-                if data.DRTmes is not None:
-                    dpg.add_line_series(data.f, data.DRTmes, parent=y_axis)
-                    y_max_value = np.max(np.max(data.DRTmes))
-                else:
-                    dpg.add_line_series(EIS_tmp.tknv_truncated['ReIm']['f'], EIS_tmp.tknv_truncated['ReIm']['g'], parent=y_axis)
-                    y_max_value = np.max(np.max(EIS_tmp.tknv_truncated['ReIm']['g']))
+                dpg.add_line_series(EIS_tmp.tknv_truncated['ReIm']['f'], EIS_tmp.tknv_truncated['ReIm']['g'], parent=y_axis)
+                y_max_value = np.max(np.max(EIS_tmp.tknv_truncated['ReIm']['g']))
                 dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
                 dpg.add_plot_legend()
 
@@ -49,9 +45,10 @@ def update_single_plots(config):
                     dpg.add_plot_legend()
             with dpg.table(
                 tag=f"table_cnls_plot_residuals",
-                reorderable=False,     # Allow column reordering via drag-and-drop
-                scrollX=True,         # Enable horizontal scrolling
-                scrollY=True,         # Enable vertical scrolling
+                reorderable=False, # Allow column reordering via drag-and-drop
+                header_row=False,  # Hide the header row
+                scrollX=True,      # Enable horizontal scrolling
+                scrollY=True,      # Enable vertical scrolling
                 policy=dpg.mvTable_SizingFixedFit,  # Automatically adjust column width
             ):
                 dpg.add_table_column(width_stretch=True)
@@ -76,9 +73,10 @@ def update_single_plots(config):
         with dpg.tab(label="Fit", tag="tab_cnls_fit_plot_single", parent="tab_bar_cnls_plot_single"):
             with dpg.table(
                 tag=f"table_cnls_plot_fit",
-                reorderable=False,     # Allow column reordering via drag-and-drop
-                scrollX=True,         # Enable horizontal scrolling
-                scrollY=True,         # Enable vertical scrolling
+                reorderable=False, # Allow column reordering via drag-and-drop
+                header_row=False,  # Hide the header row
+                scrollX=True,      # Enable horizontal scrolling
+                scrollY=True,      # Enable vertical scrolling
                 policy=dpg.mvTable_SizingFixedFit,  # Automatically adjust column width
             ):
                 dpg.add_table_column(width_stretch=True)
@@ -119,7 +117,7 @@ def update_single_plots(config):
             with dpg.plot(tag="plot_elements_nyquist_single", width=-1, height=int(viewport_height*0.4), no_menus=False, equal_aspects = True):
                 dpg.add_plot_axis(dpg.mvXAxis, label="Z' [ohm·cm2]", log_scale=False)
                 y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [ohm·cm2]")
-                if data.Zmes is not None:
+                if data.Zmes is not None and data.w is not None:
                     dpg.add_scatter_series(np.asarray(data.Zmes.real, dtype=np.float32), -np.asarray(data.Zmes.imag, dtype=np.float32), parent=y_axis, label="Measure")
                     _, Z = data.EvaluateCircuit()
                     for idx, element in enumerate(Z.columns):
@@ -134,9 +132,10 @@ def update_single_plots(config):
 
             with dpg.table(
                 tag=f"table_cnls_plot_elements",
-                reorderable=False,     # Allow column reordering via drag-and-drop
-                scrollX=True,         # Enable horizontal scrolling
-                scrollY=True,         # Enable vertical scrolling
+                reorderable=False, # Allow column reordering via drag-and-drop
+                header_row=False,  # Hide the header row
+                scrollX=True,      # Enable horizontal scrolling
+                scrollY=True,      # Enable vertical scrolling
                 policy=dpg.mvTable_SizingFixedFit,  # Automatically adjust column width
             ):
                 dpg.add_table_column(width_stretch=True)
@@ -145,7 +144,7 @@ def update_single_plots(config):
                     with dpg.plot(tag="plot_cnls_elements_Im_single", width=-1, height=-1, no_menus=False):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [ohm·cm2]")
-                        if data.f is not None:
+                        if data.f is not None and data.Zmes is not None and data.w is not None:
                             dpg.add_scatter_series(np.asarray(data.f, dtype=np.float32), -np.asarray(np.imag(data.Zmes), dtype=np.float32), parent=y_axis, label="Measure")
                             for element in Z.columns:
                                 dpg.add_line_series(np.asarray(data.f, dtype=np.float32), -np.asarray(np.imag(Z[element]), dtype=np.float32), parent=y_axis, label=f"{element}")
@@ -154,7 +153,7 @@ def update_single_plots(config):
                     with dpg.plot(tag="plot_cnls_elements_DRT_single", width=-1, height=-1, no_menus=False):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
-                        if data.f is not None:
+                        if data.f is not None and data.Zmes is not None and data.w is not None:
                             dpg.add_scatter_series(np.asarray(data.f, dtype=np.float32), np.asarray(data.DRTmes, dtype=np.float32), parent=y_axis, label="Measure")
                             y_max_value = np.max(np.asarray(data.DRTmes, dtype=np.float32))
                             for element in data.ElementDRTs:
