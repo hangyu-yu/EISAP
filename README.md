@@ -23,6 +23,7 @@ Beta version 0.2 with complete EIS, DRT and CNLS fit functionalities. Small bugs
 	- [ ] Visualized equivalent circuit model assembly and usage of only basic circuit component R, C, L, Q, fFLW, FLW, G, etc.
 	- [ ] Z-HIT smoothing from Zahner
 	- [ ] Different DRT methodologies
+	- [ ] Image save
 # ---------- Date: 2025.02.12 ----------
 ## To do list
 - [x] Translate all the codes in Matlab environment into python code

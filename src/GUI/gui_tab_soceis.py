@@ -1,5 +1,6 @@
 import os
 import glob
+import numpy as np
 import src.GUI as gui
 import src.GUI.Utils as gui_utils
 import dearpygui.dearpygui as dpg
@@ -135,7 +136,14 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
     CNLS.file_folder = config.folder_path
     config.store['beacon_DRT_import'] = True
     print("Folder path:", config.folder_path)
+    past_file_names = list(config.store.keys())
+    for item in past_file_names:
+        config.store.pop(item) if item not in ['element_list', 'peak_fixed_frequencies', 'Elements', 'segment_constraints', 'beacon_DRT_import', 'nbr_peaks'] else None
+        if item == 'Elements':
+            config.store[item] = [{'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
+                                  {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]}]
     dpg.set_value("selected_directory", config.folder_path)
+
     gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
 
 def folder_selector_cancel_callback(sender, app_data):
@@ -197,7 +205,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width*0.48), tag="version_spacer")
-                    dpg.add_text("Beta V0.2", tag="version_text")
+                    dpg.add_text("Beta V0.3", tag="version_text")
                 
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
