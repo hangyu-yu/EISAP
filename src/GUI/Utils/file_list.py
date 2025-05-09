@@ -231,7 +231,7 @@ def update_file_list_and_display(sender, app_data, config, tag_name, parent_tag)
     dpg.add_combo(
         parent=parent_tag,
         tag=tag_name,
-        default_value = gui_utils.small_functions.string_abbreviation(config.display_file, 17, 17),
+        default_value = gui_utils.small_functions.string_abbreviation(config.display_file, 17, 17) if config.display_file is not None else None,
         width = -1,
         items=config.selected_files,
         callback=lambda s, a: gui_utils.file_list.display_file(s, a, config)
@@ -282,3 +282,4 @@ def file_alignment(config):
 
     # Update config.selected_files with the aligned list
     config.selected_files = aligned_selected_files
+    print("---- File alignment finished.")

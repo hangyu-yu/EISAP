@@ -2,6 +2,13 @@
 
 # Introduction
 **SOCEIS** is a project focusing on the data treatment of electrochemical impedance spectroscopy (EIS) measurements with Tiknov-based distribution of relaxation time (DRT), equivalant circuit model (ECM), and complex non-linear least square (CNLS) fit methodologies. Notably, the CNLS fit based on ECM will be capable of adjusting the upper/lower bound of elements' parameters (R, τ, α) freely. Besides, a model parameter estimation will also be included.
+## Dependancies
+- numpy # ==2.2.5
+- scipy # ==1.15.2
+- pandas # ==2.2.3
+- matplotlib # ==3.10.1
+- dearpygui # ==2.0.0
+- openpyxl # ==3.1.2
 
 # ---------- Date: 2025.05.07 ----------
 Beta version 0.2 with complete EIS, DRT and CNLS fit functionalities. Small bugs to be fixed

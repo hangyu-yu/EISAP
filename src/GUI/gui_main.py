@@ -6,7 +6,6 @@ import platform
 import src.GUI as gui
 from pathlib import Path
 import src.GUI.Utils as gui_utils
-gui_utils.small_functions.install_and_check_dependencies()
 import dearpygui.dearpygui as dpg
 from src.GUI.config import Config
 from src.Methods.DRT.DRT import DRT
