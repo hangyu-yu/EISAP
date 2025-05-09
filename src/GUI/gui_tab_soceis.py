@@ -205,7 +205,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width*0.48), tag="version_spacer")
-                    dpg.add_text("Beta V0.3", tag="version_text")
+                    dpg.add_text("Beta V0.4", tag="version_text")
                 
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
