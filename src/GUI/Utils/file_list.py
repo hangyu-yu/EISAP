@@ -49,10 +49,14 @@ def update_selected_files(config, tag=None):
     try:
         if dpg.does_item_exist("tab_bar_eis_plot_all"):
             gui_utils.eis_plots.update_all_plots(config)
+            update_file_list(config, "child_window_file_list_eis", None, None)
         if dpg.does_item_exist("tab_bar_drt_plot_all"):
             gui_utils.drt_plots.update_all_plots(config)
+            update_file_list(config, "child_window_file_list_drt", None, None)
         if dpg.does_item_exist("tab_bar_cnls_plot_all"):
             gui_utils.cnls_plots.update_all_plots(config)
+            update_file_list(config, "child_window_file_list_cnls", None, None)
+        update_file_list(config, "child_window_file_list_soceis", None, None)
     except:
         print("[Warning] EIS/DRT/CNLS ALL-plots update failed. Please check the EIS/DRT/CNLS data, or come to file_list.update_seleted_files and check.")
 

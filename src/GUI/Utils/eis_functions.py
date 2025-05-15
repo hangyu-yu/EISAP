@@ -39,7 +39,8 @@ def data_import(sender, app_data, config, EIS):
         EIS_tmp.raw['Im'] = data['Im/Ohm'].to_numpy()
         EIS_tmp.raw['Z'] = EIS_tmp.raw['Re'] + 1j * EIS_tmp.raw['Im']
         EIS_tmp.raw['f'] = data['Frequency/Hz'].to_numpy()
-        EIS_tmp.raw['significance'] = data['Significance'].to_numpy()
+        if 'Significance' in data.columns:
+            EIS_tmp.raw['significance'] = data['Significance'].to_numpy()
         EIS_tmp.info = metadata
         EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, EIS_tmp.parameter['Sample'])
 

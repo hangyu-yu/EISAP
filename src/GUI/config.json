@@ -1,14 +1,28 @@
 {
-    "folder_path": "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\4_Models\\IS_analysis_V1\\_DataRef\\Zahner",
+    "folder_path": "/Users/atlas/Downloads/multi_channel/Individual",
     "file_list": [
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\4_Models\\IS_analysis_V1\\_DataRef\\Zahner\\2023-08-25_hq_sp_cu-8_fp1_1444_500_200-0-0_750_dc900mv_ac500ma_eis01.txt",
-        "D:\\OneDrive\\Experience\\01_Projects\\19_HydroQuebec\\4_Models\\IS_analysis_V1\\_DataRef\\Zahner\\2023-08-25_hq_sp_cu-8_fp1_1625_500_100-0-100_750_dc0ma_ac500ma_eis02.txt"
+        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_00.csv",
+        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_01.csv",
+        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_02.csv",
+        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_03.csv",
+        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_04.csv",
+        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_05.csv",
+        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_06.csv",
+        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_07.csv",
+        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_08.csv"
     ],
     "selected_files": [
-        "2023-08-25_hq_sp_cu-8_fp1_1444_500_200-0-0_750_dc900mv_ac500ma_eis01.txt",
-        "2023-08-25_hq_sp_cu-8_fp1_1625_500_100-0-100_750_dc0ma_ac500ma_eis02.txt"
+        "20250506a_700deg_12-15_5+-2a_measured_07_00.csv",
+        "20250506a_700deg_12-15_5+-2a_measured_07_01.csv",
+        "20250506a_700deg_12-15_5+-2a_measured_07_02.csv",
+        "20250506a_700deg_12-15_5+-2a_measured_07_03.csv",
+        "20250506a_700deg_12-15_5+-2a_measured_07_04.csv",
+        "20250506a_700deg_12-15_5+-2a_measured_07_05.csv",
+        "20250506a_700deg_12-15_5+-2a_measured_07_06.csv",
+        "20250506a_700deg_12-15_5+-2a_measured_07_07.csv",
+        "20250506a_700deg_12-15_5+-2a_measured_07_08.csv"
     ],
-    "file_extensions": ".txt",
-    "display_file": "2023-08-25_hq_sp_cu-8_fp1_1625_500_100-0-100_750_dc0ma_ac500ma_eis02.txt",
-    "data_import_function": []
+    "file_extensions": ".csv",
+    "display_file": "20250506a_700deg_12-15_5+-2a_measured_07_00.csv",
+    "data_import_function": "/Users/atlas/Desktop/Git/SOCEIS/src/Functions/01_Data_read/read_zahner_csv_multichannel.py"
 }
