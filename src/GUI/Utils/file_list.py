@@ -150,7 +150,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             EIS.filename = os.path.basename(file)
                             EIS.import_data_DRT()
                             print(f"---- DRT data imported from {file} successfully.")
-                if os.path.isdir(os.path.join(config.folder_path, "CNLS")) and "[Error]" not in file and os.path.exists(os.path.join(os.path.join(config.folder_path, "EIS"), file_name_no_ext+".xlsx")):
+                if os.path.isdir(os.path.join(config.folder_path, "CNLS")) and "[Error]" not in file and os.path.exists(os.path.join(os.path.join(config.folder_path, "CNLS"), file_name_no_ext+".xlsx")):
                     file_data = config.store.get(file_name_no_ext, {})
                     if "CNLS" not in file_data:
                         if file_name_no_ext not in config.store.keys():

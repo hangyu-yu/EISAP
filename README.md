@@ -13,6 +13,7 @@
 # ---------- Date: 2025.05.07 ----------
 Beta version 0.2 with complete EIS, DRT and CNLS fit functionalities. Small bugs to be fixed
 ## To do list
+- [ ] If CNLS fit results are not completely saved, error.
 - [ ] Pop-up window to indicate the fault operation
 - [ ] Simply the batch process name with ID+number-file_name
 - [ ] Pop-up progress bar for the saving, processing
