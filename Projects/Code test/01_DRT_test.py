@@ -35,7 +35,8 @@ EIS.parameter['RM_significance']['rm_significance'] = False # remove data with l
 EIS.parameter['KKpreprocess']['OptimalCut']         = False # remove data based on KK criterion
 EIS.parameter['KK']['KK_test']                      = True  # KK test
 EIS.parameter['KK']['KK_type']             = 'Mu_criterion' # KK type
-EIS.parameter['LambdaOpt']['lambda_opt']            = True # solve the optimum lambda
+EIS.parameter['KK']['RmNonKK']                      = False # remove data with high KK residual
+EIS.parameter['LambdaOpt']['lambda_opt']            = True  # solve the optimum lambda
 EIS.parameter['DRT']['DRT_switch']                  = True  # DRT switch
 
 switch_data_save = True
@@ -86,6 +87,10 @@ for file in txt_files:
     # 035 - KK test
     if EIS.parameter['KK']['KK_test']:
         EIS.KK_test(EIS.truncated)
+
+    # 036 - Data cut based on KK residual
+    if EIS.parameter['KK']['RmNonKK']:
+        EIS.rm_auto_KK()
     
     # 036 - Get smoothed data, LCcorrected data, and extrapolated data
     EIS.parameter['Smoothing']['fmax'] = max(EIS.truncated['f'])

@@ -1,28 +1,16 @@
 {
-    "folder_path": "/Users/atlas/Downloads/multi_channel/Individual",
+    "folder_path": "D:\\Downloads\\Test",
     "file_list": [
-        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_00.csv",
-        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_01.csv",
-        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_02.csv",
-        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_03.csv",
-        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_04.csv",
-        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_05.csv",
-        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_06.csv",
-        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_07.csv",
-        "/Users/atlas/Downloads/multi_channel/Individual/20250506a_700deg_12-15_5+-2a_measured_07_08.csv"
+        "D:\\Downloads\\Test\\2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
+        "D:\\Downloads\\Test\\2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
+        "D:\\Downloads\\Test\\2025-02-19_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt",
+        "D:\\Downloads\\Test\\2025-02-20_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis04.txt"
     ],
     "selected_files": [
-        "20250506a_700deg_12-15_5+-2a_measured_07_00.csv",
-        "20250506a_700deg_12-15_5+-2a_measured_07_01.csv",
-        "20250506a_700deg_12-15_5+-2a_measured_07_02.csv",
-        "20250506a_700deg_12-15_5+-2a_measured_07_03.csv",
-        "20250506a_700deg_12-15_5+-2a_measured_07_04.csv",
-        "20250506a_700deg_12-15_5+-2a_measured_07_05.csv",
-        "20250506a_700deg_12-15_5+-2a_measured_07_06.csv",
-        "20250506a_700deg_12-15_5+-2a_measured_07_07.csv",
-        "20250506a_700deg_12-15_5+-2a_measured_07_08.csv"
+        "2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
+        "2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt"
     ],
-    "file_extensions": ".csv",
-    "display_file": "20250506a_700deg_12-15_5+-2a_measured_07_00.csv",
-    "data_import_function": "/Users/atlas/Desktop/Git/SOCEIS/src/Functions/01_Data_read/read_zahner_csv_multichannel.py"
+    "file_extensions": ".txt",
+    "display_file": "2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
+    "data_import_function": "C:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_zahner_txt.py"
 }

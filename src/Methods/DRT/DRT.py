@@ -176,7 +176,7 @@ class DRT:
             # Tikonov regularization
             'DRT': {
                 'Lambda_selection': 'Manual',  # Lambda selection method, including 'Manual' and 'Optimal'
-                'lambda': 5e-5,                # Regularization parameter
+                'lambda': 5e-4,                # Regularization parameter
                 'tknv_legend': None,           # Legend for Tikhonov regularization plot
                 'DRT_switch': True,            # Switch on Tikhonov regularization or not
             }
@@ -292,9 +292,9 @@ class DRT:
             NotKK = (np.abs(self.store['EIS_kk']['di']) > self.parameter['KK']['kk_threshold']) | (np.abs(self.store['EIS_kk']['dr']) > self.parameter['KK']['kk_threshold'])
             NotKK[0] = False
             NotKK[-1] = False
-            self.truncated['Re'] = np.delete(self.truncated['Re'], np.where(NotKK))
-            self.truncated['Im'] = np.delete(self.truncated['Im'], np.where(NotKK))
-            self.truncated['f'] = np.delete(self.truncated['f'], np.where(NotKK))
+            for i in self.truncated.keys():
+                if self.truncated[i] is not None and self.truncated[i] is not []:
+                    self.truncated[i] = np.delete(self.truncated[i], np.where(NotKK))
         else:
             print("[Error] KK test is not performed yet!")
             return

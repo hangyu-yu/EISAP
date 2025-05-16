@@ -108,6 +108,11 @@ def process_data(sender, app_data, config, EIS):
             if EIS_tmp.parameter['KK']['KK_test']:
                 EIS_tmp.KK_test(EIS_tmp.truncated)
             
+            # 06 - Data cut based on KK residual
+            if EIS_tmp.parameter['KK']['RmNonKK']:
+                EIS_tmp.rm_auto_KK()
+                EIS_tmp.KK_test(EIS_tmp.truncated)
+            
             # 06 - Get smoothed data, LCcorrected data, and extrapolated data
             EIS_tmp.parameter['Smoothing']['fmax'] = max(EIS_tmp.truncated['f'])
             EIS_tmp.parameter['Smoothing']['fmin'] = min(EIS_tmp.truncated['f'])

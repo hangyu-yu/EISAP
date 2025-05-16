@@ -166,6 +166,14 @@ def gui_tab_eis(config, EIS, CNLS):
                                         width=700,
                                         height=400):
                                         dpg.add_file_extension(".py", color=(0, 255, 0, 255), custom_text="[Python]")
+                                    dpg.add_checkbox(
+                                        tag="RmNonKK",
+                                        label="Remove high KK residual data",
+                                        default_value= False,
+                                        callback=lambda sender, app_data: RmNonKK_callback(sender, app_data, EIS))
+                                with dpg.table_row():
+                                    dpg.add_text("Upper cut:", tag="text_num_cut_upper")
+                                    dpg.add_input_text(tag="num_cut_upper", default_value=EIS.parameter["Preprocessing"]["num_cut_upper"])
                                     dpg.add_button(
                                         label="Data import function",
                                         callback=lambda: dpg.show_item("file_dialog_eis"),
@@ -173,19 +181,19 @@ def gui_tab_eis(config, EIS, CNLS):
                                     )
                                     dpg.bind_item_theme("button_data_import_function", blue_button_theme)
                                 with dpg.table_row():
-                                    dpg.add_text("Upper cut:", tag="text_num_cut_upper")
-                                    dpg.add_input_text(tag="num_cut_upper", default_value=EIS.parameter["Preprocessing"]["num_cut_upper"])
+                                    dpg.add_text("Lower cut:", tag="text_num_cut_lower")
+                                    dpg.add_input_text(tag="num_cut_lower", default_value=EIS.parameter["Preprocessing"]["num_cut_lower"])
                                     if config.data_import_function:
                                         data_import_function_text = os.path.basename(config.data_import_function)
                                     else:
                                         data_import_function_text = "No function selected"
                                     dpg.add_text(data_import_function_text, tag="function_import")
                                 with dpg.table_row():
-                                    dpg.add_text("Lower cut:", tag="text_num_cut_lower")
-                                    dpg.add_input_text(tag="num_cut_lower", default_value=EIS.parameter["Preprocessing"]["num_cut_lower"])
-                                with dpg.table_row():
                                     dpg.add_text("Min significance:", tag="text_sig_threshold")
                                     dpg.add_input_text(tag="sig_threshold", default_value=EIS.parameter["RM_significance"]["sig_threshold"])
+                                with dpg.table_row():
+                                    dpg.add_text("Max. KK res.")
+                                    dpg.add_input_text(tag="kk_threshold", default_value=EIS.parameter["KK"]["kk_threshold"])
                                     
                         # Kramers–Kronig test parameters
                         with dpg.tab(label="Kramers Kronig", tag="tab_eis_parameter_KK"):
@@ -217,14 +225,6 @@ def gui_tab_eis(config, EIS, CNLS):
                                         label="Mu criterion",
                                         default_value= True,
                                         callback=lambda sender, app_data: KK_type_callback(sender, app_data, EIS))
-                                with dpg.table_row():
-                                    dpg.add_text("Max. KK res.")
-                                    dpg.add_input_text(tag="kk_threshold", default_value=EIS.parameter["KK"]["kk_threshold"])
-                                    dpg.add_checkbox(
-                                        tag="RmNonKK",
-                                        label="Remove low KK data",
-                                        default_value= True,
-                                        callback=lambda sender, app_data: RmNonKK_callback(sender, app_data, EIS))
                                 with dpg.table_row():
                                     dpg.add_text("MU threshold")
                                     dpg.add_input_text(tag="mu_threshold", default_value=EIS.parameter["KK"]["mu_threshold"])

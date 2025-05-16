@@ -30,10 +30,10 @@ def lambda_mode_callback(sender, app_data, EIS):
     """
     if app_data:
         mode = 'Optimal'
-        dpg.configure_item("input_text_lambda", enabled=True, default_value='Optima')
+        dpg.configure_item("input_text_lambda", enabled=False, default_value='Optima')
     else:
         mode = 'Manual'
-        dpg.configure_item("input_text_lambda", enabled=False, default_value=EIS.parameter["DRT"]["lambda"])
+        dpg.configure_item("input_text_lambda", enabled=True, default_value=EIS.parameter["DRT"]["lambda"])
     EIS.parameter["DRT"]["Lambda_selection"] = mode
     print(f"Lambda mode set to {mode}")
 
