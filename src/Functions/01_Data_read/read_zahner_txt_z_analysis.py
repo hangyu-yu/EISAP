@@ -43,7 +43,7 @@ def read_zahner_txt_z_analysis(file):
     ValueError
         If the file format does not match the expected structure.
     """
-    with open(file, 'r') as f:
+    with open(file, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
     # Extract file name (first line)
@@ -111,7 +111,7 @@ def read_zahner_txt_z_analysis(file):
     data = data.rename(columns={'frequency (Hz)': 'Frequency/Hz'})
     data = data.rename(columns={'significance': 'Significance'})
     # Calculate Re and Im columns based on Imp_module and Imp_phase
-    data['Re/Ohm'] = data['impedance (â„¦)'] * np.cos(np.deg2rad(data['phase / deg (Â°)']))
-    data['Im/Ohm'] = data['impedance (â„¦)'] * np.sin(np.deg2rad(data['phase / deg (Â°)']))
+    data['Re/Ohm'] = data['impedance (Ω)'] * np.cos(np.deg2rad(data['phase / deg (°)']))
+    data['Im/Ohm'] = data['impedance (Ω)'] * np.sin(np.deg2rad(data['phase / deg (°)']))
 
     return metadata, data
