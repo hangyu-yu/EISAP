@@ -1,16 +1,22 @@
 {
-    "folder_path": "D:\\Downloads\\Test",
+    "folder_path": "D:\\Downloads\\EIS txt",
     "file_list": [
-        "D:\\Downloads\\Test\\2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-        "D:\\Downloads\\Test\\2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
-        "D:\\Downloads\\Test\\2025-02-19_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt",
-        "D:\\Downloads\\Test\\2025-02-20_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis04.txt"
+        "D:\\Downloads\\EIS txt\\2025_04_07_eis_9_15a_12mlmincm2.txt",
+        "D:\\Downloads\\EIS txt\\2025_04_07_eis_ocv_12mlmincm2.txt",
+        "D:\\Downloads\\EIS txt\\2025_04_07_eis_step2_6_81a_10mv.txt",
+        "D:\\Downloads\\EIS txt\\2025_04_14_genvia_step_6_81a_20mv2.txt",
+        "D:\\Downloads\\EIS txt\\2025_04_24_eis_step2.txt",
+        "D:\\Downloads\\EIS txt\\2025_04_28_eis_step2.txt",
+        "D:\\Downloads\\EIS txt\\2025_04_28_eis_step3.txt",
+        "D:\\Downloads\\EIS txt\\2025_05_05_eis_step3.txt",
+        "D:\\Downloads\\EIS txt\\2025_05_12_eis_step3.txt",
+        "D:\\Downloads\\EIS txt\\2025_05_12_eis_step4-b.txt",
+        "D:\\Downloads\\EIS txt\\2025_05_12_eis_step4.txt"
     ],
     "selected_files": [
-        "2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-        "2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt"
+        "2025_04_07_eis_9_15a_12mlmincm2.txt"
     ],
     "file_extensions": ".txt",
-    "display_file": "2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-    "data_import_function": "C:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_zahner_txt.py"
+    "display_file": "2025_04_07_eis_9_15a_12mlmincm2.txt",
+    "data_import_function": "C:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_zahner_txt_z_analysis.py"
 }
