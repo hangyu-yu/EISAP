@@ -6,6 +6,8 @@ class Config:
     def __init__(self, config_file="config.json"):
         self.project_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self.config_file = os.path.join(self.project_path, 'src', 'GUI', config_file)
+        # Default font size
+        self.font_size = 20
         # Default folder path
         self.folder_path = os.path.dirname(os.path.abspath(__file__))
         # Selected file extensions
@@ -35,6 +37,7 @@ class Config:
         if os.path.exists(self.config_file):
             with open(self.config_file, "r") as f:
                 data = json.load(f)
+                self.font_size = data.get("font_size", self.font_size) or self.font_size
                 if os.path.exists(data.get("folder_path", "")):
                     self.folder_path = data.get("folder_path", self.folder_path) or self.folder_path
                     self.file_list = data.get("file_list", self.file_list) or self.file_list
@@ -46,6 +49,7 @@ class Config:
     def save_config(self):
         """Save configuration to a JSON file"""
         data = {
+            "font_size": self.font_size,
             "folder_path": self.folder_path,
             "file_list": self.file_list,
             "selected_files": self.selected_files,

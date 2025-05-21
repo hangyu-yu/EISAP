@@ -131,7 +131,12 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
     print('OK was clicked.')
     print("Sender: ", sender)
     print("App Data: ", app_data)
-    config.folder_path = app_data['file_path_name']
+    if config.folder_path != app_data['file_path_name']:
+        dpg.delete_item("file_dialog_eis")  # Delete the tab bar if it already exists
+        dpg.delete_item("tab_eis", children_only=False)  # Delete the tab if it already exists
+        dpg.delete_item("tab_drt", children_only=False)  # Clear the tab content if it exists
+        dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab content if it exists
+        config.folder_path = app_data['file_path_name']
     EIS.file_folder = config.folder_path
     CNLS.file_folder = config.folder_path
     config.store['beacon_DRT_import'] = True

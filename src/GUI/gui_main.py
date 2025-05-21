@@ -13,9 +13,6 @@ from src.Methods.CNLS.Circuit import Circuit
 
 # 00 - Function Definitions
 # Utility function to print the sender of the callback
-def print_me(sender):
-    print(f"Menu Item: {sender}")
-
 def on_exit(config):
     config.save_config()
     print("[LOG] Configuration saved.")
@@ -56,8 +53,8 @@ font_path_light = root_dir / "assets" / "fonts" / "MiSans-Light.otf"
 dpg.set_viewport_small_icon(str(icon_path))
 dpg.set_viewport_large_icon(str(icon_path))
 with dpg.font_registry():
-    default_font = dpg.add_font(str(font_path_medium), 20)
-    second_font = dpg.add_font(str(font_path_light), 10)
+    default_font = dpg.add_font(str(font_path_medium), int(config.font_size))
+    second_font = dpg.add_font(str(font_path_light), int(config.font_size)/2)
 dpg.bind_font(default_font)
 
 with dpg.theme() as plot_theme:
@@ -69,15 +66,15 @@ with dpg.theme() as plot_theme:
 # 02 - Set up different windows
 with dpg.window(label="Main Window", tag='fullscreen'):
     with dpg.menu_bar():
-        with dpg.menu(label="File"):
-            dpg.add_menu_item(label="Save", callback=print_me)
-            dpg.add_menu_item(label="Save As", callback=print_me)
+        # with dpg.menu(label="File"):
+        #     dpg.add_menu_item(label="Save", callback=print_me)
+        #     dpg.add_menu_item(label="Save As", callback=print_me)
 
         with dpg.menu(label="Settings"):
-            dpg.add_menu_item(label="Setting 1", callback=print_me, check=True)
-            dpg.add_menu_item(label="Setting 2", callback=print_me)
+            # dpg.add_menu_item(label="Setting 1", callback=print_me, check=True)
+            dpg.add_menu_item(label="Font size", callback=lambda sender, app_data: gui_utils.small_functions.font_size_callback(sender, app_data, config, font_path_medium, font_path_light))
 
-        dpg.add_menu_item(label="Help", callback=print_me)
+        # dpg.add_menu_item(label="Help", callback=print_me)
         dpg.bind_theme(plot_theme)
 
     with dpg.tab_bar(tag="tab_bar_main", reorderable=True):

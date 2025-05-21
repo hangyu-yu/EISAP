@@ -15,7 +15,10 @@ def load_parameters(sender, app_data, config):
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
             # Load the DRT parameters
-            EIS_tmp.parameter["DRT"]["lambda"] = float(dpg.get_value("input_text_lambda"))
+            if EIS_tmp.parameter["DRT"]["Lambda_selection"] == 'Manual':
+                EIS_tmp.parameter["DRT"]["lambda"] = float(dpg.get_value("input_text_lambda"))
+            elif EIS_tmp.parameter["DRT"]["Lambda_selection"] == 'Optimal':
+                EIS_tmp.parameter["DRT"]["lambda"] = EIS_tmp.lambda_opt
 
             # Load the optimal lambda parameters
             EIS_tmp.parameter["LambdaOpt"]["lambda_min"] = float(dpg.get_value("input_text_min_lambda"))

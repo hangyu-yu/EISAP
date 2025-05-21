@@ -160,6 +160,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                     with dpg.file_dialog(
                                         directory_selector=False, 
                                         show=False, 
+                                        default_path= os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Functions", "01_Data_read"),
                                         callback=lambda sender, app_data: file_selector_ok_callback(sender, app_data, config),
                                         tag="file_dialog_eis",
                                         cancel_callback=lambda sender, app_data: file_selector_cancel_callback(sender, app_data),

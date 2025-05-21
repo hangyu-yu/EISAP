@@ -24,18 +24,25 @@ def update_child_window_size():
     dpg.configure_item("Button_drt_Process_data", width=int(viewport_width*0.075))
     dpg.configure_item("Button_Save_DRT", width=-1)
 
-def lambda_mode_callback(sender, app_data, EIS):
+def lambda_mode_callback(sender, app_data, EIS, config):
     """
     Callback function for the lambda mode checkbox.
     """
-    if app_data:
-        mode = 'Optimal'
-        dpg.configure_item("input_text_lambda", enabled=False, default_value='Optima')
-    else:
-        mode = 'Manual'
-        dpg.configure_item("input_text_lambda", enabled=True, default_value=EIS.parameter["DRT"]["lambda"])
-    EIS.parameter["DRT"]["Lambda_selection"] = mode
-    print(f"Lambda mode set to {mode}")
+    for file_name in config.selected_files:
+        file_name_no_ext = os.path.splitext(file_name)[0]
+        if file_name_no_ext not in config.store.keys():
+            raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
+        else:
+            EIS_tmp = config.store[file_name_no_ext]['EIS']
+            if app_data:
+                mode = 'Optimal'
+                dpg.configure_item("input_text_lambda", enabled=False, default_value='Optima')
+            else:
+                mode = 'Manual'
+                file_name_no_ext_dis = os.path.splitext(config.display_file)[0]
+                dpg.configure_item("input_text_lambda", enabled=True, default_value=config.store[file_name_no_ext_dis]['EIS'].parameter["DRT"]["lambda"])
+            EIS_tmp.parameter["DRT"]["Lambda_selection"] = mode
+    print(f"-- Lambda mode set to {mode}")
 
 def lambda_opt_callback(sender, app_data, EIS):
     """
@@ -98,7 +105,7 @@ def gui_tab_drt(config, EIS, CNLS):
                                 tag="check_box_lambda_mode",
                                 label="Optimal lambda",
                                 default_value=False,
-                                callback=lambda sender, app_data: lambda_mode_callback(sender, app_data, EIS))
+                                callback=lambda sender, app_data: lambda_mode_callback(sender, app_data, EIS, config))
                             dpg.add_text("Lambda:", tag="text_lambda")
                             dpg.add_input_text(tag="input_text_lambda", default_value=EIS.parameter["DRT"]["lambda"], enabled=True, width=-1)
                         with dpg.table_row():
@@ -125,11 +132,11 @@ def gui_tab_drt(config, EIS, CNLS):
                 # Window for the buttons
                 with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.082), horizontal_scrollbar=True, menubar=False, tag="child_window_drt_buttons"):
                     with dpg.group(horizontal=True):
-                        dpg.add_button(tag="Button_drt_load_parameters", label="Load parameters", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.drt_functions.load_parameters(s, a, config))
-                        dpg.bind_item_theme("Button_drt_load_parameters", blue_button_theme)
-
                         dpg.add_button(tag="Button_calculate_lambdaopt", label="Compute lambda", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.drt_functions.lambdaopt(s, a, config))
                         dpg.bind_item_theme("Button_calculate_lambdaopt", blue_button_theme)
+
+                        dpg.add_button(tag="Button_drt_load_parameters", label="Load parameters", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.drt_functions.load_parameters(s, a, config))
+                        dpg.bind_item_theme("Button_drt_load_parameters", blue_button_theme)
 
                         dpg.add_button(tag="Button_drt_Process_data", label="Process data", width=int(viewport_width*0.075), callback=lambda s, a: callback_process_data(s, a, config))
                         dpg.bind_item_theme("Button_drt_Process_data", blue_button_theme)
