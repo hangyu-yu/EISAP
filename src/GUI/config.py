@@ -31,6 +31,7 @@ class Config:
         self.store["segment_constraints"] = 'segment'
         # Load configuration
         self.load_config()
+        test = 1
 
     def load_config(self):
         """Load configuration from a JSON file"""
