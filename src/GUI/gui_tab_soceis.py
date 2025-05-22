@@ -194,7 +194,6 @@ def gui_tab_soceis(config, EIS, CNLS):
                                 width=int(viewport_width * 0.1),
                                 height=int(viewport_width * 0.1),
                                 tag="app_icon")
-                    print('123')
                 
                 # Partner logos with original complex spacer calculation
                 with dpg.group(horizontal=True, horizontal_spacing=20):
