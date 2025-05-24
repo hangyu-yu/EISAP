@@ -215,7 +215,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer")
-                    dpg.add_text("Bienvenue au SOCEIS. Ce logiciel a été développé par Hangyu Yu (EPFL-GEM, Sion, Suisse). Nous remercions Guillaume Jeamonod (Hydro-Québec, Montréal, Canada) pour sa contribution précieuse.", 
+                    dpg.add_text("Bienvenue au SOCEIS. Ce logiciel a été développé par Hangyu Yu (EPFL-GEM, Sion, Suisse, dirigé par le Prof. Jan Van Herle). Nous remercions Guillaume Jeamonod (Hydro-Québec, Montréal, Canada) pour sa contribution précieuse.", 
                                 wrap=int(viewport_width * 0.5),
                                 tag="welcome_text")
             
