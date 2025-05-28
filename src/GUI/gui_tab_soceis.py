@@ -104,7 +104,8 @@ def update_image_sizes():
         "main_icon_spacer": 0.45,
         "logos_spacer": (0.97 - total_logos_width / viewport_width) / 2,
         "version_spacer": 0.48,
-        "welcome_spacer": 0.25,
+        "welcome_spacer_1": 0.25,
+        "welcome_spacer_2": 0.25,
         "file_dialog_before_spacer": 0.05,
         "Directory_before_spacer": 0.25,
         "Directory_child_before_spacer": 0.25,
@@ -120,7 +121,8 @@ def update_image_sizes():
     dpg.configure_item("child_window_tool_box_soceis", width=int(viewport_width * 0.5), height=int(viewport_height*0.1))
     
     # Update text wrapping
-    dpg.configure_item("welcome_text", wrap=int(viewport_width * 0.5))
+    dpg.configure_item("welcome_text_1", wrap=int(viewport_width * 0.5))
+    dpg.configure_item("welcome_text_2", wrap=int(viewport_width * 0.5))
     dpg.configure_item("version_text", wrap=int(viewport_width * 0.04))
 
 # Functions for file dialog callbacks
@@ -210,14 +212,19 @@ def gui_tab_soceis(config, EIS, CNLS):
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width*0.48), tag="version_spacer")
-                    dpg.add_text("(/so.sis/) Beta V0.5", tag="version_text")
+                    dpg.add_text("(/so.sis/) Beta V0.6", tag="version_text")
                 
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
-                    dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer")
-                    dpg.add_text("Bienvenue au SOCEIS. Ce logiciel a été développé par Hangyu Yu (EPFL-GEM, Sion, Suisse, dirigé par le Prof. Jan Van Herle). Nous remercions Guillaume Jeamonod (Hydro-Québec, Montréal, Canada) pour sa contribution précieuse.", 
+                    dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer_1")
+                    dpg.add_text("Bienvenue au SOCEIS. Ce logiciel a été développé par Hangyu Yu (EPFL-GEM, Sion, Suisse, dirigé par le Prof. Jan Van Herle) et Guillaume Jeamonod (Hydro-Québec, Montréal, Canada).", 
                                 wrap=int(viewport_width * 0.5),
-                                tag="welcome_text")
+                                tag="welcome_text_1")
+                with dpg.group(horizontal=True, horizontal_spacing=20):
+                    dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer_2")
+                    dpg.add_text("Welcome to SOCEIS. This software was developed by Hangyu Yu (EPFL-GEM, Sion, Switzerland, supervised by Prof. Jan Van Herle) and Guillaume Jeamonod (Hydro-Québec, Montreal, Canada).", 
+                                wrap=int(viewport_width * 0.5),
+                                tag="welcome_text_2")
             
         # Right spacer with original width
         dpg.add_spacer(width=int(viewport_width * 0.05), tag="file_dialog_before_spacer")

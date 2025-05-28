@@ -1,19 +1,11 @@
 {
     "font_size": 20,
-    "folder_path": "D:\\Downloads\\Test",
+    "folder_path": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\GUI",
     "file_list": [
-        "D:\\Downloads\\Test\\2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-        "D:\\Downloads\\Test\\2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
-        "D:\\Downloads\\Test\\2025-02-19_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt",
-        "D:\\Downloads\\Test\\2025-02-20_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis04.txt"
+        "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\GUI\\requirements.txt"
     ],
-    "selected_files": [
-        "2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-        "2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
-        "2025-02-19_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt",
-        "2025-02-20_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis04.txt"
-    ],
+    "selected_files": [],
     "file_extensions": ".txt",
-    "display_file": "2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_zahner_txt.py"
+    "display_file": [],
+    "data_import_function": []
 }
