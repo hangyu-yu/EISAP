@@ -103,7 +103,8 @@ def update_image_sizes():
     spacers = {
         "main_icon_spacer": 0.45,
         "logos_spacer": (0.97 - total_logos_width / viewport_width) / 2,
-        "version_spacer": 0.48,
+        "EPFL_HQ_spacer": (0.97 - total_logos_width / viewport_width) / 2 / 50,
+        "version_spacer": 0.45,
         "welcome_spacer_1": 0.25,
         "welcome_spacer_2": 0.25,
         "file_dialog_before_spacer": 0.05,
@@ -204,6 +205,8 @@ def gui_tab_soceis(config, EIS, CNLS):
                     for tag, img in images.items():
                         if tag != "app_icon":
                             scaled_width = int(img["width"] * (viewport_height * 0.05) / img["height"])
+                            if tag == "hq_icon":
+                                dpg.add_spacer(width=spacer_width / 50, tag=f"EPFL_HQ_spacer")
                             dpg.add_image(f"{tag}_texture", 
                                       width=scaled_width, 
                                       height=int(viewport_height * 0.05),
@@ -211,7 +214,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                 
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
-                    dpg.add_spacer(width=int(viewport_width*0.48), tag="version_spacer")
+                    dpg.add_spacer(width=int(viewport_width*0.45), tag="version_spacer")
                     dpg.add_text("(/so.sis/) Beta V0.6", tag="version_text")
                 
                 # Welcome text with original spacer
