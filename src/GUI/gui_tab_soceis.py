@@ -102,8 +102,6 @@ def update_image_sizes():
     # Update spacers dynamically
     spacers = {
         "main_icon_spacer": 0.45,
-        "logos_spacer": (0.97 - total_logos_width / viewport_width) / 2,
-        "EPFL_HQ_spacer": (0.97 - total_logos_width / viewport_width) / 2 / 50,
         "version_spacer": 0.45,
         "welcome_spacer_1": 0.25,
         "welcome_spacer_2": 0.25,
@@ -115,6 +113,10 @@ def update_image_sizes():
         "command_buttons_spacer": 0.25,
     }
     configure_spacers(viewport_width, spacers)
+    dpg.configure_item("logos_spacer", width=int(viewport_width*(0.97-total_logos_width/viewport_width)/2))
+    dpg.configure_item("EPFL_HQ_spacer", width=int(viewport_width*(0.97-total_logos_width/viewport_width)/2 / 50))
+    dpg.configure_item("logos_spacer_above", height=int(viewport_height * 0.02))
+    dpg.configure_item("logos_spacer_below", height=int(viewport_height * 0.02))
     
     # Update child window sizes
     dpg.configure_item("child_window_folder_directory", width=int(viewport_width * 0.5), height=80)
@@ -124,7 +126,6 @@ def update_image_sizes():
     # Update text wrapping
     dpg.configure_item("welcome_text_1", wrap=int(viewport_width * 0.5))
     dpg.configure_item("welcome_text_2", wrap=int(viewport_width * 0.5))
-    dpg.configure_item("version_text", wrap=int(viewport_width * 0.04))
 
 # Functions for file dialog callbacks
 def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
@@ -198,7 +199,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                                 height=int(viewport_width * 0.1),
                                 tag="app_icon")
                 
-                # Partner logos with original complex spacer calculation
+                dpg.add_spacer(height = int(viewport_height * 0.02), tag="logos_spacer_above")  # Spacer for vertical alignment
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     spacer_width = int(viewport_width*(0.97-total_logos_width/viewport_width)/2)
                     dpg.add_spacer(width=spacer_width, tag="logos_spacer")
@@ -211,12 +212,11 @@ def gui_tab_soceis(config, EIS, CNLS):
                                       width=scaled_width, 
                                       height=int(viewport_height * 0.05),
                                       tag=tag)
-                
+                dpg.add_spacer(height = int(viewport_height * 0.02), tag="logos_spacer_below")
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width*0.45), tag="version_spacer")
                     dpg.add_text("(/so.sis/) Beta V0.6", tag="version_text")
-                
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer_1")
