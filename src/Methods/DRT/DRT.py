@@ -290,8 +290,8 @@ class DRT:
         """
         if 'EIS_kk' in self.store:
             NotKK = (np.abs(self.store['EIS_kk']['di']) > self.parameter['KK']['kk_threshold']) | (np.abs(self.store['EIS_kk']['dr']) > self.parameter['KK']['kk_threshold'])
-            NotKK[0] = False
-            NotKK[-1] = False
+            NotKK.iloc[0] = False
+            NotKK.iloc[-1] = False
             for i in self.truncated.keys():
                 if self.truncated[i] is not None and self.truncated[i] is not []:
                     self.truncated[i] = np.delete(self.truncated[i], np.where(NotKK))
