@@ -197,13 +197,6 @@ def build_element_table(config, element, element_idx):
             
 # Main function to update the element table
 def update_elements(config):
-    # Delete the old tables
-    # if dpg.does_item_exist("Table_cnls_elements"):
-    #     dpg.delete_item("Table_cnls_elements")
-    # for i in range(len(config.store["Elements"])):
-    #     table_tag = f"table_cnls_elements_{config.store['Elements'][i]['name'][-1]}"
-    #     if dpg.does_item_exist(table_tag):
-    #         dpg.delete_item(table_tag)
     dpg.delete_item("child_window_cnls_elements", children_only=True)
     # Create the new tables
     with dpg.table(

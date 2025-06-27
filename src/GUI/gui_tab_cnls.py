@@ -64,7 +64,10 @@ def gui_tab_cnls(config, EIS, CNLS):
                 with dpg.child_window(width=int(viewport_width * 0.45), height=int(viewport_height * 0.35), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_cnls"):
                     with dpg.menu_bar(parent="child_window_parameter_cnls", tag="menu_cnls_parameters"):
                         with dpg.menu(label="Parameters"):
-                            pass
+                            dpg.add_checkbox(
+                                label="Fix all plots",
+                                callback=lambda s, a: setattr(config, 'fix_all_plots_CNLS', a),
+                            )
                         with dpg.menu(label="Add elements"):
                             for header, element in config.store['element_list'].items():
                                 dpg.add_menu_item(

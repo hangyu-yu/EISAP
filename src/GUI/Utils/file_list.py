@@ -223,6 +223,8 @@ def display_file(sender, app_data, config):
             gui_utils.cnls_functions.dynamic_peak_ids(0, 0, config)
             gui_utils.cnls_table.table_update(config)
             gui_utils.cnls_plots.update_single_plots(config)
+            config.store["Elements"] = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements
+            gui_utils.cnls_elements.update_elements(config)
     except:
         print("------ CNLS plots update failed. Please check the CNLS data.")
     # Print the selected file for debugging

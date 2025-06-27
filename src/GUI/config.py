@@ -20,6 +20,8 @@ class Config:
         self.display_file = []
         # Select data import functino
         self.data_import_function = []
+        # Fixed all the plots for CNLS fit
+        self.fix_all_plots_CNLS = False
         # Store
         self.store = {}
         self.store['element_list'] = {"Resistor": "R", "Inductor": "L", "Inductor_a": "La", "Capacitor": "C", "CPE": "Q", "RC": "RC", "RQ": "RQ", "Gerisher": "G", "fFLW": "fFLW", "FLW": "FLW", "RandleC": "RandleC", "RandleCPE": "RandleCPE", "RandleCPEfFLW": "RandleCPEfFLW", "RandleCfFLW": "RandleCfFLW"}
