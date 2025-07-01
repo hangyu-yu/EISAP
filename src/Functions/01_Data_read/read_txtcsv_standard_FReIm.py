@@ -2,14 +2,14 @@ import os
 import numpy as np
 import pandas as pd
 
-def read_txt_standard_FReIm(file):
+def read_txtcsv_standard_FReIm(file):
     """
-    Reads a Zahner TXT file and extracts metadata and data.
+    Reads a txt file and extracts metadata and data with the first column as frequency, second column as real part, and third column as imaginary part.
 
     Parameters:
     -----------
     file : str
-        The path to the Zahner TXT file to be read.
+        The path to the txt file to be read.
 
     Returns:
     --------
@@ -24,17 +24,7 @@ def read_txt_standard_FReIm(file):
         - "ampl" : str
             The ampl value extracted from the fifth line.
     data : pandas.DataFrame
-        A DataFrame containing the numerical data from the file, with the 19th line used as the header.
-
-    Notes:
-    ------
-    - The function assumes the file follows a specific format where:
-        - The first line contains the file name in the format "File Name: <name>".
-        - The fourth line contains the potential value in the format "Potential: <value>".
-        - The fifth line contains the current and ampl values in the format "Current: <value>, Ampl: <value>".
-        - The 19th line contains the column headers for the data section.
-        - The data section starts from the 20th line and is delimited by whitespace.
-    - Ensure the file exists and is accessible before calling this function.
+        A DataFrame containing the numerical data from the file.
 
     Raises:
     -------
