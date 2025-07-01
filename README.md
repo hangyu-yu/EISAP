@@ -2,9 +2,9 @@
   <img src="assets/icons/app_icon.png" alt="SOCEIS Logo" width="150"/>
 </p>
 <p align="center">
-  <img src="assets/icons/EPFL.png" alt="EPFL" width="80" hspace="20"/>
-  <img src="assets/icons/GEM.png" alt="Hydro-Québec" width="80" hspace="20"/>
-  <img src="assets/icons/HydroQuebec.png" alt="BFH" width="80" hspace="20"/>
+  <img src="assets/images/EPFL.png" alt="EPFL" height="80" hspace="20"/>
+  <img src="assets/images/GEM.png" alt="Hydro-Québec" height="80" hspace="20"/>
+  <img src="assets/images/HydroQuebec.png" alt="BFH" height="80" hspace="20"/>
 </p>
 
 # SOCEIS - Electrochemical Impedance Spectroscopy Analysis Suite
@@ -40,10 +40,10 @@ Under development, more features up to come.
 | OpenPyXL | ≥3.0 | Excel report generation |
 
 <p align="center">
-  <img src="assets/images/Fig_example_main.png" width="200">
-  <img src="assets/images/Fig_example_EIS.png" width="200">
-  <img src="assets/images/Fig_example_DRT.png" width="200">
-  <img src="assets/images/Fig_example_CNLS.png" width="200">
+  <img src="assets/images/Fig_example_main.png" width="800">
+  <img src="assets/images/Fig_example_EIS.png" width="800">
+  <img src="assets/images/Fig_example_DRT.png" width="800">
+  <img src="assets/images/Fig_example_CNLS.png" width="800">
 </p>
 
 # Major updates
