@@ -57,12 +57,12 @@ def load_parameters(sender, app_data, config, EIS):
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
             # Load the parameter for the general settings
-            if EIS_tmp.parameter["Sample"]["CellArea"] != float(dpg.get_value("CellArea")):
-                EIS_tmp.parameter["Sample"]["CellArea"] = 1 / EIS_tmp.parameter["Sample"]["CellArea"]
-                EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, EIS_tmp.parameter['Sample'])
-                EIS_tmp.parameter["Sample"]["CellArea"] = float(dpg.get_value("CellArea"))
-                EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, EIS_tmp.parameter['Sample'])
+            EIS_tmp.parameter["Sample"]["CellArea"] = 1 / EIS_tmp.parameter["Sample"]["CellArea"] * EIS_tmp.parameter["Sample"]["n_cell"]
+            EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, EIS_tmp.parameter['Sample'])
             EIS_tmp.parameter["Sample"]["n_cell"] = int(dpg.get_value("n_cell"))
+            EIS_tmp.parameter["Sample"]["CellArea"] = float(dpg.get_value("CellArea")) / EIS_tmp.parameter["Sample"]["n_cell"]
+            EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, EIS_tmp.parameter['Sample'])
+            EIS_tmp.parameter["Sample"]["CellArea"] = float(dpg.get_value("CellArea"))
             EIS_tmp.parameter["Sample"]["instrument_type"] = dpg.get_value("instrument_type")
             EIS_tmp.parameter["Preprocessing"]["num_cut_upper"] = int(dpg.get_value("num_cut_upper"))
             EIS_tmp.parameter["Preprocessing"]["num_cut_lower"] = int(dpg.get_value("num_cut_lower"))
