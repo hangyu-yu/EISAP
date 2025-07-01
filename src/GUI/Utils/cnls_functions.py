@@ -141,7 +141,7 @@ def segment_constraints(sender, appdata, config):
         config.store["segment_constraints"] = 'segment'
     else:
         config.store["segment_constraints"] = 'free'
-    print(f"---- Segment constraints updated to {config.store["segment_constraints"]}.")
+    print(f"---- Segment constraints updated to {config.store['segment_constraints']}.")
 
 # Update the element tables
 def initialize_elements(config):

@@ -1,17 +1,15 @@
 {
     "font_size": 20,
-    "folder_path": "D:\\Downloads\\Data",
+    "folder_path": "/Users/atlas/Downloads/Data",
     "file_list": [
-        "D:\\Downloads\\Data\\2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-        "D:\\Downloads\\Data\\2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
-        "D:\\Downloads\\Data\\2025-02-19_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt"
+        "/Users/atlas/Downloads/Data/Scribner_data_example_3columns_headers.txt",
+        "/Users/atlas/Downloads/Data/eis2_full_00.txt"
     ],
     "selected_files": [
-        "2025-02-17_hq_sp_cu-40_durabilitiy_1734_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
-        "2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
-        "2025-02-19_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt"
+        "Scribner_data_example_3columns_headers.txt",
+        "eis2_full_00.txt"
     ],
     "file_extensions": ".txt",
-    "display_file": "2025-02-18_hq_sp_cu-40_durabilitiy_1026_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
-    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_zahner_txt.py"
+    "display_file": "Scribner_data_example_3columns_headers.txt",
+    "data_import_function": "/Users/atlas/Desktop/Git/SOCEIS/src/Functions/01_Data_read/read_txt_standard_FReIm.py"
 }

@@ -216,16 +216,16 @@ def gui_tab_soceis(config, EIS, CNLS):
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width*0.45), tag="version_spacer")
-                    dpg.add_text("(/so.sis/) Beta V0.7", tag="version_text")
+                    dpg.add_text("(/so.sis/) Beta V0.8", tag="version_text")
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer_1")
-                    dpg.add_text("Bienvenue au SOCEIS. Ce logiciel a été développé par Hangyu Yu (EPFL-GEM, Sion, Suisse, dirigé par le Prof. Jan Van Herle) et Guillaume Jeamonod (Hydro-Québec, Montréal, Canada).", 
+                    dpg.add_text("Bienvenue sur SOCEIS. Ce logiciel a été développé par Hangyu Yu (EPFL-GEM, Sion, Suisse, sous la direction du Prof. Jan Van Herle) et Guillaume Jeamonod (Hydro-Québec, Montréal, Canada), sur la base du code original créé par Priscilla Caliandro (BFH, Bienne, Suisse).", 
                                 wrap=int(viewport_width * 0.5),
                                 tag="welcome_text_1")
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer_2")
-                    dpg.add_text("Welcome to SOCEIS. This software was developed by Hangyu Yu (EPFL-GEM, Sion, Switzerland, supervised by Prof. Jan Van Herle) and Guillaume Jeamonod (Hydro-Québec, Montreal, Canada).", 
+                    dpg.add_text("Welcome to SOCEIS. This software was developed by Hangyu Yu (EPFL-GEM, Sion, Switzerland, headed by Prof. Jan Van Herle) and Guillaume Jeamonod (Hydro-Québec, Montreal, Canada) based on the code developed by Priscilla Caliandro (BFH, Biel, Switzerland).", 
                                 wrap=int(viewport_width * 0.5),
                                 tag="welcome_text_2")
             
