@@ -67,7 +67,10 @@ for file in txt_files:
     EIS.raw['f'] = data['Frequency/Hz'].to_numpy()
     EIS.raw['significance'] = data['Significance'].to_numpy()
     EIS.info = metadata
+    CellArea = EIS.parameter['Sample']['CellArea']
+    EIS.parameter['Sample']['CellArea'] = EIS.parameter['Sample']['CellArea'] / EIS.parameter['Sample']['n_cell']
     EIS.raw = EIS.convert2asr(EIS.raw, EIS.parameter['Sample'])
+    EIS.parameter['Sample']['CellArea'] = CellArea
 
     # 031 - Data cut based on the upper and lower numbers
     EIS.rm_hfc_lfc()
