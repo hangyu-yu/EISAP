@@ -175,8 +175,9 @@ def gui_tab_soceis(config, EIS, CNLS):
 
     picture_list = [("app_icon", "app_icon.png"), 
                     ("epfl_icon", "EPFL.png"), 
-                    ("gem_icon", "GEM.png"), 
-                    ("hq_icon", "HydroQuebec.png")]
+                    ("gem_icon", "GEM.png"),
+                    ("hq_icon", "HydroQuebec.png"),
+                    ("bfh_icon", "BFH.png")]
     
     icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "icons")
 

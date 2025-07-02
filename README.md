@@ -5,6 +5,7 @@
   <img src="assets/images/EPFL.png" alt="EPFL" height="80" hspace="20"/>
   <img src="assets/images/GEM.png" alt="GEM" height="80" hspace="20"/>
   <img src="assets/images/HydroQuebec.png" alt="Hydro-Québec" height="80" hspace="20"/>
+  <img src="assets/images/BFH.png" alt="BFH" height="80" hspace="20"/>
 </p>
 
 # SOCEIS - Electrochemical Impedance Spectroscopy Analysis Suite
