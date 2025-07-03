@@ -113,6 +113,7 @@ def update_data_type(sender, appdata, config):
     file_name_no_ext = os.path.splitext(config.display_file)[0]
     try:
         config.store[file_name_no_ext]['CNLS'].data_type = appdata
+        gui_utils.cnls_plots.update_single_plots(config)
     except:
         raise ValueError("File does not exist or CNLS data is invalid.")
     

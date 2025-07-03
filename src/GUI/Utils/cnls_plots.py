@@ -27,8 +27,17 @@ def update_single_plots(config):
                 dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                 y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
                 file_name_no_ext = os.path.splitext(config.display_file)[0]
+                data_type_DRT = dpg.get_value('combo_cnls_data_type')
                 EIS_tmp = config.store[file_key]['EIS']
-                dpg.add_line_series(EIS_tmp.tknv_truncated['ReIm']['f'], EIS_tmp.tknv_truncated['ReIm']['g'], parent=y_axis)
+                if data_type_DRT == 'smooth_KK':
+                    data_type_DRT = 'smooth'
+                elif data_type_DRT == 'LCcorrected':
+                    data_type_DRT = 'LCcorrect'
+                elif data_type_DRT == 'smooth_DRT':
+                    data_type_DRT = 'truncated'
+                frequency_DRT_show = EIS_tmp['tknv_'+data_type_DRT]['ReIm']['f']
+                DRT_DRT_show = EIS_tmp['tknv_'+data_type_DRT]['ReIm']['g']
+                dpg.add_line_series(frequency_DRT_show, DRT_DRT_show, parent=y_axis)
                 y_max_value = np.max(np.max(EIS_tmp.tknv_truncated['ReIm']['g']))
                 dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
                 dpg.add_plot_legend()
