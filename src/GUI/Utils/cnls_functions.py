@@ -39,6 +39,41 @@ def _update_peak_fixed(sender, app_data, config):
         config.store[file_name_no_ext]['CNLS'].f_fixed = config.store["peak_fixed_frequencies"]
     except:
         raise ValueError("File does not exist or CNLS data is invalid.")
+    
+def constraint_percentage(CNLS_tmp):
+    """Set the constraint percentage for R and Tau.
+    
+    Args:
+        CNLS_tmp: CNLS object.
+        config: Configuration object.
+    """
+    if dpg.get_value("checkbox_cnls_R_percentage"):
+        RIndex = [i for i, name in enumerate(CNLS_tmp.ElementsParamNames) if '_R' in name]
+        R_percentage = dpg.get_value("input_constraints_R_percentage")
+        R = np.array(CNLS_tmp.ElementsParamValues)[RIndex]
+        CNLS_tmp.UpperBound[RIndex] = R*(1+R_percentage/100)
+        CNLS_tmp.LowerBound[RIndex] = R*(1-R_percentage/100)
+        print("---- R constraint set to percentage mode.")
+    else:
+        RIndex = [i for i, name in enumerate(CNLS_tmp.ElementsParamNames) if '_R' in name]
+        R = np.array(CNLS_tmp.ElementsParamValues)[RIndex]
+        CNLS_tmp.UpperBound[RIndex] = np.inf
+        CNLS_tmp.LowerBound[RIndex] = 1e-10
+    
+    if dpg.get_value("checkbox_cnls_Tau_percentage"):
+        TauIndex = [i for i, name in enumerate(CNLS_tmp.ElementsParamNames) if 'tau' in name]
+        Tau_percentage = dpg.get_value("input_constraints_Tau_percentage")
+        tau = np.array(CNLS_tmp.ElementsParamValues)[TauIndex]
+        CNLS_tmp.UpperBound[TauIndex] = tau*(1+Tau_percentage/100)
+        CNLS_tmp.LowerBound[TauIndex] = tau*(1-Tau_percentage/100)
+        print("---- Tau constraint set to percentage mode.")
+
+    for idx, element in enumerate(CNLS_tmp.Elements):
+        start_idx = CNLS_tmp.ElementsStartIndex[idx]
+        end_idx = CNLS_tmp.ElementsEndIndex[idx] + 1
+        CNLS_tmp.Elements[idx]['Param'] = CNLS_tmp.ElementsParamValues[start_idx:end_idx]
+        CNLS_tmp.Elements[idx]['Ub'] = CNLS_tmp.UpperBound[start_idx:end_idx].tolist()
+        CNLS_tmp.Elements[idx]['Lb'] = CNLS_tmp.LowerBound[start_idx:end_idx].tolist()
 
 def dynamic_peak_ids(sender, appdata, config):
     """Dynamically generate peak frequency input columns.
@@ -140,8 +175,12 @@ def segment_constraints(sender, appdata, config):
     """
     if appdata:
         config.store["segment_constraints"] = 'segment'
+        dpg.configure_item("checkbox_cnls_R_percentage", enable=True)
+        dpg.configure_item("checkbox_cnls_Tau_percentage", enable=True)
     else:
         config.store["segment_constraints"] = 'free'
+        dpg.configure_item("checkbox_cnls_R_percentage", enable=False)
+        dpg.configure_item("checkbox_cnls_Tau_percentage", enable=False)
     print(f"---- Segment constraints updated to {config.store['segment_constraints']}.")
 
 # Update the element tables
@@ -243,6 +282,8 @@ def initialize_parameters(sender, appdata, config):
                 raise ValueError("The number of initial guess is more than the number of elements.")
             
             CNLS_tmp.initialize_elements()
+            constraint_percentage(CNLS_tmp)
+            # CNLS_tmp.initialize_elements(change_UBLB = False)
             print(f"---- CNLS parameters initialized for {file_name}.")
     config.store["Elements"] = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements
     gui_utils.cnls_elements.update_elements(config)

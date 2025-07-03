@@ -104,6 +104,40 @@ def gui_tab_cnls(config, EIS, CNLS):
 
                                 # Table contents
                                 with dpg.table_row():
+                                    dpg.add_checkbox(
+                                    tag="checkbox_cnls_R_percentage",
+                                    label="R Cons %",
+                                    default_value = False
+                                    )
+                                    dpg.add_input_float(
+                                        tag=f"input_constraints_R_percentage",
+                                        format="%.1f",
+                                        enabled=True if config.store['segment_constraints'] == 'segment' else False,
+                                        default_value=10,
+                                        width=-1,
+                                        step=0,
+                                        step_fast=0,
+                                        min_value=1e-100,
+                                        max_value=1e100,
+                                    )
+                                with dpg.table_row():
+                                    dpg.add_checkbox(
+                                    tag="checkbox_cnls_Tau_percentage",
+                                    label="Tau Cons %",
+                                    default_value = False
+                                    )
+                                    dpg.add_input_float(
+                                        tag=f"input_constraints_Tau_percentage",
+                                        format="%.1f",
+                                        enabled=True if config.store['segment_constraints'] == 'segment' else False,
+                                        default_value=10,
+                                        width=-1,
+                                        step=0,
+                                        step_fast=0,
+                                        min_value=1e-100,
+                                        max_value=1e100,
+                                    )
+                                with dpg.table_row():
                                     dpg.add_text("Data_type:")
                                     dpg.add_combo(
                                         tag="combo_cnls_data_type",
