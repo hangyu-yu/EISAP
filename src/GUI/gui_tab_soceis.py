@@ -1,7 +1,9 @@
 import os
 import glob
+import platform
 import numpy as np
 import src.GUI as gui
+from pathlib import Path
 import src.GUI.Utils as gui_utils
 import dearpygui.dearpygui as dpg
 
@@ -179,7 +181,15 @@ def gui_tab_soceis(config, EIS, CNLS):
                     ("hq_icon", "HydroQuebec.png"),
                     ("bfh_icon", "BFH.png")]
     
-    icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "icons")
+    if platform.system() in ('Darwin', 'Linux'):
+        # Direct loading for macOS/Linux
+        root_dir = Path(__file__).resolve().parent.parent.parent
+        icon_path = root_dir / "assets" / "icons" 
+    else:
+        # Windows - use temp directory in C:\Temp
+        temp_dir = Path("C:/Temp/SOCEIS_Fonts")
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        icon_path = temp_dir
 
     images = load_images(icon_path, picture_list) # Load images and their properties
 
