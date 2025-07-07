@@ -1,5 +1,6 @@
 import os
 import glob
+import shutil
 import platform
 import numpy as np
 import src.GUI as gui
@@ -181,15 +182,35 @@ def gui_tab_soceis(config, EIS, CNLS):
                     ("hq_icon", "HydroQuebec.png"),
                     ("bfh_icon", "BFH.png")]
     
+    def has_special_chars(path_str):
+        try:
+            path_str.encode('ascii')
+            return False
+        except UnicodeEncodeError:
+            return True
     if platform.system() in ('Darwin', 'Linux'):
         # Direct loading for macOS/Linux
         root_dir = Path(__file__).resolve().parent.parent.parent
-        icon_path = root_dir / "assets" / "icons" 
+        icon_path = root_dir / "assets" / "icons"
     else:
-        # Windows - use temp directory in C:\Temp
-        temp_dir = Path("C:/Temp/SOCEIS_Fonts")
-        temp_dir.mkdir(parents=True, exist_ok=True)
-        icon_path = temp_dir
+        # Windows - check if we need temp directory
+        root_dir = Path(__file__).resolve().parent.parent.parent
+        original_path = str(root_dir)
+        
+        if has_special_chars(original_path):
+            # Use temp directory if path has special characters
+            temp_dir = Path("C:/Temp/SOCEIS_Fonts")
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            icon_path = temp_dir
+            
+            # Copy icon files to temp directory if not already there
+            icons_src_dir = root_dir / "assets" / "icons"
+            for icon_file in icons_src_dir.glob('*'):
+                if icon_file.is_file() and not (temp_dir / icon_file.name).exists():
+                    shutil.copy2(icon_file, temp_dir / icon_file.name)
+        else:
+            # Use original path if no special characters
+            icon_path = root_dir / "assets" / "icons"
 
     images = load_images(icon_path, picture_list) # Load images and their properties
 
