@@ -335,10 +335,10 @@ class Circuit:
         # Perform the weighted least squares fit
         adjusted_x0 = np.where(
             initial_params < self.LowerBound,
-            self.LowerBound * 1.1,  # 低于下界 → 设为下界的 110%
+            self.LowerBound * 1.001,  # 低于下界 → 设为下界的 110%
             np.where(
                 initial_params > self.UpperBound,
-                self.UpperBound * 0.9,  # 高于上界 → 设为上界的 90%
+                self.UpperBound * 0.9999,  # 高于上界 → 设为上界的 90%
                 initial_params  # 否则保持原值
             )
         )
