@@ -2,6 +2,7 @@ import os
 import glob
 import numpy as np
 import pandas as pd
+from pathlib import Path
 import src.GUI.Utils as gui_utils
 import dearpygui.dearpygui as dpg
 
@@ -100,6 +101,7 @@ def callback_process_data(sender, app_data, EIS, config):
 
 # Main tab function for EIS
 def gui_tab_eis(config, EIS, CNLS):
+    config.save_config()
     dpg.delete_item("file_dialog_eis")  # Delete the tab bar if it already exists
     dpg.delete_item("tab_eis", children_only=False)  # Delete the tab if it already exists
     # Initialize the configuration

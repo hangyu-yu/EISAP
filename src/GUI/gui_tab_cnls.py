@@ -40,6 +40,7 @@ def _initialization_cnls(config, CNLS):
 
 # Main tab function for EIS
 def gui_tab_cnls(config, EIS, CNLS):
+    config.save_config()
     dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab content if it exists
     # Initialize the configuration
     viewport_width = dpg.get_viewport_width()

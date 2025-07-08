@@ -65,6 +65,7 @@ def callback_process_data(sender, app_data, config):
 
 # Main tab function for EIS
 def gui_tab_drt(config, EIS, CNLS):
+    config.save_config()
     dpg.delete_item("tab_drt", children_only=False)  # Clear the tab content if it exists
     # Initialize the configuration
     viewport_width = dpg.get_viewport_width()

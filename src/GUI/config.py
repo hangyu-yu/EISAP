@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 import numpy as np
 
 class Config:
@@ -47,6 +48,9 @@ class Config:
                     self.file_extensions = data.get("file_extensions", self.file_extensions) or self.file_extensions
                     self.data_import_function = data.get("data_import_function", self.data_import_function) or self.data_import_function
                     self.display_file = data.get("display_file", self.display_file) or self.display_file
+            
+            if self.data_import_function == []:
+                self.data_import_function = str(Path(__file__).parent / "01_Data_read" / "read_txtcsv_standard_FReIm.py")
 
     def save_config(self):
         """Save configuration to a JSON file"""
