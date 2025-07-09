@@ -45,16 +45,6 @@ def read_zahner_csv(file):
     with open(file, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
-    # Pre-check if the file is with ;
-    if 'File' not in lines[1]:
-        lines.insert(0, 'sep=,\n')
-        for i, line in enumerate(lines):
-            while ';;' in lines[i]:
-                lines[i] = lines[i].replace(';;', ';')
-            lines[i] = lines[i].replace('"', '')
-            if i > 18:
-                lines[i] = lines[i].replace(';', ',')
-
     # Extract file name (first line)
     file_name = lines[1].split(':', 1)[1].strip()
 
@@ -80,13 +70,8 @@ def read_zahner_csv(file):
     }
 
     # Read the 19th line as the header and the data starting from the 20th line
-    lines[19] = lines[19].replace(',\n', '\n')  # Ensure the header line uses commas
     header = lines[19].split(',')
-    data_lines = [line.split(',')[:len(header)] for line in lines[20:] if line]
-    data = pd.DataFrame(data_lines, columns=header)
-    data['Frequency/Hz'] = pd.to_numeric(data['Frequency/Hz'], errors='coerce')
-    data['impedance/Ohm'] = pd.to_numeric(data['impedance/Ohm'], errors='coerce')
-    data['Phase/deg'] = pd.to_numeric(data['Phase/deg'], errors='coerce')
+    data = pd.read_csv(file, skiprows=17, sep=r',', names=header)
     # Sort the data by 'Frequency/Hz' column in descending order
     data = data.sort_values(by='Frequency/Hz', ascending=False)
 
