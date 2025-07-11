@@ -1,14 +1,17 @@
 {
     "font_size": 20,
-    "folder_path": "D:\\Downloads",
+    "folder_path": "D:\\Downloads\\Data",
     "file_list": [
-        "D:\\Downloads\\cf250414a_eis37_900c_75h2-75h2o_150air_1100mv.csv",
-        "D:\\Downloads\\cf250414a_eis37_900c_75h2-75h2o_150air_1100mv_corrected.csv"
+        "D:\\Downloads\\Data\\2024-01-22_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis01.txt",
+        "D:\\Downloads\\Data\\2024-01-23_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis02.txt",
+        "D:\\Downloads\\Data\\2024-01-24_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis03.txt"
     ],
     "selected_files": [
-        "cf250414a_eis37_900c_75h2-75h2o_150air_1100mv.csv"
+        "2024-01-22_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis01.txt",
+        "2024-01-23_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis02.txt",
+        "2024-01-24_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis03.txt"
     ],
-    "file_extensions": ".csv",
-    "display_file": "cf250414a_eis37_900c_75h2-75h2o_150air_1100mv.csv",
-    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_zahner_csv.py"
+    "file_extensions": ".txt",
+    "display_file": "2024-01-22_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis01.txt",
+    "data_import_function": "C:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_zahner_txt.py"
 }

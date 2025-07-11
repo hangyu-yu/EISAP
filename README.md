@@ -58,6 +58,10 @@ Beta version 0.2 with complete EIS, DRT and CNLS fit functionalities. Small bugs
 - [ ] Modularized code design
 - [ ] Delete only the curves instead of the whole tab
 - [ ] Add functions
+	- [ ] Add Warburg element for Li-BAT
+  - [ ] Peak finder for quick frequency selection
+  - [ ] Plot lambda in DRT
+  - [ ] Plot ohmic resistance and polarization resistance trend in EIS and DRT tabs
 	- [ ] Interactive manual selected points for CNLS fit frequency determine
 	- [ ] Visualized equivalent circuit model assembly and usage of only basic circuit component R, C, L, Q, fFLW, FLW, G, etc.
 	- [ ] Z-HIT smoothing from Zahner
