@@ -1,4 +1,5 @@
 import os
+import re
 import glob
 import copy
 import dearpygui.dearpygui as dpg
@@ -10,7 +11,10 @@ def select_files(config, tag):
     Update the selected file paths in the config.
     """
     if os.path.isdir(config.folder_path):
-        config.file_list = sorted(glob.glob(os.path.join(config.folder_path, f"*{config.file_extensions}")))
+        # config.file_list = sorted(glob.glob(os.path.join(config.folder_path, f"*{config.file_extensions}")))
+        pattern = re.compile(f".*{config.file_extensions}$", re.IGNORECASE)
+        config.file_list = [f for f in glob.glob(os.path.join(config.folder_path, "*")) 
+                        if pattern.search(f)]
         print(f"---- File list from [{tag}]:", config.file_list)
         if not config.file_list:
             config.file_list = ['[Error] No file found! Recheck the folder path or file extension, otherwise report the issue.']
