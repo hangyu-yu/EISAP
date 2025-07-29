@@ -1,15 +1,17 @@
 {
     "font_size": 20,
-    "folder_path": "D:\\Downloads\\DTA_data",
+    "folder_path": "D:\\Downloads\\Data",
     "file_list": [
-        "D:\\Downloads\\DTA_data\\1.11-40-0.4.DTA",
-        "D:\\Downloads\\DTA_data\\1.11-40-1.0.DTA"
+        "D:\\Downloads\\Data\\2024-01-22_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis01.txt",
+        "D:\\Downloads\\Data\\2024-01-23_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis02.txt",
+        "D:\\Downloads\\Data\\2024-01-24_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis03.txt"
     ],
     "selected_files": [
-        "1.11-40-0.4.DTA",
-        "1.11-40-1.0.DTA"
+        "2024-01-22_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis01.txt",
+        "2024-01-23_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis02.txt",
+        "2024-01-24_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis03.txt"
     ],
-    "file_extensions": ".dta",
-    "display_file": "1.11-40-0.4.DTA",
-    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_gamry_dta.py"
+    "file_extensions": ".txt",
+    "display_file": "2024-01-22_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis01.txt",
+    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_general_all.py"
 }

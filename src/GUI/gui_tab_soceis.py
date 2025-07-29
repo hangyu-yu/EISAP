@@ -248,7 +248,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width*0.45), tag="version_spacer")
-                    dpg.add_text("(/so.sis/) Beta V0.9", tag="version_text")
+                    dpg.add_text("(/so.sis/) Beta V1.0", tag="version_text")
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer_1")
@@ -282,9 +282,10 @@ def gui_tab_soceis(config, EIS, CNLS):
             with dpg.child_window(width=int(viewport_width*0.5), height=80, horizontal_scrollbar=True, menubar=True, tag="child_window_folder_directory"):
                 with dpg.menu_bar():
                     with dpg.menu(label="Selected directory"):
-                        dpg.add_menu_item(label="Separate multi-channel zahner csv files", callback=lambda: gui_utils.small_functions.separate_multichannel_zahner_csv(config, EIS, CNLS)) 
-                dpg.add_text(config.folder_path, tag="selected_directory")
-                
+                        dpg.add_menu_item(label="Separate multi-channel zahner files", callback=lambda: gui_utils.small_functions.separate_multichannel_zahner(config, EIS, CNLS)) 
+                        dpg.add_menu_item(label="Separate multi-channel biologic files", callback=lambda: gui_utils.small_functions.separate_multichannel_biologic(config, EIS, CNLS)) 
+                dpg.add_text(config.folder_path, tag="selected_directory", parent="child_window_folder_directory")
+
         # Setup the file dialog
         if not config.file_extensions:
             config.file_extensions = ".txt"
