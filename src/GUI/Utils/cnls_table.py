@@ -65,15 +65,23 @@ def table_update(config):
             dpg.add_table_column(label="pValue", width_stretch=True)
             try:
                 CNLS_tmp = config.store[file_name_no_ext]['CNLS']
-                for idx, variable in enumerate(CNLS_tmp.ElementsParamNames):
-                    with dpg.table_row():
-                        dpg.add_text(variable)
-                        dpg.add_text(_smart_format(CNLS_tmp.ElementsParamValues[idx]) % CNLS_tmp.ElementsParamValues[idx])
-                        dpg.add_text(_smart_format(CNLS_tmp.UpperBound[idx]) % CNLS_tmp.UpperBound[idx])
-                        dpg.add_text(_smart_format(CNLS_tmp.LowerBound[idx]) % CNLS_tmp.LowerBound[idx])
-                        dpg.add_text(_smart_format(CNLS_tmp.ElementsParamVariance[idx]) % CNLS_tmp.ElementsParamVariance[idx])
-                        dpg.add_text(_smart_format(CNLS_tmp.ElementsParamStandardErrors[idx]) % CNLS_tmp.ElementsParamStandardErrors[idx])
-                        dpg.add_text(_smart_format(CNLS_tmp.ElementsParamPValues[idx]) % CNLS_tmp.ElementsParamPValues[idx])
+                if CNLS_tmp.ElementsParamNames == []:
+                    if config.store["Elements"] is None:
+                        config.store["Elements"] = [
+                            {'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
+                            {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
+                        ]
+                    gui_utilis.cnls_elements.update_elements(config)
+                else:
+                    for idx, variable in enumerate(CNLS_tmp.ElementsParamNames):
+                        with dpg.table_row():
+                            dpg.add_text(variable)
+                            dpg.add_text(_smart_format(CNLS_tmp.ElementsParamValues[idx]) % CNLS_tmp.ElementsParamValues[idx])
+                            dpg.add_text(_smart_format(CNLS_tmp.UpperBound[idx]) % CNLS_tmp.UpperBound[idx])
+                            dpg.add_text(_smart_format(CNLS_tmp.LowerBound[idx]) % CNLS_tmp.LowerBound[idx])
+                            dpg.add_text(_smart_format(CNLS_tmp.ElementsParamVariance[idx]) % CNLS_tmp.ElementsParamVariance[idx])
+                            dpg.add_text(_smart_format(CNLS_tmp.ElementsParamStandardErrors[idx]) % CNLS_tmp.ElementsParamStandardErrors[idx])
+                            dpg.add_text(_smart_format(CNLS_tmp.ElementsParamPValues[idx]) % CNLS_tmp.ElementsParamPValues[idx])
                 print(f"---- CNLS data table updated successfully.")
             except:
                 print("[Warning] CNLS data not available for the selected file, check cnls_table.py function.")
