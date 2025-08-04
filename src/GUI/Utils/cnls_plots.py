@@ -215,6 +215,9 @@ def update_all_plots(config):
                                             file_name = os.path.basename(file_name)
                                             file_name_list.append(gui_utils.small_functions.string_abbreviation(os.path.splitext(file_name)[0], 3, 5))
                                             file_key = os.path.splitext(file_name)[0]
+                                            if file_key not in config.store:
+                                                print(f"[Warning] File {file_key} not found in config store. Skipping...")
+                                                continue
                                             CNLS_tmp = config.store[file_key]['CNLS']
                                             data_list.append(CNLS_tmp.ElementsParamValues[para_idx])
                                             y_min_value = np.min([y_min_value, CNLS_tmp.ElementsParamValues[para_idx]])

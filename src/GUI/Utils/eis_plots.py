@@ -166,14 +166,15 @@ def update_all_plots(config):
                     
                     for file_name in config.selected_files:
                         file_name_no_ext = os.path.splitext(file_name)[0]
-                        data = config.store[file_name_no_ext]['EIS']
-                        # KK results
-                        dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Re_kk'], parent=y_axis_KK, label=gui_utils.small_functions.string_abbreviation(f"Re-{file_name_no_ext}", 13, 12))
-                        dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Im_kk'], parent=y_axis_KK, label=gui_utils.small_functions.string_abbreviation(f"Im-{file_name_no_ext}", 13, 12))
+                        if file_name_no_ext in config.store:
+                            data = config.store[file_name_no_ext]['EIS']
+                            # KK results
+                            dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Re_kk'], parent=y_axis_KK, label=gui_utils.small_functions.string_abbreviation(f"Re-{file_name_no_ext}", 13, 12))
+                            dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Im_kk'], parent=y_axis_KK, label=gui_utils.small_functions.string_abbreviation(f"Im-{file_name_no_ext}", 13, 12))
 
-                        # Impedance module and phase
-                        dpg.add_scatter_series(data['raw']['f'], abs(data['raw']['Z']), parent=y_axis1_Z_Phase, label=gui_utils.small_functions.string_abbreviation(f"Z-{file_name_no_ext}", 12, 12))
-                        dpg.add_scatter_series(data['raw']['f'], -np.degrees(np.angle(data['raw']['Z'])), parent=y_axis2_Z_Phase, label=gui_utils.small_functions.string_abbreviation(f"Phase-{file_name_no_ext}", 16, 12))
+                            # Impedance module and phase
+                            dpg.add_scatter_series(data['raw']['f'], abs(data['raw']['Z']), parent=y_axis1_Z_Phase, label=gui_utils.small_functions.string_abbreviation(f"Z-{file_name_no_ext}", 12, 12))
+                            dpg.add_scatter_series(data['raw']['f'], -np.degrees(np.angle(data['raw']['Z'])), parent=y_axis2_Z_Phase, label=gui_utils.small_functions.string_abbreviation(f"Phase-{file_name_no_ext}", 16, 12))
 
                     dpg.add_plot_legend(parent=f"tab_eis_{data_category}_data_plot_all_KK")
                     dpg.add_plot_legend(parent=f"tab_eis_{data_category}_data_plot_all_Z_Phase")
@@ -213,12 +214,13 @@ def update_all_plots(config):
                     
                     for file_name in config.selected_files:
                         file_name_no_ext = os.path.splitext(file_name)[0]
-                        data = config.store[file_name_no_ext]['EIS']
-                        dpg.add_line_series(data[data_category]['f'], data[data_category]['Re'], parent=y_axis_Re, label=gui_utils.small_functions.string_abbreviation(f"{data_category[0].upper() + data_category[1:]}-{file_name_no_ext}", 12, 12))
+                        if file_name_no_ext in config.store:
+                            data = config.store[file_name_no_ext]['EIS']
+                            dpg.add_line_series(data[data_category]['f'], data[data_category]['Re'], parent=y_axis_Re, label=gui_utils.small_functions.string_abbreviation(f"{data_category[0].upper() + data_category[1:]}-{file_name_no_ext}", 12, 12))
 
-                        dpg.add_line_series(data[data_category]['f'], -data[data_category]['Im'], parent=y_axis_Im, label=gui_utils.small_functions.string_abbreviation(f"{data_category[0].upper() + data_category[1:]}-{file_name_no_ext}", 12, 12))
+                            dpg.add_line_series(data[data_category]['f'], -data[data_category]['Im'], parent=y_axis_Im, label=gui_utils.small_functions.string_abbreviation(f"{data_category[0].upper() + data_category[1:]}-{file_name_no_ext}", 12, 12))
 
-                        dpg.add_line_series(data[data_category]['Re'], -data[data_category]['Im'], parent=y_axis_Nyquist, label=gui_utils.small_functions.string_abbreviation(f"{data_category[0].upper() + data_category[1:]}-{file_name_no_ext}", 12, 12))
+                            dpg.add_line_series(data[data_category]['Re'], -data[data_category]['Im'], parent=y_axis_Nyquist, label=gui_utils.small_functions.string_abbreviation(f"{data_category[0].upper() + data_category[1:]}-{file_name_no_ext}", 12, 12))
 
                     dpg.add_plot_legend(parent=f"tab_eis_{data_category}_data_plot_all_Re")
                     dpg.add_plot_legend(parent=f"tab_eis_{data_category}_data_plot_all_Im")

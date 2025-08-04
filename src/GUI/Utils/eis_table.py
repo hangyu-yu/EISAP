@@ -118,13 +118,14 @@ def table_update(config):
                     if os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]]:
                         for file_name in config.selected_files:
                             file_name_no_ext = os.path.splitext(file_name)[0]
-                            EIS_tmp = config.store[file_name_no_ext]['EIS']
-                            with dpg.table_row():
-                                dpg.add_text(gui_utils.small_functions.string_abbreviation(file_name_no_ext, 12, 12))
-                                dpg.add_text(f"{float(EIS_tmp.KK_data['L_kk']):.6f}" if EIS_tmp.KK_data['L_kk'] is not None else "N/A")
-                                dpg.add_text(f"{float(EIS_tmp.KK_data['C_kk']):.6f}" if EIS_tmp.KK_data['C_kk'] is not None else "N/A")
-                                dpg.add_text(f"{float(EIS_tmp.KK_data['res_ohm_kk']):.6f}" if EIS_tmp.KK_data['res_ohm_kk'] is not None else "N/A")
-                                dpg.add_text(f"{float(EIS_tmp.KK_data['res_pol_kk']):.6f}" if EIS_tmp.KK_data['res_pol_kk'] is not None else "N/A")
+                            if file_name_no_ext in config.store:
+                                EIS_tmp = config.store[file_name_no_ext]['EIS']
+                                with dpg.table_row():
+                                    dpg.add_text(gui_utils.small_functions.string_abbreviation(file_name_no_ext, 12, 12))
+                                    dpg.add_text(f"{float(EIS_tmp.KK_data['L_kk']):.6f}" if EIS_tmp.KK_data['L_kk'] is not None else "N/A")
+                                    dpg.add_text(f"{float(EIS_tmp.KK_data['C_kk']):.6f}" if EIS_tmp.KK_data['C_kk'] is not None else "N/A")
+                                    dpg.add_text(f"{float(EIS_tmp.KK_data['res_ohm_kk']):.6f}" if EIS_tmp.KK_data['res_ohm_kk'] is not None else "N/A")
+                                    dpg.add_text(f"{float(EIS_tmp.KK_data['res_pol_kk']):.6f}" if EIS_tmp.KK_data['res_pol_kk'] is not None else "N/A")
 
         print(f"---- EIS data table updated successfully.")
     else:
