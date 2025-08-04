@@ -50,7 +50,7 @@ class Config:
                     self.display_file = data.get("display_file", self.display_file) or self.display_file
             
             if self.data_import_function == []:
-                self.data_import_function = str(Path(__file__).parent / "01_Data_read" / "read_general_all.py")
+                self.data_import_function = str(Path(__file__).parent.parent / "Functions" / "01_Data_read" / "read_general_all.py")
 
     def save_config(self):
         """Save configuration to a JSON file"""

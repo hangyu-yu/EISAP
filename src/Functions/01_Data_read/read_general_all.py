@@ -27,6 +27,7 @@ def is_numeric_row(line):
     numeric_count = 0
     for part in parts:
         try:
+            part = part.replace(',', '.')
             float(part)
             numeric_count += 1
         except ValueError:
@@ -63,6 +64,10 @@ def read_general_all(file):
 
     # Find header row
     header_idx = None
+
+    # Change , to . for numeric conversion
+    for i in range(len(lines)):
+        lines[i] = lines[i].replace(',', '.')
     
     # First try to find the cluster with frequency, real and imaginary parts
     for i, line in enumerate(lines):
