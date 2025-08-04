@@ -195,7 +195,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_text("Min significance:", tag="text_sig_threshold")
                                     dpg.add_input_text(tag="sig_threshold", default_value=EIS.parameter["RM_significance"]["sig_threshold"])
                                 with dpg.table_row():
-                                    dpg.add_text("Max. KK res.")
+                                    dpg.add_text("Max. KK res. [%]")
                                     dpg.add_input_text(tag="kk_threshold", default_value=EIS.parameter["KK"]["kk_threshold"])
                                     
                         # Kramers–Kronig test parameters
