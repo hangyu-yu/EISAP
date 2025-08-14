@@ -172,7 +172,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_checkbox(
                                         tag="RmNonKK",
                                         label="Remove high KK residual data",
-                                        default_value= False,
+                                        default_value= EIS.parameter["KK"]["RmNonKK"],
                                         callback=lambda sender, app_data: RmNonKK_callback(sender, app_data, EIS))
                                 with dpg.table_row():
                                     dpg.add_text("Upper cut:", tag="text_num_cut_upper")

@@ -3,6 +3,7 @@ import re
 import glob
 import copy
 import numpy as np
+from natsort import natsorted
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
 from src.Methods.CNLS.Circuit import Circuit
@@ -14,8 +15,10 @@ def select_files(config, tag):
     if os.path.isdir(config.folder_path):
         # config.file_list = sorted(glob.glob(os.path.join(config.folder_path, f"*{config.file_extensions}")))
         pattern = re.compile(f".*{config.file_extensions}$", re.IGNORECASE)
-        config.file_list = [f for f in glob.glob(os.path.join(config.folder_path, "*")) 
-                        if pattern.search(f)]
+        config.file_list = natsorted(
+                                        [f for f in glob.glob(os.path.join(config.folder_path, "*")) 
+                                        if pattern.search(f)]
+                                    )
         print(f"---- File list from [{tag}]:", config.file_list)
         if not config.file_list:
             config.file_list = ['[Error] No file found! Recheck the folder path or file extension, otherwise report the issue.']
