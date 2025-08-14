@@ -185,8 +185,10 @@ def update_all_plots(config):
             CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS']
             if CNLS_tmp.Elements is not None:
                 name_list = [element['name'] for element in CNLS_tmp.Elements]
+                children = dpg.get_item_children("tab_bar_cnls_plot_all")
+                for child in children[1]:
+                    dpg.delete_item(child)
                 for idx, param_name in enumerate(name_list):
-                    dpg.delete_item(f"tab_cnls_all_{param_name}")
                     with dpg.tab(label=param_name, tag=f"tab_cnls_all_{param_name}", parent="tab_bar_cnls_plot_all"):
                         with dpg.tab_bar(tag=f"tab_bar_cnls_all_{param_name}", parent = f"tab_cnls_all_{param_name}"):
                             start_idx = CNLS_tmp.ElementsStartIndex[idx]
@@ -236,8 +238,10 @@ def update_all_plots(config):
             CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS']
             if CNLS_tmp.Elements is not None:
                 name_list = [element['name'] for element in CNLS_tmp.Elements]
+                children = dpg.get_item_children("tab_bar_cnls_plot_all")
+                for child in children[1]:
+                    dpg.delete_item(child)
                 for idx, param_name in enumerate(name_list):
-                    dpg.delete_item(f"tab_cnls_all_{param_name}")
                     with dpg.tab(label=param_name, tag=f"tab_cnls_all_{param_name}", parent="tab_bar_cnls_plot_all"):
                         with dpg.tab_bar(tag=f"tab_bar_cnls_all_{param_name}", parent = f"tab_cnls_all_{param_name}"):
                             start_idx = CNLS_tmp.ElementsStartIndex[idx]
