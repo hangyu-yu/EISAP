@@ -121,6 +121,7 @@ def read_general_all(file):
     freq_col = [col for col in data.columns if contains_keyword(col, frequency_search_keywords)][0]
     data = data.sort_values(by=freq_col, ascending=False)
     data['Frequency/Hz'] = data[freq_col].astype(float)
+    data = data[data['Frequency/Hz'] != 0]
     
     # If we have phase and impedance, calculate Re and Im
     if (any(contains_keyword(col, phase_keywords) for col in data.columns) and 
