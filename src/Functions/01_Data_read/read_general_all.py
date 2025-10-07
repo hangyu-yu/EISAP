@@ -43,13 +43,22 @@ def read_general_all(file):
     
     encodings = ['utf-8', 'ISO-8859-1', 'latin1']
     lines = []
-    for encoding in encodings:
-        try:
-            with open(file, 'r', encoding=encoding) as f:
-                lines = [line.strip() for line in f.readlines()]
-            break
-        except UnicodeDecodeError:
-            continue
+    if 'xlsx' in file.lower() or 'xls' in file.lower():
+        # Read Excel file
+        xls = pd.ExcelFile(file)
+        sheet_name = xls.sheet_names[0]  # Read the first sheet
+        df = pd.read_excel(xls, sheet_name=sheet_name)
+        headers_excel = df.columns.tolist()
+        lines = df.astype(str).apply(lambda row: '\t'.join(row.dropna().astype(str)), axis=1).tolist()
+        lines = ['\t'.join(headers_excel)] + lines  # Add headers as first line
+    else:
+        for encoding in encodings:
+            try:
+                with open(file, 'r', encoding=encoding) as f:
+                    lines = [line.strip() for line in f.readlines()]
+                break
+            except UnicodeDecodeError:
+                continue
     
     if not lines:
         raise ValueError(f"---- Cannot read file {file}, none of the attempted encodings worked")
@@ -111,7 +120,7 @@ def read_general_all(file):
     data_lines = lines[data_start_idx:data_end_idx]
     
     # Create DataFrame
-    data = pd.DataFrame([smart_split(line) for line in data_lines], columns=header)
+    data = pd.DataFrame([smart_split(line)[:len(header)] for line in data_lines], columns=header)
     
     # Convert all columns to numeric where possible
     for col in data.columns:
@@ -143,5 +152,12 @@ def read_general_all(file):
             print(f"Warning: Phase column '{phase_col}' has no unit specified, assuming degrees")
             data['Re/Ohm'] = data[impedance_col] * np.cos(np.deg2rad(data[phase_col]))
             data['Im/Ohm'] = data[impedance_col] * np.sin(np.deg2rad(data[phase_col]))
+    elif (any(contains_keyword(col, real_part_keywords) for col in data.columns) and 
+        any(contains_keyword(col, imaginary_part_keywords) for col in data.columns)):
+        real_col = [col for col in data.columns if contains_keyword(col, real_part_keywords)][0]
+        imag_col = [col for col in data.columns if contains_keyword(col, imaginary_part_keywords)][0]
+        data['Re/Ohm'] = data[real_col].astype(float)
+        data['Im/Ohm'] = data[imag_col].astype(float)
+
     
     return metadata, data

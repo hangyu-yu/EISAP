@@ -1,13 +1,17 @@
 {
     "font_size": 20,
-    "folder_path": "D:\\Downloads",
+    "folder_path": "D:\\Downloads\\Data",
     "file_list": [
-        "D:\\Downloads\\EISloop_cc00001SIN_fZ.txt"
+        "D:\\Downloads\\Data\\2024-01-22_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis01.txt",
+        "D:\\Downloads\\Data\\2024-01-23_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis02.txt",
+        "D:\\Downloads\\Data\\2024-01-24_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis03.txt"
     ],
     "selected_files": [
-        "EISloop_cc00001SIN_fZ.txt"
+        "2024-01-22_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis01.txt",
+        "2024-01-23_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis02.txt",
+        "2024-01-24_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis03.txt"
     ],
     "file_extensions": ".txt",
-    "display_file": "EISloop_cc00001SIN_fZ.txt",
-    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_RUBY_txt.py"
+    "display_file": "2024-01-22_hq_sp_cu-19_durabilitiy_1320_500-0_060-0-240_710_dc5024ma_ac500ma_eis01.txt",
+    "data_import_function": "C:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_general_all.py"
 }
