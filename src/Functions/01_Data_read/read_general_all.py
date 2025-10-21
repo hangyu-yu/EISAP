@@ -35,9 +35,9 @@ def is_numeric_row(line):
     return numeric_count / len(parts) > 0.8  # At least 80% numeric values
 
 def read_general_all(file):
-    frequency_search_keywords = ["Freq"]
-    real_part_keywords = ["Zreal", "Re(Z)", "Real", "impedance'"]
-    imaginary_part_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'Im(Z)']
+    frequency_search_keywords = ["Freq", "Hz"]
+    real_part_keywords = ["Zreal", "Re(Z)", "Real", "impedance'", "Zre"]
+    imaginary_part_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'Im(Z)', 'Zim']
     phase_keywords = ["Phase", "Zphz"]
     impedance_keywords = ["impedance", "Zmod", '|Z|']
     
