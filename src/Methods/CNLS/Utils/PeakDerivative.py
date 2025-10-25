@@ -78,7 +78,7 @@ def peak_derivative(drt, f, mode, nbr_peaks_fixed=5, f_fixed=None):
         params.extend([y_input[i], np.log10(f_input[i]), 0.5])  # Initial guesses
 
     # Perform Gaussian fitting
-    popt, _ = curve_fit(gaussian, f, drt, p0=params, bounds=(bounds_lower, bounds_upper), maxfev=10000)
+    popt, _ = curve_fit(gaussian, f, drt, p0=params, bounds=(bounds_lower, bounds_upper), maxfev=100000)
 
     # Extract results from the fitted parameters
     r_est = []  # Resistance estimates

@@ -60,6 +60,7 @@ def separate_multichannel_zahner(config, EIS, CNLS):
  
     def is_numeric_row(line):
         """Check if line contains mostly numeric values."""
+        line = line.replace('\t', ' ').replace(',', ' ').replace(';', ' ').replace('\n', ' ')
         parts = line.strip().split()
         if len(parts) < 2:
             return False
@@ -103,9 +104,9 @@ def separate_multichannel_zahner(config, EIS, CNLS):
             # Segment detection logic
             segments = []
             current_segment = None
-            frequency_keywords = ["Freq", "Frequency"]
-            real_keywords = ["Zreal", "Re(Z)", "Real"]
-            imag_keywords = ["Zimag", "-Im(Z)", "Imag"]
+            frequency_keywords = ["Freq", "Hz"]
+            real_keywords = ["Zreal", "Re(Z)", "Real", "impedance'", "Zre"]
+            imag_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'Im(Z)', 'Zim']
             phase_keywords = ["Phase", "Zphz"]
             impedance_keywords = ["impedance", "Zmod", '|Z|']
             
@@ -175,10 +176,10 @@ def separate_multichannel_zahner(config, EIS, CNLS):
                         data[col] = pd.to_numeric(data[col], errors='ignore')
                     
                     # Sort by frequency (descending)
-                    freq_col = next((col for col in data.columns 
-                                   if contains_keyword(col, frequency_keywords)), None)
-                    if freq_col:
-                        data = data.sort_values(by=freq_col, ascending=False)
+                    # freq_col = next((col for col in data.columns 
+                    #                if contains_keyword(col, frequency_keywords)), None)
+                    # if freq_col:
+                    #     data = data.sort_values(by=freq_col, ascending=False)
                     
                     # Prepare metadata
                     metadata = {

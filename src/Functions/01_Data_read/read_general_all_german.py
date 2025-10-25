@@ -76,7 +76,7 @@ def read_general_all(file):
 
     # Change , to . for numeric conversion
     for i in range(len(lines)):
-        lines[i] = lines[i].replace('\t', ' ').replace(',', ' ').replace(';', ' ').replace('\n', ' ')
+        lines[i] = lines[i].replace(',', '.')
     
     # First try to find the cluster with frequency, real and imaginary parts
     for i, line in enumerate(lines):
@@ -128,35 +128,6 @@ def read_general_all(file):
     
     # Sort data by frequency (assuming it's the first column)
     freq_col = [col for col in data.columns if contains_keyword(col, frequency_search_keywords)][0]
-    is_ascending = (data[freq_col].diff().dropna() > 0).all()  # Is strictly ascending
-    is_descending = (data[freq_col].diff().dropna() < 0).all()  # Is strictly descending
-    if is_ascending:
-        print("---- The data is strictly ascending, no need to remove any rows.")
-    elif is_descending:
-        print("---- The data is strictly descending, no need to remove any rows.")
-    else:
-        # Count the number of ascending and descending data points
-        ascending_count = (data[freq_col].diff().dropna() > 0).sum()  # Number of ascending data points
-        descending_count = (data[freq_col].diff().dropna() < 0).sum()  # Number of descending data points
-        print(f"---- Number of ascending data points: {ascending_count}")
-        print(f"---- Number of descending data points: {descending_count}")
-        # Determine and remove the smaller part
-        if ascending_count > descending_count:
-            # Keep ascending part, remove descending part
-            ascending_idx = data[freq_col].diff().fillna(1) > 0
-            if ascending_idx[0] == True and ascending_idx[1] == False:
-                ascending_idx[0] = False
-                ascending_idx[int(ascending_idx[ascending_idx == False].index[-1])] = True
-            data = data[ascending_idx]  # Keep ascending part
-            print("---- Removed descending data points, kept ascending data.")
-        else:
-            # Keep descending part, remove ascending part
-            descending_idx = data[freq_col].diff().fillna(-1) < 0
-            if descending_idx[0] == True and descending_idx[1] == False:
-                descending_idx[0] = False
-                descending_idx[int(descending_idx[descending_idx == False].index[-1])] = True
-            data = data[descending_idx]  # Keep descending part
-            print("---- Removed ascending data points, kept descending data.")
     data = data.sort_values(by=freq_col, ascending=False)
     data['Frequency/Hz'] = data[freq_col].astype(float)
     data = data[data['Frequency/Hz'] != 0]

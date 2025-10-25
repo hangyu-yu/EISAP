@@ -1,21 +1,17 @@
 {
     "font_size": 20,
-    "folder_path": "/Users/atlas/Downloads/Photo_catalysis",
+    "folder_path": "/Users/atlas/Downloads/HQ",
     "file_list": [
-        "/Users/atlas/Downloads/Photo_catalysis/01_EIS_CdS.xlsx",
-        "/Users/atlas/Downloads/Photo_catalysis/02_EIS_CuMoO4.xlsx",
-        "/Users/atlas/Downloads/Photo_catalysis/03_EIS_CMO@C.xlsx",
-        "/Users/atlas/Downloads/Photo_catalysis/04_EIS_CC-10.xlsx",
-        "/Users/atlas/Downloads/Photo_catalysis/05_EIS_CC@C-10.xlsx"
+        "/Users/atlas/Downloads/HQ/2025-06-28_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
+        "/Users/atlas/Downloads/HQ/2025-06-29_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
+        "/Users/atlas/Downloads/HQ/2025-06-30_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt"
     ],
     "selected_files": [
-        "01_EIS_CdS.xlsx",
-        "02_EIS_CuMoO4.xlsx",
-        "03_EIS_CMO@C.xlsx",
-        "04_EIS_CC-10.xlsx",
-        "05_EIS_CC@C-10.xlsx"
+        "2025-06-28_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
+        "2025-06-29_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis02.txt",
+        "2025-06-30_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis03.txt"
     ],
-    "file_extensions": ".xlsx",
-    "display_file": "01_EIS_CdS.xlsx",
+    "file_extensions": ".txt",
+    "display_file": "2025-06-28_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
     "data_import_function": "/Users/atlas/Desktop/Git/SOCEIS/src/Functions/01_Data_read/read_general_all.py"
 }
