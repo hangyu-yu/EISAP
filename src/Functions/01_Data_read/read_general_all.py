@@ -36,8 +36,8 @@ def is_numeric_row(line):
 
 def read_general_all(file):
     frequency_search_keywords = ["Freq", "Hz"]
-    real_part_keywords = ["Zreal", "Re(Z)", "Real", "impedance'", "Zre"]
-    imaginary_part_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'Im(Z)', 'Zim']
+    real_part_keywords = ["Zreal", "Re(Z)", "Real", "impedance'", "Zre", "Z\'"]
+    imaginary_part_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'Im(Z)', 'Zim', "-Z\""]
     phase_keywords = ["Phase", "Zphz"]
     impedance_keywords = ["impedance", "Zmod", '|Z|']
     
