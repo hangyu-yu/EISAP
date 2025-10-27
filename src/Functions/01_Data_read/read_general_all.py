@@ -76,7 +76,7 @@ def read_general_all(file):
 
     # Change , to . for numeric conversion
     for i in range(len(lines)):
-        lines[i] = lines[i].replace('\t', ' ').replace(',', ' ').replace(';', ' ').replace('\n', ' ')
+        lines[i] = lines[i].replace(',', ' ').replace(';', ' ').replace('\n', ' ')
     
     # First try to find the cluster with frequency, real and imaginary parts
     for i, line in enumerate(lines):
@@ -116,7 +116,7 @@ def read_general_all(file):
             break
     
     # Extract data
-    header = smart_split(lines[header_idx])
+    header = smart_split(lines[header_idx].replace(' (', '('))
     data_lines = lines[data_start_idx:data_end_idx]
     
     # Create DataFrame

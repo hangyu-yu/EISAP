@@ -1,13 +1,17 @@
 {
     "font_size": 20,
-    "folder_path": "/Users/atlas/Downloads/HQ",
+    "folder_path": "/Users/atlas/Downloads",
     "file_list": [
-        "/Users/atlas/Downloads/HQ/2025-06-28_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt"
+        "/Users/atlas/Downloads/cc-10 20251027 205054.xlsx",
+        "/Users/atlas/Downloads/cc@c-10 20251027 210147.xlsx",
+        "/Users/atlas/Downloads/cc@c-10-1 20251027 211647.xlsx"
     ],
     "selected_files": [
-        "2025-06-28_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt"
+        "cc-10 20251027 205054.xlsx",
+        "cc@c-10 20251027 210147.xlsx",
+        "cc@c-10-1 20251027 211647.xlsx"
     ],
-    "file_extensions": ".txt",
-    "display_file": "2025-06-28_hq_sp_cu-43_durabilitiy_0930_350-150_60-0-240_780_dc5024ma_ac500ma_eis01.txt",
+    "file_extensions": ".xlsx",
+    "display_file": "cc@c-10-1 20251027 211647.xlsx",
     "data_import_function": "/Users/atlas/Desktop/Git/SOCEIS/src/Functions/01_Data_read/read_general_all.py"
 }
