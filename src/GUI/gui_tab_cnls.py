@@ -144,7 +144,7 @@ def gui_tab_cnls(config, EIS, CNLS):
                                         tag="combo_cnls_data_type",
                                         default_value = CNLS.data_type,
                                         width = -1,
-                                        items = ["truncated", "smooth_KK", "smooth_DRT", "extrapolation", "LCcorrected"],
+                                        items = ["truncated", "smooth_KK", "smooth_DRT", "extrapolation", "LCcorrect"],
                                         callback=lambda s, a: gui_utils.cnls_functions.update_data_type(s, a, config)
                                     )
                                 with dpg.table_row():

@@ -17,6 +17,19 @@ def update_single_plots(config):
         return
 
     file_key = os.path.splitext(config.display_file)[0]
+    if config.store[file_key]['CNLS'].DRTmes is not None:
+        config.store[file_key]['CNLS'].DRTmes = config.store[file_key]['EIS']['tknv_' + config.store[file_key]['CNLS'].data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['g']
+        config.store[file_key]['CNLS'].f = config.store[file_key]['EIS']['tknv_' + config.store[file_key]['CNLS'].data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['f']
+        if config.store[file_key]['CNLS'].data_type == 'smooth_KK':
+            config.store[file_key]['CNLS'].Zmes = config.store[file_key]['EIS']['smooth']['Z']
+        elif config.store[file_key]['CNLS'].data_type == 'smooth_DRT':
+            config.store[file_key]['CNLS'].DRTmes = config.store[file_key]['EIS']['tknv_truncated']['ReIm']['g']
+            config.store[file_key]['CNLS'].f = config.store[file_key]['EIS']['tknv_truncated']['ReIm']['f']
+            config.store[file_key]['CNLS'].Zmes = config.store[file_key]['EIS']['tknv_truncated']['ReIm']['Re']+1j*config.store[file_key]['EIS']['tknv_truncated']['ReIm']['Im']
+        else:
+            config.store[file_key]['CNLS'].Zmes = config.store[file_key]['EIS'][config.store[file_key]['CNLS'].data_type]['Z']
+    if config.store[file_key]['CNLS'].f is not None:
+        config.store[file_key]['CNLS'].w = config.store[file_key]['CNLS'].f * 2 * np.pi
     data = config.store[file_key]['CNLS']
 
     # Plot the DRT to identify the peaks

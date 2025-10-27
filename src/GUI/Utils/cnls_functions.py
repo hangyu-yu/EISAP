@@ -229,6 +229,19 @@ def initialize_parameters(sender, appdata, config):
                 Elements = config.store['Elements'], 
                 EIS = EIS_tmp, 
                 data_type = dpg.get_value('combo_cnls_data_type')))
+            
+            config.store[file_name_no_ext]['CNLS'].DRTmes = config.store[file_name_no_ext]['EIS']['tknv_' + config.store[file_name_no_ext]['CNLS'].data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['g']
+            config.store[file_name_no_ext]['CNLS'].f = config.store[file_name_no_ext]['EIS']['tknv_' + config.store[file_name_no_ext]['CNLS'].data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['f']
+            if config.store[file_name_no_ext]['CNLS'].data_type == 'smooth_KK':
+                config.store[file_name_no_ext]['CNLS'].Zmes = config.store[file_name_no_ext]['EIS']['smooth']['Z']
+            elif config.store[file_name_no_ext]['CNLS'].data_type == 'smooth_DRT':
+                config.store[file_name_no_ext]['CNLS'].DRTmes = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['g']
+                config.store[file_name_no_ext]['CNLS'].f = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['f']
+                config.store[file_name_no_ext]['CNLS'].Zmes = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['Re']+1j*config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['Im']
+            else:
+                config.store[file_name_no_ext]['CNLS'].Zmes = config.store[file_name_no_ext]['EIS'][config.store[file_name_no_ext]['CNLS'].data_type]['Z']
+            if config.store[file_name_no_ext]['CNLS'].f is not None:
+                config.store[file_name_no_ext]['CNLS'].w = config.store[file_name_no_ext]['CNLS'].f * 2 * np.pi
 
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
