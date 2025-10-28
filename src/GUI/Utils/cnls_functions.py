@@ -1,5 +1,6 @@
 import os
 import copy
+import math
 import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
@@ -64,8 +65,8 @@ def constraint_percentage(CNLS_tmp):
         TauIndex = [i for i, name in enumerate(CNLS_tmp.ElementsParamNames) if 'tau' in name]
         Tau_percentage = dpg.get_value("input_constraints_Tau_percentage")
         tau = np.array(CNLS_tmp.ElementsParamValues)[TauIndex]
-        CNLS_tmp.UpperBound[TauIndex] = tau*(1+Tau_percentage/100)
-        CNLS_tmp.LowerBound[TauIndex] = tau*(1-Tau_percentage/100)
+        CNLS_tmp.UpperBound[TauIndex] = np.exp(np.log(tau) * (1 + Tau_percentage / 100))
+        CNLS_tmp.LowerBound[TauIndex] = np.exp(np.log(tau) * (1 - Tau_percentage / 100))
         print("---- Tau constraint set to percentage mode.")
 
     for idx, element in enumerate(CNLS_tmp.Elements):
