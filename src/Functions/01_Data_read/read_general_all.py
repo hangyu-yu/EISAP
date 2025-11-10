@@ -116,7 +116,7 @@ def read_general_all(file):
             break
     
     # Extract data
-    header = smart_split(lines[header_idx].replace(' (', '('))
+    header = smart_split(lines[header_idx].replace(' (', '(').replace(' / ', '/').replace(' /', '/').replace('/ ', '/').replace(' [', '['))
     data_lines = lines[data_start_idx:data_end_idx]
     
     # Create DataFrame
