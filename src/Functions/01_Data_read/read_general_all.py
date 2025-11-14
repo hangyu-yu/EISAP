@@ -36,8 +36,8 @@ def is_numeric_row(line):
 
 def read_general_all(file):
     frequency_search_keywords = ["Freq", "Hz"]
-    real_part_keywords = ["Zreal", "Re(Z)", "Real", "impedance'", "Zre", "Z\'"]
-    imaginary_part_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'Im(Z)', 'Zim', "-Z\""]
+    real_part_keywords = ["Zreal", "Re(Z)", "Real", "impedance'", 'Impedance R/Ohm', "Zre", "Z\'"]
+    imaginary_part_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'impedance i/ohm', 'Im(Z)', 'Zim', "-Z\""]
     phase_keywords = ["Phase", "Zphz"]
     impedance_keywords = ["impedance", "Zmod", '|Z|']
     
@@ -116,7 +116,7 @@ def read_general_all(file):
             break
     
     # Extract data
-    header = smart_split(lines[header_idx].replace(' (', '(').replace(' / ', '/').replace(' /', '/').replace('/ ', '/').replace(' [', '['))
+    header = smart_split(lines[header_idx].replace(' (', '(').replace(' / ', '/').replace(' /', '/').replace('/ ', '/').replace(' [', '[').replace('Impedance R/Ohm', 'Re/Ohm').replace('Impedance I/Ohm', 'Im/Ohm'))
     data_lines = lines[data_start_idx:data_end_idx]
     
     # Create DataFrame

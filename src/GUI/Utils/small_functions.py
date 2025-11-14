@@ -105,8 +105,8 @@ def separate_multichannel_zahner(config, EIS, CNLS):
             segments = []
             current_segment = None
             frequency_keywords = ["Freq", "Hz"]
-            real_keywords = ["Zreal", "Re(Z)", "Real", "impedance'", "Zre"]
-            imag_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'Im(Z)', 'Zim']
+            real_keywords = ["Zreal", "Re(Z)", "Real", "impedance'", 'Impedance,R/Ohm', "Zre"]
+            imag_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'impedance,i/ohm', 'Im(Z)', 'Zim']
             phase_keywords = ["Phase", "Zphz"]
             impedance_keywords = ["impedance", "Zmod", '|Z|']
             
