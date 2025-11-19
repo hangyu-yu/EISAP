@@ -194,8 +194,19 @@ class Circuit:
         if self.constraint_type == 'segment' and change_UBLB:
             # Set the segment as bounds
             tau = np.array(self.ElementsParamValues)[TauIndex]
-            self.UpperBound[TauIndex] = np.concatenate([(tau[:-1] + tau[1:]) / 2, [10 * tau[-1]]])
-            self.LowerBound[TauIndex] = np.concatenate([[0.1 * tau[0]], (tau[:-1] + tau[1:]) / 2])
+            # self.UpperBound[TauIndex] = np.concatenate([(tau[:-1] + tau[1:]) / 2, [10 * tau[-1]]])
+            # self.LowerBound[TauIndex] = np.concatenate([[0.1 * tau[0]], (tau[:-1] + tau[1:]) / 2])
+            log_tau = np.log(tau)
+            log_upper_midpoints = (log_tau[:-1] + log_tau[1:]) / 2
+            log_lower_midpoints = (log_tau[:-1] + log_tau[1:]) / 2
+            self.UpperBound[TauIndex] = np.concatenate([
+                np.exp(log_upper_midpoints),
+                [10 * tau[-1]]
+            ])
+            self.LowerBound[TauIndex] = np.concatenate([
+                [0.1 * tau[0]], 
+                np.exp(log_lower_midpoints)
+            ])
         else:
             pass
             

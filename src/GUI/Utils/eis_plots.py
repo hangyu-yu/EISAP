@@ -39,7 +39,7 @@ def update_single_plots(config):
                     ):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, 
-                        label="Residual [%]")
+                        label="KK Residual [%]")
                         dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Re_kk'], parent=y_axis, label="Re")
                         dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Im_kk'], parent=y_axis, label="Im")
                         dpg.add_plot_legend()
@@ -149,7 +149,7 @@ def update_all_plots(config):
                         no_menus=False,
                     )
                     dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True, parent=f"tab_eis_{data_category}_data_plot_all_KK")
-                    y_axis_KK = dpg.add_plot_axis(dpg.mvYAxis, label="Residual [%]", parent=f"tab_eis_{data_category}_data_plot_all_KK")
+                    y_axis_KK = dpg.add_plot_axis(dpg.mvYAxis, label="KK Residual [%]", parent=f"tab_eis_{data_category}_data_plot_all_KK")
 
                     # Plot impedance module
                     dpg.add_plot(
