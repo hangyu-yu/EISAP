@@ -100,13 +100,13 @@ def process_data(sender, app_data, config, EIS):
             if EIS_tmp.parameter['RM_significance']['rm_significance']:
                 EIS_tmp.rm_significance()
 
-            # 03 - Data cut due to outliers
-            if EIS_tmp.parameter['Rmoutliers']['Rmoutliers']:
-                EIS_tmp.rm_outliers()
-
             # 04 - Data cut based on KK criterion
             if EIS_tmp.parameter['KKpreprocess']['OptimalCut']:
                 EIS_tmp.Linear_KK_opt_mu_cut(EIS_tmp.truncated, EIS_tmp.parameter['KKpreprocess'])
+
+            # 03 - Data cut due to outliers
+            if EIS_tmp.parameter['Rmoutliers']['Rmoutliers']:
+                EIS_tmp.rm_outliers()
 
             # 05 - KK test
             if EIS_tmp.parameter['KK']['KK_test']:
