@@ -56,7 +56,6 @@ def update_single_plots(config):
                         y_axis1 = dpg.add_plot_axis(dpg.mvYAxis, label="Z [Ohm·cm2]")
                         # dpg.set_axis_limits(y_axis1, 0, 1.1 * np.max(abs(data['raw']['Z'])))
                         dpg.add_scatter_series(data['raw']['f'], abs(data['raw']['Z']), parent=y_axis1, label="Z")
-
                         y_axis2 = dpg.add_plot_axis(dpg.mvYAxis2, label="Phase [deg]", opposite=True)
                         # dpg.set_axis_limits(y_axis2, 0, 1.1 * np.max(-np.degrees(np.angle(data['raw']['Z']))))
                         dpg.add_scatter_series(data['raw']['f'], -np.degrees(np.angle(data['raw']['Z'])), parent=y_axis2, label="Phase")
@@ -78,6 +77,13 @@ def update_single_plots(config):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Z' [Ohm·cm2]")
                         dpg.add_scatter_series(data[compare_data]['f'], data[compare_data]['Re'], parent=y_axis, label=compare_data.capitalize())
+                        dpg.add_button(label="Save plot", parent=dpg.last_item(), callback=gui_utils.save_dpgplot.save_item, 
+                                       user_data=(
+                                                  f"tab_eis_{data_category}_data_plot_single_Re", os.path.join(config.folder_path, 
+                                                  os.path.splitext(config.display_file)[0] + '_Re.png')),
+                                                  start_x=dpg.get_item_pos("child_window_eis_plot")[0]+dpg.get_item_pos(f"tab_eis_{data_category}_plot_single")[0]+dpg.get_item_pos(f"tab_eis_{data_category}_data_plot_single_Re")[0],
+                                                  start_y=dpg.get_item_pos("child_window_eis_plot")[1]+dpg.get_item_pos(f"tab_eis_{data_category}_plot_single")[1]+dpg.get_item_pos(f"tab_eis_{data_category}_data_plot_single_Re")[1]
+                                                 )
                         dpg.add_line_series(data[data_category]['f'], data[data_category]['Re'], parent=y_axis, label=data_category[0].upper() + data_category[1:])
                         dpg.add_plot_legend()
 
@@ -91,6 +97,7 @@ def update_single_plots(config):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [Ohm·cm2]")
                         dpg.add_scatter_series(data[compare_data]['f'], -data[compare_data]['Im'], parent=y_axis, label=compare_data.capitalize())
+                        dpg.add_button(label="Save plot", parent=dpg.last_item(), callback=gui_utils.save_dpgplot.save_item, user_data=(f"tab_eis_{data_category}_data_plot_single_Im", os.path.join(config.folder_path, os.path.splitext(config.display_file)[0] + '_Im.png')))
                         dpg.add_line_series(data[data_category]['f'], -data[data_category]['Im'], parent=y_axis, label=data_category[0].upper() + data_category[1:])
                         dpg.add_plot_legend()
                     
