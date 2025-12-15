@@ -75,8 +75,14 @@ def read_general_all(file):
     header_idx = None
 
     # Change , to . for numeric conversion
-    for i in range(len(lines)):
-        lines[i] = lines[i].replace(',', ' ').replace(';', ' ').replace('\n', ' ')
+    file_extension = os.path.splitext(file)[1].lower()
+    if file_extension == '.mpt':
+        for i in range(len(lines)):
+            lines[i] = re.sub(r'(\d),(\d)', r'\1.\2', lines[i])
+            lines[i] = lines[i].replace(';', ' ').replace('\n', ' ')
+    else:
+        for i in range(len(lines)):
+            lines[i] = lines[i].replace(',', ' ').replace(';', ' ').replace('\n', ' ')
     
     # First try to find the cluster with frequency, real and imaginary parts
     for i, line in enumerate(lines):
