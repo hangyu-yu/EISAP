@@ -361,7 +361,9 @@ def save_cnls(sender, appdata, config):
         if file_name_no_ext not in config.store.keys():
             raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
         else:
-            CNLS_tmp = config.store[file_name_no_ext]['CNLS']
-            CNLS_tmp.ExportCircuit()
-            print(f"---- CNLS fitting results saved for {file_name}.")
-            
+            try:
+                CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+                CNLS_tmp.ExportCircuit()
+                print(f"---- CNLS fitting results saved for {file_name}.")
+            except Exception as e:
+                print(f"[Warning] CNLS-save: File {file_name} is empty")

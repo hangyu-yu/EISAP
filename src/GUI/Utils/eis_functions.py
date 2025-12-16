@@ -132,6 +132,9 @@ def save_eis(sender, app_data, config):
     print("-- Saving EIS data...")
     if config.selected_files != [] and config.selected_files is not None:
         for file_name in config.selected_files:
-            file_name_no_ext = os.path.splitext(file_name)[0]
-            config.store[file_name_no_ext]['EIS'].file_folder = config.folder_path
-            config.store[file_name_no_ext]['EIS'].save_data_EIS()
+            try:
+                file_name_no_ext = os.path.splitext(file_name)[0]
+                config.store[file_name_no_ext]['EIS'].file_folder = config.folder_path
+                config.store[file_name_no_ext]['EIS'].save_data_EIS()
+            except Exception as e:
+                print(f"[Warning] EIS-save: File {file_name} is empty")
