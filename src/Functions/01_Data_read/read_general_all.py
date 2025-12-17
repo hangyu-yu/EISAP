@@ -84,22 +84,19 @@ def read_general_all(file):
         for i in range(len(lines)):
             lines[i] = lines[i].replace(',', ' ').replace(';', ' ').replace('\n', ' ')
     
-    # First try to find the cluster with frequency, real and imaginary parts
     for i, line in enumerate(lines):
+        # First try to find the cluster with frequency, real and imaginary parts
         if (contains_keyword(line, frequency_search_keywords) and 
             contains_keyword(line, real_part_keywords) and 
             contains_keyword(line, imaginary_part_keywords)):
             header_idx = i
             break
-    
-    # If not found, try the second cluster with frequency, phase and impedance
-    if header_idx is None:
-        for i, line in enumerate(lines):
-            if (contains_keyword(line, frequency_search_keywords) and 
-                contains_keyword(line, phase_keywords) and 
-                contains_keyword(line, impedance_keywords)):
-                header_idx = i
-                break
+        # If not found, try the second cluster with frequency, phase and impedance
+        if (contains_keyword(line, frequency_search_keywords) and 
+            contains_keyword(line, phase_keywords) and 
+            contains_keyword(line, impedance_keywords)):
+            header_idx = i
+            break
     
     if header_idx is None:
         raise ValueError("Could not find valid header row in the file")
