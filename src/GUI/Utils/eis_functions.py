@@ -56,6 +56,8 @@ def load_parameters(sender, app_data, config, EIS):
             config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
+            if 'cell_area_old' in EIS_tmp.store.keys():
+                EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, {'CellArea': 1/EIS_tmp.store['cell_area_old']}) 
             # Load the parameter for the general settings
             EIS_tmp.parameter["Sample"]["n_cell"] = int(dpg.get_value("n_cell"))
             EIS_tmp.parameter["Sample"]["CellArea"] = float(dpg.get_value("CellArea")) / EIS_tmp.parameter["Sample"]["n_cell"]
@@ -82,6 +84,9 @@ def load_parameters(sender, app_data, config, EIS):
             EIS_tmp.parameter["Extrapolation"]["fmin"] = float(dpg.get_value("extrapolation_fmin"))
             EIS_tmp.parameter["Extrapolation"]["fmax"] = float(dpg.get_value("extrapolation_fmax"))
             EIS_tmp.parameter["Extrapolation"]["PointsPerDecade"] = int(dpg.get_value("Extrapolation_PointsPerDecade"))
+
+            # Store the cell area
+            EIS_tmp.store['cell_area_old'] = EIS_tmp.parameter["Sample"]["CellArea"]
             print(f"---- EIS parameters have been loaded successfully for {file_name_no_ext}.")
 
 def process_data(sender, app_data, config, EIS):
