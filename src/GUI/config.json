@@ -1,19 +1,20 @@
 {
     "font_size": 20,
-    "folder_path": "/Users/atlas/Desktop/Git/SOCEIS/Projects/Code test/99_eg_degradation",
+    "folder_path": "E:\\OneDrive\\Experience\\01_Projects\\03_GENVIA\\2_Data\\Cell8\\EIS_initial",
     "file_list": [
-        "/Users/atlas/Desktop/Git/SOCEIS/Projects/Code test/99_eg_degradation/2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
-        "/Users/atlas/Desktop/Git/SOCEIS/Projects/Code test/99_eg_degradation/2024-09-02_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis02.txt",
-        "/Users/atlas/Desktop/Git/SOCEIS/Projects/Code test/99_eg_degradation/2024-09-03_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis03.txt",
-        "/Users/atlas/Desktop/Git/SOCEIS/Projects/Code test/99_eg_degradation/2024-09-04_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis04.txt"
+        "E:\\OneDrive\\Experience\\01_Projects\\03_GENVIA\\2_Data\\Cell8\\EIS_initial\\20250912_genvia_cu-06_1116_136.19_10.9-0-78.81_700c_dc856mv_ac20mv_eis01.txt",
+        "E:\\OneDrive\\Experience\\01_Projects\\03_GENVIA\\2_Data\\Cell8\\EIS_initial\\20250912_genvia_cu-06_1303_136.19_10.9-0-78.81_700c_dc1187mv_ac20mv_eis02.txt",
+        "E:\\OneDrive\\Experience\\01_Projects\\03_GENVIA\\2_Data\\Cell8\\EIS_initial\\20251124_genvia_cu-07_1359_136.19_10.9-0-78.81_700c_dc882mv_ac20mv_eis01.txt",
+        "E:\\OneDrive\\Experience\\01_Projects\\03_GENVIA\\2_Data\\Cell8\\EIS_initial\\20251124_genvia_cu-07_1555_136.19_10.9-0-78.81_700c_dc9080ma_ac50ma_eis02.txt",
+        "E:\\OneDrive\\Experience\\01_Projects\\03_GENVIA\\2_Data\\Cell8\\EIS_initial\\20251222_genvia_cu-08_1700_136.19_10.9-0-78.81_700c_dc860mv_ac20mv_eis01.txt",
+        "E:\\OneDrive\\Experience\\01_Projects\\03_GENVIA\\2_Data\\Cell8\\EIS_initial\\20251222_genvia_cu-08_2056_136.19_10.9-0-78.81_700c_dc9080ma_ac20mv_eis02.txt"
     ],
     "selected_files": [
-        "2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
-        "2024-09-02_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis02.txt",
-        "2024-09-03_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis03.txt",
-        "2024-09-04_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis04.txt"
+        "20250912_genvia_cu-06_1303_136.19_10.9-0-78.81_700c_dc1187mv_ac20mv_eis02.txt",
+        "20251124_genvia_cu-07_1555_136.19_10.9-0-78.81_700c_dc9080ma_ac50ma_eis02.txt",
+        "20251222_genvia_cu-08_2056_136.19_10.9-0-78.81_700c_dc9080ma_ac20mv_eis02.txt"
     ],
     "file_extensions": ".txt",
-    "display_file": "2024-09-03_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis03.txt",
-    "data_import_function": "/Users/atlas/Desktop/Git/SOCEIS/src/Functions/01_Data_read/read_general_all.py"
+    "display_file": "20250912_genvia_cu-06_1303_136.19_10.9-0-78.81_700c_dc1187mv_ac20mv_eis02.txt",
+    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_general_all.py"
 }

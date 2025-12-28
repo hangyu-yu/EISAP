@@ -2,7 +2,7 @@
 from cmcrameri import cm
 import matplotlib.pyplot as plt
 
-def figure_initialization(width=1920, height=1080, font_size=42, colormap_name='vik', dpi=100, font_family='Times New Roman', line_width=3, marker_edge_width=3):
+def figure_initialization(width=1920, height=1080, font_size=42, colormap_name='vik', dpi=100, font_family='Helvetica', line_width=3, marker_edge_width=3):
     """
     Initialize the default format for academic plots.
 
@@ -12,7 +12,7 @@ def figure_initialization(width=1920, height=1080, font_size=42, colormap_name='
     - font_size (int): Font size for titles, labels, and other text. Default is 42.
     - colormap_name (str): Name of the colormap from cmcrameri. Default is 'vik'.
     - dpi (int): Dots per inch for the figure. Default is 300.
-    - font_family (str): Font family for text. Default is 'Times New Roman'.
+    - font_family (str): Font family for text. Default is 'Helvetica'.
     - line_width (float): Default line width for plots. Default is 3.
     - marker_edge_width (float): Default marker edge width. Default is 3.
 
