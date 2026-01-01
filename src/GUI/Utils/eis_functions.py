@@ -42,7 +42,12 @@ def data_import(sender, app_data, config, EIS):
         if 'Significance' in data.columns:
             EIS_tmp.raw['significance'] = data['Significance'].to_numpy()
         EIS_tmp.info = metadata
-        EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, {'CellArea': 1})
+        if 'cell_area_old' in EIS_tmp.store.keys():
+            EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, {'CellArea': EIS_tmp.store['cell_area_old']})
+        elif os.path.exists(os.path.join(config.folder_path, file_name)):
+            EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, {'CellArea': EIS_tmp.parameter["Sample"]["CellArea"]})
+        else:
+            EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, {'CellArea': 1})
 
         if dpg.does_item_exist("tab_eis_raw_data_table"):
             dpg.configure_item("combo_eis_plot_file", items=config.selected_files)
@@ -58,6 +63,8 @@ def load_parameters(sender, app_data, config, EIS):
             EIS_tmp = config.store[file_name_no_ext]['EIS']
             if 'cell_area_old' in EIS_tmp.store.keys():
                 EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, {'CellArea': 1/EIS_tmp.store['cell_area_old']}) 
+            elif os.path.exists(os.path.join(config.folder_path, file_name)):
+                EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, {'CellArea': 1/EIS_tmp.parameter["Sample"]["CellArea"]})
             # Load the parameter for the general settings
             EIS_tmp.parameter["Sample"]["n_cell"] = int(dpg.get_value("n_cell"))
             EIS_tmp.parameter["Sample"]["CellArea"] = float(dpg.get_value("CellArea")) / EIS_tmp.parameter["Sample"]["n_cell"]
