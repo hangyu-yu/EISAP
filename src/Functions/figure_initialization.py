@@ -2,7 +2,7 @@
 from cmcrameri import cm
 import matplotlib.pyplot as plt
 
-def figure_initialization(width=1920, height=1080, font_size=42, colormap_name='vik', dpi=100, font_family='Helvetica', line_width=3, marker_edge_width=3):
+def figure_initialization(width=1920, height=1080, font_size=42, colormap_name='vik', dpi=100, font_family='sans-serif', line_width=3, marker_edge_width=3):
     """
     Initialize the default format for academic plots.
 
@@ -23,18 +23,35 @@ def figure_initialization(width=1920, height=1080, font_size=42, colormap_name='
     plt.rcParams['figure.figsize'] = (width/dpi, height/dpi)
     
     # Set font size and font family
-    plt.rcParams['font.size'] = font_size
-    plt.rcParams['axes.titlesize'] = font_size
-    plt.rcParams['axes.labelsize'] = font_size
-    plt.rcParams['xtick.labelsize'] = font_size
-    plt.rcParams['ytick.labelsize'] = font_size
-    plt.rcParams['font.family'] = font_family
-    plt.rcParams['mathtext.fontset'] = 'custom'  # Customoize the font
-    plt.rcParams['mathtext.rm'] = font_family    # font for regular text in math
-    plt.rcParams['mathtext.it'] = font_family    # font for italic text in math
-    plt.rcParams['mathtext.bf'] = font_family    # font for bold text in math
-    plt.rcParams['mathtext.sf'] = font_family    # Sans-serif text in math
-    plt.rcParams['mathtext.tt'] = font_family    # Monospace text in math
+    font_mapping = {
+        'sans-serif': 'DejaVu Sans',      # 无衬线字体
+        'serif': 'DejaVu Serif',          # 衬线字体
+        'monospace': 'DejaVu Sans Mono'   # 等宽字体
+    }
+    
+    # 获取对应的 Matplotlib 字体名称
+    math_font = font_mapping.get(font_family, 'DejaVu Sans')
+    
+    # 设置全局参数
+    plt.rcParams.update({
+        'font.size': font_size,
+        'font.family': font_family,
+        'axes.labelsize': font_size ,
+        'axes.titlesize': font_size + 2,
+        'xtick.labelsize': font_size,
+        'ytick.labelsize': font_size,
+        'legend.fontsize': font_size,
+        'figure.titlesize': font_size + 4,
+        
+        # 数学文本字体设置（使用正确的格式）
+        'mathtext.fontset': 'stix',       # 使用 STIX 字体集
+        'mathtext.rm': math_font,         # 常规数学字体
+        'mathtext.it': math_font,         # 斜体数学字体
+        'mathtext.bf': math_font,         # 粗体数学字体
+    })
+    
+    # 设置颜色映射
+    # plt.rcParams['image.cmap'] = colormap_name
     
     # Set line width and marker edge width
     plt.rcParams['lines.linewidth'] = line_width
@@ -43,11 +60,11 @@ def figure_initialization(width=1920, height=1080, font_size=42, colormap_name='
     # Modify default marker size (1.5x the current default)
     plt.rcParams['lines.markersize'] = plt.rcParamsDefault['lines.markersize'] * 1.5
     
-    # Set colormap
-    if hasattr(cm, colormap_name):
-        plt.rcParams['image.cmap'] = getattr(cm, colormap_name)
-    else:
-        raise ValueError(f"Colormap '{colormap_name}' not found in cmcrameri.")
+    # # Set colormap
+    # if hasattr(cm, colormap_name):
+    #     plt.rcParams['image.cmap'] = getattr(cm, colormap_name)
+    # else:
+    #     raise ValueError(f"Colormap '{colormap_name}' not found in cmcrameri.")
 
     # Set default legend properties (no box)
     plt.rcParams['legend.frameon'] = False
