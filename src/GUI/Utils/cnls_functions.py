@@ -322,6 +322,7 @@ def load_parameters(sender, appdata, config):
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
+            CNLS_tmp.ElementsNames = []
             CNLS_tmp.Elements = config.store['Elements']
             CNLS_tmp.data_type = dpg.get_value('combo_cnls_data_type')
             CNLS_tmp.initialize_elements(change_UBLB = False)
