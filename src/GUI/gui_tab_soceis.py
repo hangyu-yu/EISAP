@@ -294,7 +294,7 @@ def gui_tab_soceis(config, EIS, CNLS):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="extension_spacer")
             dpg.add_text("File extension:")
             dpg.add_combo(
-                items=[".txt", ".mpt", ".csv", ".xlsx", ".dta"],
+                items=[".txt", ".mpt", ".csv", ".xlsx", ".dta", ".z"],
                 tag = 'file_extension_selector',
                 default_value=config.file_extensions,
                 callback=lambda _, app_data: gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS),
