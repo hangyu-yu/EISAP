@@ -47,6 +47,52 @@ Under development, more features up to come.
   <img src="assets/images/Fig_example_CNLS.png" width="width: 100%;">
 </p>
 
+# Citing SOCEIS
+
+If you use **SOCEIS** in your work, please cite our papers:
+
+> **Caliandro, P., Nakajo, A., Diethelm, S., & Van herle, J.** (2019).  
+> *Model-assisted identification of solid oxide cell elementary processes by electrochemical impedance spectroscopy measurements.*  
+> Journal of Power Sources, **436**, 226838.
+
+> **Yu, H., Frantz, C., Savioz, L., Aubin, P., Fronterotta, D., Geipel, C., Moussaoui, H., Jeanmonod, G., Wang, L., & Van herle, J.** (2025).  
+> *Poisoning and recovery behavior of Ni-GDC based electrolyte-supported solid oxide fuel cell exposed to common sulfur compounds under processed biogas environment.*  
+> Journal of Power Sources, **642**, 236901.
+
+---
+
+## You can use the BibTeX
+
+```bibtex
+@article{caliandroModelassistedIdentificationSolid2019,
+  title = {Model-Assisted Identification of Solid Oxide Cell Elementary Processes by Electrochemical Impedance Spectroscopy Measurements},
+  author = {Caliandro, P. and Nakajo, A. and Diethelm, S. and {Van herle}, J.},
+  year = {2019},
+  month = oct,
+  journal = {Journal of Power Sources},
+  volume = {436},
+  pages = {226838},
+  issn = {0378-7753},
+  doi = {10.1016/j.jpowsour.2019.226838},
+  urldate = {2022-06-24},
+  lccn = {2}
+}
+
+@article{yuPoisoningRecoveryBehavior2025,
+  title = {Poisoning and Recovery Behavior of {{Ni-GDC}} Based Electrolyte-Supported Solid Oxide Fuel Cell Exposed to Common Sulfur Compounds under Processed Biogas Environment},
+  author = {Yu, Hangyu and Frantz, C{\'e}dric and Savioz, Louis and Aubin, Philippe and Fronterotta, Dante and Geipel, Christian and Moussaoui, Hamza and Jeanmonod, Guillaume and Wang, Ligang and {Van herle}, Jan},
+  year = {2025},
+  month = jun,
+  journal = {Journal of Power Sources},
+  volume = {642},
+  pages = {236901},
+  issn = {0378-7753},
+  doi = {10.1016/j.jpowsour.2025.236901},
+  urldate = {2025-04-13},
+  lccn = {3}
+}
+```
+
 # Major updates
 ## ---------- Date: 2025.05.07 ----------
 Beta version 0.2 with complete EIS, DRT and CNLS fit functionalities. Small bugs to be fixed
