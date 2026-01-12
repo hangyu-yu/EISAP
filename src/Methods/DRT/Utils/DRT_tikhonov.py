@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from scipy import integrate
 
 def DRT_tikhonov(EIS_data, parameters):
 
@@ -63,7 +64,7 @@ def DRT_tikhonov(EIS_data, parameters):
     Rs_Im = DRT_Im[-2]  # Get R
     L_Im = DRT_Im[-1]  # Get L
     DRT_Im = DRT_Im[:-2]  # Remove R and L from the DRT
-    Rp_Im = -np.trapz(DRT_Im, np.log(f))  # Estimated polarization resistance
+    Rp_Im = -integrate.trapezoid(DRT_Im, np.log(f))  # Estimated polarization resistance
 
     # Real part only
     DRT_Re = np.linalg.inv(A_re.T @ A_re + parameters['lambda'] * np.eye(A_re.shape[1])) @ A_re.T @ Re
@@ -72,7 +73,7 @@ def DRT_tikhonov(EIS_data, parameters):
     Rs_Re = DRT_Re[-2]  # Get R
     L_Re = DRT_Re[-1]  # Get L
     DRT_Re = DRT_Re[:-2]  # Remove R and L from the DRT
-    Rp_Re = -np.trapz(DRT_Re, np.log(f))  # Estimated polarization resistance
+    Rp_Re = -integrate.trapezoid(DRT_Re, np.log(f))  # Estimated polarization resistance
 
     # Combined Imaginary and real parts
     A_im_re = np.vstack([A_im, A_re])
@@ -84,7 +85,7 @@ def DRT_tikhonov(EIS_data, parameters):
     Rs_ReIm = DRT_ReIm[-2]  # Get R
     L_ReIm = DRT_ReIm[-1]  # Get L
     DRT_ReIm = DRT_ReIm[:-2]  # Remove R and L from the DRT
-    Rp_ReIm = -np.trapz(DRT_ReIm, np.log(f))  # Estimated polarization resistance
+    Rp_ReIm = -integrate.trapezoid(DRT_ReIm, np.log(f))  # Estimated polarization resistance
 
     # Create output structure of DataFrames
     DRT = {
