@@ -127,7 +127,7 @@ def read_general_all(file):
     
     # Convert all columns to numeric where possible
     for col in data.columns:
-        data[col] = pd.to_numeric(data[col], errors='ignore')
+        data[col] = pd.to_numeric(data[col], errors='coerce').fillna(data[col])
     
     # Sort data by frequency (assuming it's the first column)
     freq_col = [col for col in data.columns if contains_keyword(col, frequency_search_keywords)][0]
