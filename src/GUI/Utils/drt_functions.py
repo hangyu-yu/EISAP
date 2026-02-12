@@ -6,6 +6,23 @@ import pandas as pd
 import importlib.util
 import dearpygui.dearpygui as dpg
 
+
+def _read_numeric_input(widget_id, cast, default):
+    value = dpg.get_value(widget_id)
+    if value is None:
+        return default
+    if isinstance(value, (int, float)):
+        return cast(value)
+    if isinstance(value, str):
+        text = value.strip()
+        if text == "" or text.lower() in {"not available", "n/a", "na"}:
+            return default
+        try:
+            return cast(text)
+        except (TypeError, ValueError):
+            return default
+    return default
+
 def load_parameters(sender, app_data, config):
     print("-- Loading DRT parameters...")
     for file_name in config.selected_files:
@@ -21,9 +38,9 @@ def load_parameters(sender, app_data, config):
                 EIS_tmp.parameter["DRT"]["lambda"] = EIS_tmp.lambda_opt
 
             # Load the optimal lambda parameters
-            EIS_tmp.parameter["LambdaOpt"]["lambda_min"] = float(dpg.get_value("input_text_min_lambda"))
-            EIS_tmp.parameter["LambdaOpt"]["lambda_max"] = float(dpg.get_value("input_text_max_lambda"))
-            EIS_tmp.parameter["LambdaOpt"]["n"] = int(dpg.get_value("input_text_lambda_points"))
+            EIS_tmp.parameter["LambdaOpt"]["lambda_min"] = _read_numeric_input("input_text_min_lambda", float, 1e-7)
+            EIS_tmp.parameter["LambdaOpt"]["lambda_max"] = _read_numeric_input("input_text_max_lambda", float, 0.2)
+            EIS_tmp.parameter["LambdaOpt"]["n"] = _read_numeric_input("input_text_lambda_points", int, 100)
 
             print(f"---- DRT parameters have been loaded successfully for {file_name_no_ext}.")
     
