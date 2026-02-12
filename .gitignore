@@ -5,4 +5,5 @@
 *.code-workspace
 .settings.json
 **/.DS_Store
+src/GUI/config.json
 Projects/
