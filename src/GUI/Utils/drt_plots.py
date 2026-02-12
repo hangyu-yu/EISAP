@@ -103,10 +103,14 @@ def update_single_plots(config):
                         dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
                         y_max_value = 0
+                        y_min_value = 0
                         for category in ["ReIm", "Re", "Im"]:
                             if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
                                 y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
-                            dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
+                            if np.min(data[f"tknv_{data_type}"][category]['g']) < y_min_value:
+                                y_min_value = np.min(data[f"tknv_{data_type}"][category]['g'])
+
+                            dpg.set_axis_limits(y_axis, y_min_value, y_max_value * 1.1)
                             _add_series_to_plot(
                                 {'f': data[f"tknv_{data_type}"][category]['f'], 'y': data[f"tknv_{data_type}"][category]['g']},
                                 y_axis, category
@@ -173,6 +177,7 @@ def update_all_plots(config):
                             
                             # Iterate through all files and add data
                             y_max_value = 0
+                            y_min_value = 0
                             for file_name in config.selected_files:
                                 file_key = os.path.splitext(file_name)[0]
                                 if file_key in config.store and 'EIS' in config.store[file_key]:
@@ -189,8 +194,10 @@ def update_all_plots(config):
                                         )
                                         if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
                                             y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
+                                        if np.min(data[f"tknv_{data_type}"][category]['g']) < y_min_value:
+                                            y_min_value = np.min(data[f"tknv_{data_type}"][category]['g'])
 
-                            dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
+                            dpg.set_axis_limits(y_axis, y_min_value, y_max_value * 1.1)
                             
                             # Add legend
                             dpg.add_plot_legend(

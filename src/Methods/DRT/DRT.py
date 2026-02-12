@@ -176,6 +176,7 @@ class DRT:
             # Tikonov regularization
             'DRT': {
                 'Lambda_selection': 'Manual',  # Lambda selection method, including 'Manual' and 'Optimal'
+                'tknv_pos': False,          # Tikhonov positive method, including 'Manual' and 'Optimal'
                 'lambda': 5e-4,                # Regularization parameter
                 'tknv_legend': None,           # Legend for Tikhonov regularization plot
                 'DRT_switch': True,            # Switch on Tikhonov regularization or not
@@ -331,6 +332,26 @@ class DRT:
         # Calculate and print the total execution time
         elapsed_time = time.time() - start_time
         print(f"---- Tikhonov regularization completed in {elapsed_time:.2f} seconds.")
+
+    def tknv_pos(self):
+        # Start timing the Tikhonov regularization process
+        start_time = time.time()
+
+        # Perform Tikhonov regularization on truncated data
+        self.tknv_truncated = fn.DRT_tknv_pos(self.truncated, self.parameter['DRT'])
+
+        # Perform Tikhonov regularization on smoothed data
+        self.tknv_smooth = fn.DRT_tknv_pos(self.smooth, self.parameter['DRT'])
+
+        # Perform Tikhonov regularization on extrapolated data
+        self.tknv_extrapolation = fn.DRT_tknv_pos(self.extrapolation, self.parameter['DRT'])
+
+        # Perform Tikhonov regularization on L/C corrected data
+        self.tknv_LCcorrect = fn.DRT_tknv_pos(self.LCcorrect, self.parameter['DRT'])
+
+        # Calculate and print the total execution time
+        elapsed_time = time.time() - start_time
+        print(f"---- Tikhonov positive regularization completed in {elapsed_time:.2f} seconds.")
     
     # Functions for data plotting
     def KK_plot(self, figure_name = ''):
@@ -789,6 +810,7 @@ class DRT:
             # DRT parameters
             pd.DataFrame({
                 'lambda': [self.parameter['DRT']['lambda']],
+                'tknv_pos': [self.parameter['DRT']['tknv_pos']],
                 'Lambda_selection': [self.parameter['DRT']['Lambda_selection']],
                 'tknv_legend': [self.parameter['DRT']['tknv_legend']],
                 'DRT_switch': [self.parameter['DRT']['DRT_switch']],
@@ -947,45 +969,61 @@ class DRT:
             except:
                 print("---- No 'Info of measurement' sheet found")
 
-            # Import EIS parameters
+            # Import EIS parameters with default values for missing/empty fields
             try:
                 eis_params = pd.read_excel(eis_file, sheet_name='EIS_Parameters')
-                self.parameter['Preprocessing']['num_cut_upper'] = int(eis_params['Nfh_cut'].values[0])
-                self.parameter['Preprocessing']['num_cut_lower'] = int(eis_params['Nfl_cut'].values[0])
-                self.parameter['Preprocessing']['num_cut_middle'] = int(eis_params['num_cut_middle'].values[0])
-                self.parameter['RM_significance']['sig_threshold'] = float(eis_params['sig_threshold'].values[0])
-                self.parameter['RM_significance']['rm_significance'] = bool(eis_params['rm_significance'].values[0])
-                self.parameter['Rmoutliers']['mv_window_size'] = int(eis_params['mv_window_size'].values[0])
-                self.parameter['Rmoutliers']['n_std'] = int(eis_params['n_std'].values[0])
-                self.parameter['Rmoutliers']['Rmoutliers'] = bool(eis_params['Rmoutliers'].values[0])
-                self.parameter['KK']['nRCmax'] = int(eis_params['nRCmax'].values[0])
-                self.parameter['KK']['kk_threshold'] = float(eis_params['kk_threshold'].values[0])
-                self.parameter['KK']['mu_threshold'] = float(eis_params['mu_threshold'].values[0])
-                self.parameter['KK']['KK_type'] = eis_params['KK_type'].values[0]
-                self.parameter['KK']['nRC'] = int(eis_params['nRC'].values[0])
-                self.parameter['KK']['KK_test'] = bool(eis_params['KK_test'].values[0])
-                self.parameter['KK']['RmNonKK'] = bool(eis_params['RmNonKK'].values[0])
-                self.parameter['Smoothing']['fmin'] = float(eis_params['fmin_smoothing'].values[0])
-                self.parameter['Smoothing']['fmax'] = float(eis_params['fmax_smoothing'].values[0])
-                self.parameter['Smoothing']['PointsPerDecade'] = int(eis_params['PointsPerDecade_smoothing'].values[0])
-                self.parameter['Extrapolation']['fmin'] = float(eis_params['fmin_extrapolation'].values[0])
-                self.parameter['Extrapolation']['fmax'] = float(eis_params['fmax_extrapolation'].values[0])
-                self.parameter['Extrapolation']['PointsPerDecade'] = int(eis_params['PointsPerDecade_extrapolation'].values[0])
-                self.parameter['LambdaOpt']['lambda_min'] = float(eis_params['lambda_min'].values[0])
-                self.parameter['LambdaOpt']['lambda_max'] = float(eis_params['lambda_max'].values[0])
-                self.parameter['LambdaOpt']['n'] = int(eis_params['lambda_n'].values[0])
-                self.parameter['LambdaOpt']['lampda_opt'] = bool(eis_params['lampda_opt'].values[0])
-                self.parameter['LambdaOpt']['PlotFig'] = bool(eis_params['PlotFig'].values[0])
-                self.parameter['DRT']['Lambda_selection'] = eis_params['Lambda_selection'].values[0]
-                self.parameter['DRT']['lambda'] = float(eis_params['lambda'].values[0])
-                self.parameter['DRT']['tknv_legend'] = eis_params['tknv_legend'].values[0]
-                self.parameter['DRT']['DRT_switch'] = bool(eis_params['DRT_switch'].values[0])
-                self.parameter['Sample']['CellArea'] = float(eis_params['CellArea/cm2'].values[0])
-                self.parameter['Sample']['n_cell'] = int(eis_params['n_cell'].values[0])
-                self.parameter['Sample']['instrument_type'] = eis_params['instrument_type'].values[0]
-            except:
-                print("---- No 'EIS_Parameters' sheet found")
+                
+                # Helper function to safely get values with defaults
+                def safe_get(column_name, default_value, dtype_func):
+                    try:
+                        value = eis_params[column_name].values[0]
+                        # Check if value is NaN, None, or empty string
+                        if pd.isna(value) or value is None or value == '':
+                            return default_value
+                        return dtype_func(value)
+                    except (KeyError, IndexError):
+                        return default_value
+                
+                # Apply safe_get for each parameter
+                self.parameter['Preprocessing']['num_cut_upper'] = safe_get('Nfh_cut', 0, int)
+                self.parameter['Preprocessing']['num_cut_lower'] = safe_get('Nfl_cut', 0, int)
+                self.parameter['Preprocessing']['num_cut_middle'] = safe_get('num_cut_middle', 0, int)
+                self.parameter['RM_significance']['sig_threshold'] = safe_get('sig_threshold', 0.995, float)
+                self.parameter['RM_significance']['rm_significance'] = safe_get('rm_significance', True, bool)
+                self.parameter['Rmoutliers']['mv_window_size'] = safe_get('mv_window_size', 5, int)
+                self.parameter['Rmoutliers']['n_std'] = safe_get('n_std', 5, int)
+                self.parameter['Rmoutliers']['Rmoutliers'] = safe_get('Rmoutliers', False, bool)
+                self.parameter['KK']['nRCmax'] = safe_get('nRCmax', 50, int)
+                self.parameter['KK']['kk_threshold'] = safe_get('kk_threshold', 1.0, float)
+                self.parameter['KK']['mu_threshold'] = safe_get('mu_threshold', 0.85, float)
+                self.parameter['KK']['KK_type'] = safe_get('KK_type', 'standard', str)
+                self.parameter['KK']['nRC'] = safe_get('nRC', 80, int)
+                self.parameter['KK']['KK_test'] = safe_get('KK_test', True, bool)
+                self.parameter['KK']['RmNonKK'] = safe_get('RmNonKK', False, bool)
+                self.parameter['Smoothing']['fmin'] = safe_get('fmin_smoothing', None, float)
+                self.parameter['Smoothing']['fmax'] = safe_get('fmax_smoothing', None, float)
+                self.parameter['Smoothing']['PointsPerDecade'] = safe_get('PointsPerDecade_smoothing', 30, int)
+                self.parameter['Extrapolation']['fmin'] = safe_get('fmin_extrapolation', 1e-8, float)
+                self.parameter['Extrapolation']['fmax'] = safe_get('fmax_extrapolation', 1e10, float)
+                self.parameter['Extrapolation']['PointsPerDecade'] = safe_get('PointsPerDecade_extrapolation', 20, int)
+                self.parameter['LambdaOpt']['lambda_min'] = safe_get('lambda_min', 1e-7, float)
+                self.parameter['LambdaOpt']['lambda_max'] = safe_get('lambda_max', 0.2, float)
+                self.parameter['LambdaOpt']['n'] = safe_get('lambda_n', 100, int)
+                self.parameter['LambdaOpt']['lampda_opt'] = safe_get('lampda_opt', True, bool)
+                self.parameter['LambdaOpt']['PlotFig'] = safe_get('PlotFig', False, bool)
+                self.parameter['DRT']['Lambda_selection'] = safe_get('Lambda_selection', 'Manual', str)
+                self.parameter['DRT']['tknv_pos'] = safe_get('tknv_pos', False, bool)
+                self.parameter['DRT']['lambda'] = safe_get('lambda', 5e-4, float)
+                self.parameter['DRT']['tknv_legend'] = safe_get('tknv_legend', None, str)  # 处理tknv_legend为空的情况
+                self.parameter['DRT']['DRT_switch'] = safe_get('DRT_switch', True, bool)
+                self.parameter['Sample']['CellArea'] = safe_get('CellArea/cm2', None, float)
+                self.parameter['Sample']['n_cell'] = safe_get('n_cell', None, int)
+                self.parameter['Sample']['instrument_type'] = safe_get('instrument_type', "Zahner", str)
+                
+            except Exception as e:
+                print(f"---- No 'EIS_Parameters' sheet found or error reading parameters: {str(e)}")
             
+            # 其余的数据导入代码保持不变...
             # Define all data import operations in a list for cleaner code
             import_operations = [
                 ('Original', self.raw),
@@ -996,30 +1034,39 @@ class DRT:
             ]
             
             for sheet_name, target_dict in import_operations:
-                data = pd.read_excel(eis_file, sheet_name=sheet_name)
-                target_dict['f'] = data['Frequency/Hz'].values
-                target_dict['Re'] = data['Re/ohm·cm2'].values
-                target_dict['Im'] = data['Im/ohm·cm2'].values
-                target_dict['Z'] = target_dict['Re'] + 1j * target_dict['Im']
-                target_dict['omega'] = 2 * np.pi * target_dict['f']
-                target_dict['tau'] = 1 / target_dict['omega']
+                try:
+                    data = pd.read_excel(eis_file, sheet_name=sheet_name)
+                    target_dict['f'] = data['Frequency/Hz'].values
+                    target_dict['Re'] = data['Re/ohm·cm2'].values
+                    target_dict['Im'] = data['Im/ohm·cm2'].values
+                    target_dict['Z'] = target_dict['Re'] + 1j * target_dict['Im']
+                    target_dict['omega'] = 2 * np.pi * target_dict['f']
+                    target_dict['tau'] = 1 / target_dict['omega']
+                except Exception as e:
+                    print(f"---- Failed to import {sheet_name} sheet: {str(e)}")
             
             # Import KK data (has additional fields)
-            kk_data = pd.read_excel(eis_file, sheet_name='Linear Kramers-Kroning')
-            self.KK_data['f'] = kk_data['Frequency/Hz'].values
-            self.KK_data['Re'] = kk_data['Re/ohm·cm2'].values
-            self.KK_data['Im'] = kk_data['Im/ohm·cm2'].values
-            self.KK_data['delta_Re_kk'] = kk_data['dr_kkl'].values
-            self.KK_data['delta_Im_kk'] = kk_data['di_kkl'].values
-            self.KK_data['omega'] = 2 * np.pi * self.KK_data['f']
-            self.KK_data['tau'] = 1 / self.KK_data['omega']
+            try:
+                kk_data = pd.read_excel(eis_file, sheet_name='Linear Kramers-Kroning')
+                self.KK_data['f'] = kk_data['Frequency/Hz'].values
+                self.KK_data['Re'] = kk_data['Re/ohm·cm2'].values
+                self.KK_data['Im'] = kk_data['Im/ohm·cm2'].values
+                self.KK_data['delta_Re_kk'] = kk_data['dr_kkl'].values
+                self.KK_data['delta_Im_kk'] = kk_data['di_kkl'].values
+                self.KK_data['omega'] = 2 * np.pi * self.KK_data['f']
+                self.KK_data['tau'] = 1 / self.KK_data['omega']
+            except Exception as e:
+                print(f"---- Failed to import KK data: {str(e)}")
             
             # Import Resistance data
-            resistance_data = pd.read_excel(eis_file, sheet_name='Resistance')
-            self.KK_data['L_kk'] = resistance_data['L/H·cm2 - KK'].values if 'L/H·cm2 - KK' in resistance_data.columns else None
-            self.KK_data['C_kk'] = resistance_data['C/C·cm-2 - KK'].values if 'C/C·cm-2 - KK' in resistance_data.columns else None
-            self.KK_data['res_ohm_kk'] = resistance_data['Rohm/ohm·cm2 - KK'].values
-            self.KK_data['res_pol_kk'] = resistance_data['Rp/ohm·cm2 - KK'].values
+            try:
+                resistance_data = pd.read_excel(eis_file, sheet_name='Resistance')
+                self.KK_data['L_kk'] = resistance_data['L/H·cm2 - KK'].values if 'L/H·cm2 - KK' in resistance_data.columns else None
+                self.KK_data['C_kk'] = resistance_data['C/C·cm-2 - KK'].values if 'C/C·cm-2 - KK' in resistance_data.columns else None
+                self.KK_data['res_ohm_kk'] = resistance_data['Rohm/ohm·cm2 - KK'].values
+                self.KK_data['res_pol_kk'] = resistance_data['Rp/ohm·cm2 - KK'].values
+            except Exception as e:
+                print(f"---- Failed to import resistance data: {str(e)}")
             
             print("---- EIS data import successful!")
             return True
@@ -1058,15 +1105,27 @@ class DRT:
             # 3. Import parameter table
             try:
                 drt_params = pd.read_excel(drt_file, sheet_name='DRT_Parameters')
-                self.parameter['DRT']['lambda'] = float(drt_params['lambda'].values[0])
-                self.parameter['DRT']['Lambda_selection'] = drt_params['Lambda_selection'].values[0]
-                self.parameter['DRT']['tknv_legend'] = drt_params['tknv_legend'].values[0]
-                self.parameter['DRT']['DRT_switch'] = bool(drt_params['DRT_switch'].values[0])
-                self.parameter['LambdaOpt']['lambda_min'] = float(drt_params['lambda_min'].values[0])
-                self.parameter['LambdaOpt']['lambda_max'] = float(drt_params['lambda_max'].values[0])
-                self.parameter['LambdaOpt']['n'] = int(drt_params['lambda_n'].values[0])
-                self.parameter['LambdaOpt']['lampda_opt'] = bool(drt_params['lampda_opt'].values[0])
-                self.parameter['LambdaOpt']['PlotFig'] = bool(drt_params['PlotFig'].values[0])
+                def safe_get(column_name, default_value, dtype_func):
+                    try:
+                        value = drt_params[column_name].values[0]
+                        # Check if value is NaN, None, or empty string
+                        if pd.isna(value) or value is None or value == '':
+                            return default_value
+                        return dtype_func(value)
+                    except (KeyError, IndexError):
+                        return default_value
+                
+                # Apply safe_get for each DRT parameter
+                self.parameter['DRT']['lambda'] = safe_get('lambda', 5e-4, float)
+                self.parameter['DRT']['tknv_pos'] = safe_get('tknv_pos', False, bool)
+                self.parameter['DRT']['Lambda_selection'] = safe_get('Lambda_selection', 'Manual', str)
+                self.parameter['DRT']['tknv_legend'] = safe_get('tknv_legend', None, str)  # 处理tknv_legend为空的情况
+                self.parameter['DRT']['DRT_switch'] = safe_get('DRT_switch', True, bool)
+                self.parameter['LambdaOpt']['lambda_min'] = safe_get('lambda_min', 1e-7, float)
+                self.parameter['LambdaOpt']['lambda_max'] = safe_get('lambda_max', 0.2, float)
+                self.parameter['LambdaOpt']['n'] = safe_get('lambda_n', 100, int)
+                self.parameter['LambdaOpt']['lampda_opt'] = safe_get('lampda_opt', True, bool)
+                self.parameter['LambdaOpt']['PlotFig'] = safe_get('PlotFig', False, bool)
             except Exception as e:
                 print(f"---- Failed to import parameters: {str(e)}")
             

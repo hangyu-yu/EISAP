@@ -51,7 +51,10 @@ def process_data(sender, app_data, config):
             raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
-            EIS_tmp.tknv()
+            if EIS_tmp.parameter["DRT"]["tknv_pos"]:
+                EIS_tmp.tknv_pos()
+            else:
+                EIS_tmp.tknv()
 
             print(f"---- Data has been processed successfully for {file_name_no_ext}.")
 
