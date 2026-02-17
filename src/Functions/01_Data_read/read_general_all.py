@@ -177,8 +177,12 @@ def read_general_all(file):
             data['Im/Ohm'] = data[impedance_col] * np.sin(data[phase_col])
         elif 'deg' in phase_col.lower():
             # Convert degrees to radians
-            data['Re/Ohm'] = data[impedance_col] * np.cos(np.deg2rad(data[phase_col]))
-            data['Im/Ohm'] = data[impedance_col] * np.sin(np.deg2rad(data[phase_col]))
+            if np.min(np.abs(data[phase_col])) > 90:
+                data['Re/Ohm'] = data[impedance_col] * np.cos(np.deg2rad(data[phase_col]-180))
+                data['Im/Ohm'] = data[impedance_col] * np.sin(np.deg2rad(data[phase_col]-180))
+            else:
+                data['Re/Ohm'] = data[impedance_col] * np.cos(np.deg2rad(data[phase_col]))
+                data['Im/Ohm'] = data[impedance_col] * np.sin(np.deg2rad(data[phase_col]))
         else:
             # Default to degrees if unit not specified
             print(f"Warning: Phase column '{phase_col}' has no unit specified, assuming degrees")

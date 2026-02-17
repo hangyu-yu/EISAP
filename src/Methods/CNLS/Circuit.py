@@ -606,7 +606,10 @@ class Circuit:
             'f': self.f,
         }
         
-        self.DRT = DRT_fn.DRT_tikhonov(EIS_total, self.DRTparameters)
+        if self.DRTparameters['tknv_pos'] is False:
+            self.DRT = DRT_fn.DRT_tikhonov(EIS_total, self.DRTparameters)
+        else:
+            self.DRT = DRT_fn.DRT_tknv_pos(EIS_total, self.DRTparameters)
         
         # Compute DRT for each individual element
         self.ElementDRTs = {}
@@ -619,7 +622,10 @@ class Circuit:
             }
 
             # Store the DRT for this element
-            self.ElementDRTs[element_name] = DRT_fn.DRT_tikhonov(EIS_element, self.DRTparameters)
+            if self.DRTparameters['tknv_pos'] is False:
+                self.ElementDRTs[element_name] = DRT_fn.DRT_tikhonov(EIS_element, self.DRTparameters)
+            else:
+                self.ElementDRTs[element_name] = DRT_fn.DRT_tknv_pos(EIS_element, self.DRTparameters)
 
     def _reconstruct_elements(self):
         """
