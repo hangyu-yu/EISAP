@@ -158,6 +158,14 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
 
     gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
 
+    if 'folder_path_old' in config.store.keys():
+        if config.folder_path_old != config.folder_path:
+            dpg.delete_item("file_dialog_eis")  # Delete the tab bar if it already exists
+            dpg.delete_item("tab_eis", children_only=False)  # Delete the tab if it already exists
+            dpg.delete_item("tab_drt", children_only=False)  # Clear the tab content if it exists
+            dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab
+    config.store['folder_path_old'] = config.folder_path
+
 def folder_selector_cancel_callback(sender, app_data):
     """
     Callback function when file dialog is cancelled.
