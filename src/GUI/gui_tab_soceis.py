@@ -203,7 +203,8 @@ def launch_data_viewer(config):
     
     try:
         # 使用 subprocess.Popen 启动，不阻塞主 GUI
-        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        config.store['viewer_processes'].append(proc)  # 存储进程对象以便后续管理
         print(f"Launching Data Viewer from: {viewer_script}")
     except Exception as e:
         print(f"Failed to launch: {e}")

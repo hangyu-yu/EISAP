@@ -32,6 +32,7 @@ class Config:
             {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
         ]
         self.store["segment_constraints"] = 'segment'
+        self.store['viewer_processes'] = []
         # Load configuration
         self.load_config()
 
