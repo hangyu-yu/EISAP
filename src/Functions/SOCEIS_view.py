@@ -1,0 +1,2133 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+_________________________________________________________________
+
+                REQUIREMENTS & USAGE
+_________________________________________________________________
+
+This application is designed to analyze SOCEIS data.
+Created date: 11.February.2026
+
+Folder structure requirement:
+You must have a main root folder (e.g. EIS/SIM/) containing
+subfolders named "EIS", and optionally sibling folders
+"DRT" and "CNLS", automatically generated from SOCEIS code.
+
+The program automatically:
+ - Detects all .xlsx files inside any "EIS" folder
+ - Looks for matching filenames inside sibling "DRT"
+   and "CNLS" folders (if present)
+
+Required Python packages (install once):
+   pip install streamlit pandas numpy plotly matplotlib openpyxl ast
+
+ How to run the application:
+   Open a terminal (PowerShell on Windows) in the folder
+   containing this script and execute:
+
+       streamlit run SOCEIS_view.py
+
+The app will open automatically in your default browser.
+_________________________________________________________________
+
+"""
+
+import os
+import re
+import ast
+import sys
+import time
+import zipfile
+import argparse
+import threading
+import numpy as np
+import pandas as pd
+import streamlit as st
+from io import BytesIO
+import plotly.io as pio
+from pathlib import Path
+from datetime import datetime
+import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import matplotlib.colors as mcolors
+from streamlit.runtime import runtime
+from mpl_toolkits.mplot3d import Axes3D
+from typing import List, Dict, Tuple, Optional
+from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+pio.templates.default = "plotly_dark"
+
+# ===============================
+# Configuration
+# ===============================
+
+# 解析从主 GUI 传来的路径参数
+parser = argparse.ArgumentParser()
+parser.add_argument("--root_folder", type=str, default="")
+
+try:
+    args, _ = parser.parse_known_args()
+    parsed_path = args.root_folder
+except SystemExit:
+    parsed_path = ""
+
+if parsed_path:
+    DEFAULT_ROOT_FOLDER = Path(parsed_path)
+else:
+    DEFAULT_ROOT_FOLDER = Path("EIS/SIM")
+
+DEFAULT_EXPORT_FOLDER = Path("SOCEIS_figures")
+
+plt.rcParams.update({
+    "font.size": 11,
+    "axes.titlesize": 12,
+    "axes.labelsize": 12,
+    "xtick.labelsize": 10,
+    "ytick.labelsize": 10,
+    "legend.fontsize": 9,
+    "axes.linewidth": 1.0,
+    "lines.linewidth": 1.5,
+    "figure.dpi": 300,
+})
+
+COLOR_PALETTE = [
+    "#4C78A8",  # blue
+    "#F58518",  # orange
+    "#54A24B",  # green
+    "#E45756",  # red
+    "#B279A2",  # purple
+    "#FF9DA6",  # pink
+    "#9D755D",  # brown
+    "#BAB0AC",  # grey
+    "#72B7B2",  # teal
+    "#F2CF5B",  # yellow
+]
+
+
+# ===============================
+
+EIS_PARAMETERS_SHEET = "EIS_Parameters"
+DRT_PARAMETERS_SHEET = "DRT_Parameters"
+
+
+NYQUIST_TYPES = [
+    "Original",
+    "Truncated",
+    "LC corrected",
+    "Linear Kramers-Kroning",
+    "Smooth",
+    "Extended",
+]
+
+DEFAULT_NYQUIST = ["Original", "Truncated", "Smooth"]
+
+BODE_TYPES = NYQUIST_TYPES
+
+DRT_TYPES = ["Truncated", "Smooth", "LCcorrect", "Extrapolation"]
+DRT_SHEET_MAP = {
+    "Truncated": "Tknv_ReIm",
+    "Smooth": "Tknv_ReIm_s",
+    "LCcorrect": "Tknv_ReIm_crct",
+    "Extrapolation": "Tknv_ReIm_e",
+}
+
+# CNLS
+CNLS_ENABLED_DEFAULT = False
+CNLS_SHEET = "Elements"
+CNLS_PARAM_MAP = {
+    "R2_R":  "R_ohmic",
+    "RQ3_R": "R3",
+    "RQ4_R": "R4",
+    "RQ5_R": "R5",
+    "RQ6_R": "R6",
+    "RQ7_R": "R7",
+}
+
+def nyquist_fit_plotly(datasets):
+
+    fig = go.Figure()
+
+    for i, (name, df) in enumerate(datasets):
+
+        x = pd.to_numeric(df.iloc[:, 2], errors="coerce")   # Re
+        y = -pd.to_numeric(df.iloc[:, 3], errors="coerce")  # Im
+
+        fig.add_scatter(
+            x=x,
+            y=y,
+            mode="markers+lines",
+            name=name,
+            line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)])
+        )
+
+    fig.update_layout(
+        title="Nyquist – DRT Smooth Fit",
+        xaxis=dict(
+            title="Z′ [Ω·cm²]",
+            scaleanchor="y",
+            scaleratio=1
+        ),
+        yaxis=dict(
+            title="−Z″ [Ω·cm²]"
+        ),
+        template="plotly_dark"
+    )
+
+    return fig
+
+def cnls_line_plotly(df_cnls: pd.DataFrame, param: str):
+
+    x = np.arange(1, len(df_cnls) + 1)
+    y = df_cnls[param].values
+
+    mean_val = np.nanmean(y)
+    std_val = np.nanstd(y)
+
+    fig = go.Figure()
+
+    # ---- Main resistance line (NO legend) ----
+    fig.add_scatter(
+        x=x,
+        y=y,
+        mode="lines",
+        line=dict(width=3, color="white"),
+        showlegend=False
+    )
+
+    # ---- Points + Legend mapping ----
+    for i, (idx, val) in enumerate(zip(df_cnls.index.tolist(), y)):
+
+        color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
+
+        fig.add_scatter(
+            x=[i+1],
+            y=[val],
+            mode="markers",
+            marker=dict(
+                size=10,
+                color="white",
+                line=dict(width=2, color=color)
+            ),
+            name=f"{i+1} - {idx}",
+            showlegend=True
+        )
+
+    fig.update_layout(
+        title=f"{param} — Mean value: {mean_val:.3g} | Std value: {std_val:.3g}",
+        xaxis_title="File index",
+        yaxis_title="R [Ω·cm²]",
+        template="plotly_dark",
+        legend=dict(
+            orientation="v",
+            font=dict(size=11)
+        )
+    )
+
+    return fig
+
+
+
+
+# EIS parameter mapping (restored)
+EIS_PARAM_ORDER = [
+    ("Cell area [cm²]", "CellArea/cm2"),
+    ("Cell No.", "n_cell"),
+    ("Instrument", "instrument_type"),
+    ("Upper cut", "Nfh_cut"),
+    ("Lower cut", "Nfl_cut"),
+    ("Max. KK res. [%]", "kk_threshold"),
+    ("Remove high KK resid.", "RmNonKK"),
+    ("Remove outliers", "Rmoutliers"),
+]
+
+
+# ===============================
+# Helpers
+# ===============================
+def yes_no(v) -> str:
+    return "Yes" if str(v).lower() in ("1", "true", "yes") else "No"
+
+
+def discover_eis_files(root: Path) -> List[Path]:
+    files: List[Path] = []
+    for eis_dir in root.rglob("EIS"):
+        if eis_dir.is_dir():
+            files.extend(sorted(eis_dir.glob("*.xlsx")))
+    return files
+
+
+def sibling_file(eis_file: Path, sibling_folder: str) -> Path:
+    """
+    sibling_folder is e.g. "DRT" or "CNLS".
+    Assumption: .../<parent>/EIS/<file>.xlsx and .../<parent>/<sibling_folder>/<file>.xlsx
+    """
+    eis_dir = eis_file.parent          # .../EIS
+    parent_dir = eis_dir.parent        # .../
+    return parent_dir / sibling_folder / eis_file.name
+
+
+def extract_eis_parameters(xls: pd.ExcelFile, fname: str) -> Dict:
+    row = {"File": fname}
+    if EIS_PARAMETERS_SHEET not in xls.sheet_names:
+        for label, _ in EIS_PARAM_ORDER:
+            row[label] = None
+        return row
+
+    df = pd.read_excel(xls, EIS_PARAMETERS_SHEET)
+    for label, key in EIS_PARAM_ORDER:
+        if key in df.columns:
+            val = df[key].iloc[0]
+            if key in ("RmNonKK", "Rmoutliers"):
+                val = yes_no(val)
+            row[label] = val
+        else:
+            row[label] = None
+    return row
+
+
+def extract_drt_lambda(drt_xls: pd.ExcelFile, fname: str) -> Optional[Dict]:
+    if DRT_PARAMETERS_SHEET not in drt_xls.sheet_names:
+        return None
+    df = pd.read_excel(drt_xls, DRT_PARAMETERS_SHEET)
+    lam = df["lambda"].iloc[0] if "lambda" in df.columns and len(df) else None
+    return {"File": fname, "lambda": lam}
+
+
+def _drt_ymax_from_datasets(datasets) -> float:
+    global_max = 0.0
+    for _, df in datasets:
+        if df.shape[1] < 2:
+            continue
+        gamma = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+        gamma = gamma[np.isfinite(gamma)]
+        if len(gamma):
+            m = float(gamma.max())
+            if m > global_max:
+                global_max = m
+    return 1.15 * global_max if global_max > 0 else 1.0
+
+
+def extract_cnls_parameters(cnls_file: Path) -> Optional[Dict[str, float]]:
+
+    if not cnls_file.exists():
+        return None
+
+    try:
+        xls = pd.ExcelFile(cnls_file)
+    except Exception:
+        return None
+
+    if CNLS_SHEET not in xls.sheet_names:
+        return None
+
+    df = pd.read_excel(xls, CNLS_SHEET)
+
+    if df.shape[1] < 2:
+        return None
+
+    names = df.iloc[:, 0].astype(str).str.strip()
+    vals = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+
+    result: Dict[str, float] = {}
+
+    # ---- R_ohmic ----
+    mask_ohm = names == "R2_R"
+    if mask_ohm.any():
+        result["R_ohmic"] = float(vals[mask_ohm].iloc[0])
+    else:
+        result["R_ohmic"] = np.nan
+
+    # ---- Dynamic RQ extraction ----
+    for name, value in zip(names, vals):
+
+        if pd.isna(value):
+            continue
+
+        # RQn_R
+        match_r = re.match(r"RQ(\d+)_R$", name)
+        if match_r:
+            idx = int(match_r.group(1))
+            result[f"R{idx}"] = float(value)
+            continue
+
+        # RQn_tau0
+        match_tau = re.match(r"RQ(\d+)_tau0$", name)
+        if match_tau:
+            idx = int(match_tau.group(1))
+            result[f"tau{idx}"] = float(value)
+            continue
+
+        # RQn_alpha
+        match_alpha = re.match(r"RQ(\d+)_alpha$", name)
+        if match_alpha:
+            idx = int(match_alpha.group(1))
+            result[f"alpha{idx}"] = float(value)
+            continue
+
+    # ---- Compute ASR (only R values) ----
+    r_values = [v for k, v in result.items() if k.startswith("R")]
+    result["ASR"] = float(np.nansum(r_values)) if r_values else np.nan
+
+    return result
+
+
+# ===============================
+# Plotly builders (interactive)
+# ===============================
+def nyquist_plotly(datasets, title):
+
+    fig = go.Figure()
+
+    for i, (name, df) in enumerate(datasets):
+        fig.add_scatter(
+            x=pd.to_numeric(df.iloc[:, 1], errors="coerce"),
+            y=-pd.to_numeric(df.iloc[:, 2], errors="coerce"),
+            mode="markers+lines",
+            name=name,
+            line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)]),
+        )
+
+    fig.update_layout(
+        title=title,
+        xaxis=dict(
+            title="Z′ [Ω·cm²]",
+            scaleanchor="y",
+            scaleratio=1
+        ),
+        yaxis=dict(
+            title="−Z″ [Ω·cm²]"
+        ),
+        template="plotly_dark",
+        height=650  # enforce square aspect visually
+    )
+
+    return fig
+
+
+
+def bode_plotly(datasets, title, real=True):
+    fig = go.Figure()
+    for i, (name, df) in enumerate(datasets):
+        x = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+        y = pd.to_numeric(df.iloc[:, 1], errors="coerce") if real else -pd.to_numeric(df.iloc[:, 2], errors="coerce")
+        fig.add_scatter(
+            x=x,
+            y=y,
+            mode="lines",
+            name=name,
+            line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)]),
+        )
+    fig.update_layout(
+        title="",
+        xaxis=dict(title="Frequency [Hz]", type="log"),
+        yaxis_title="Z′ [Ω·cm²]" if real else "−Z″ [Ω·cm²]",
+        template="plotly_dark",
+    )
+    return fig
+
+
+def drt_plotly(datasets, title):
+    fig = go.Figure()
+    ymax = _drt_ymax_from_datasets(datasets)
+
+    for i, (name, df) in enumerate(datasets):
+        freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+        gamma = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+
+        fig.add_scatter(
+            x=freq,
+            y=gamma,
+            mode="lines",
+            name=name,
+            line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)]),
+        )
+
+    fig.update_layout(
+        title=f"DRT – {title}",
+        xaxis=dict(title="Frequency [Hz]", type="log"),
+        yaxis=dict(title="γ [Ω·s·cm²]", range=[0, ymax]),
+        template="plotly_dark",
+    )
+    return fig
+
+def nyquist_3d_plotly(datasets, title):
+    fig = go.Figure()
+
+    # --- gather global ranges for true equal-unit scaling ---
+    all_x = []
+    all_z = []
+    for _, df in datasets:
+        x = pd.to_numeric(df.iloc[:, 1], errors="coerce").to_numpy()
+        z = (-pd.to_numeric(df.iloc[:, 2], errors="coerce")).to_numpy()
+        all_x.append(x)
+        all_z.append(z)
+
+    all_x = np.concatenate([v[np.isfinite(v)] for v in all_x]) if all_x else np.array([])
+    all_z = np.concatenate([v[np.isfinite(v)] for v in all_z]) if all_z else np.array([])
+
+    # avoid zero ranges
+    xmin, xmax = (float(np.min(all_x)), float(np.max(all_x))) if all_x.size else (0.0, 1.0)
+    zmin, zmax = (float(np.min(all_z)), float(np.max(all_z))) if all_z.size else (0.0, 1.0)
+
+    x_range = max(xmax - xmin, 1e-12)
+    z_range = max(zmax - zmin, 1e-12)
+
+    # --- plot traces ---
+    for i, (name, df) in enumerate(datasets):
+        x = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+        z = -pd.to_numeric(df.iloc[:, 2], errors="coerce")
+        y = np.full_like(x, i)
+
+        color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
+
+        # markers
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode="markers",
+            marker=dict(size=3, color=color, opacity=0.6),
+            showlegend=False
+        ))
+
+        # line
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode="lines",
+            name=name,
+            line=dict(color=color, width=4)
+        ))
+
+    fig.update_layout(
+        title=title,
+        template="plotly_dark",
+        scene=dict(
+            xaxis=dict(title="Z′ [Ω·cm²]"),
+            yaxis=dict(title="", showticklabels=False),
+            zaxis=dict(title="−Z″ [Ω·cm²]"),
+            aspectmode="manual",
+            aspectratio=dict(
+                x=x_range,
+                y=0.35 * x_range,   # compress file axis (not relevant)
+                z=z_range
+            ),
+
+            camera=dict(eye=dict(x=-1.7, y=1.7, z=1.7))
+        ),
+        margin=dict(l=0, r=0, b=0, t=40)
+    )
+
+    return fig
+
+
+def drt_3d_plotly(datasets, title):
+
+    fig = go.Figure()
+
+    for i, (name, df) in enumerate(datasets):
+
+        freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+        gamma = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+        y = np.full_like(freq, i)
+
+        fig.add_trace(go.Scatter3d(
+            x=freq,
+            y=y,
+            z=gamma,
+            showlegend=True,
+            mode="lines",  #  no markers
+            name=name,
+            line=dict(
+                color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+                width=4
+            )
+        ))
+
+    fig.update_layout(
+        title=title,
+        template="plotly_dark",
+
+        scene=dict(
+            xaxis=dict(
+                title="Frequency [Hz]",
+                type="log",
+
+                # Clean scientific ticks
+                dtick=1,                 # one tick per decade
+                tickformat=".1g",        # clean numeric format
+                exponentformat="power",  # 10^x style if needed
+                showexponent="all"
+            ),
+
+            yaxis=dict(
+                title="",
+                showticklabels=False
+            ),
+            zaxis=dict(
+                title="γ [Ω·cm²·s]"
+            ),
+
+            #  Match Nyquist 3D proportions
+            aspectmode="manual",
+            aspectratio=dict(x=1, y=0.6, z=1),
+
+            #  Same camera as Nyquist
+            camera=dict(
+                eye=dict(x=-1.7, y=1.7, z=1.7)
+            )
+        ),
+        margin=dict(l=0, r=0, b=0, t=40)
+    )
+
+    return fig
+
+
+def cnls_nyquist_fit_plotly(cnls_file: Path, fname: str):
+
+    if not cnls_file.exists():
+        return None
+
+    xls = pd.ExcelFile(cnls_file)
+
+    if "Z" not in xls.sheet_names or "Summary" not in xls.sheet_names:
+        return None
+
+    summary_df = pd.read_excel(xls, "Summary", header=None)
+    elements_raw = summary_df.iloc[1, 0]
+    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
+
+    df = pd.read_excel(xls, "Z")
+
+    # ---- Main Nyquist ----
+    z_real_total = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+    z_imag_total = -pd.to_numeric(df.iloc[:, 2], errors="coerce")
+
+    fig = go.Figure()
+
+    fig.add_scatter(
+        x=z_real_total,
+        y=z_imag_total,
+        mode="lines+markers",
+        marker=dict(size=4),
+        name="Total Z",
+        line=dict(color="white", width=3)
+    )
+
+    # ---- Ohmic real column (col 12 -> index 11)
+    z_ohmic = pd.to_numeric(df.iloc[:, 11], errors="coerce")
+    offset = z_ohmic.iloc[-1]  # last value only
+
+    start_col = 13
+
+    for i, rq in enumerate(rq_elements):
+
+        real_col = start_col + 2*i
+        imag_col = start_col + 2*i + 1
+
+        if imag_col >= df.shape[1]:
+            break
+
+        z_r = pd.to_numeric(df.iloc[:, real_col], errors="coerce")
+        z_i = -pd.to_numeric(df.iloc[:, imag_col], errors="coerce")
+
+        # Shift by offset (constant shift)
+        shifted_real = z_r + offset
+
+        fig.add_scatter(
+            x=shifted_real,
+            y=z_i,
+            mode="lines",
+            name=rq,
+            line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)])
+        )
+
+        # Update offset using LAST value of this element real part
+        offset += z_r.iloc[-1]
+
+        fig.update_layout(
+            title=f"CNLS Nyquist Fit – {fname}",
+            xaxis=dict(
+                title="Z′ [Ω·cm²]",
+                scaleanchor="y",
+                scaleratio=1
+            ),
+            yaxis=dict(title="−Z″ [Ω·cm²]"),
+            legend=dict(
+                orientation="v",
+                y=1,
+                yanchor="top",
+                x=1.02,
+                xanchor="left",
+                font=dict(size=11)
+            ),
+            template="plotly_dark"
+        )
+
+    return fig
+
+def cnls_residuals_plotly(cnls_file: Path, fname: str):
+
+    if not cnls_file.exists():
+        return None
+
+    xls = pd.ExcelFile(cnls_file)
+
+    if "Z" not in xls.sheet_names:
+        return None
+
+    df = pd.read_excel(xls, "Z")
+
+    freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+    res_real = 100 * pd.to_numeric(df.iloc[:, 7], errors="coerce")
+    res_imag = 100 * pd.to_numeric(df.iloc[:, 8], errors="coerce")
+
+    fig = go.Figure()
+
+    fig.add_scatter(
+        x=freq,
+        y=res_real,
+        mode="lines+markers",
+        marker=dict(size=6),
+        name="Real residual",
+        line=dict(color=COLOR_PALETTE[0])
+    )
+
+    fig.add_scatter(
+        x=freq,
+        y=res_imag,
+        mode="lines+markers",
+        marker=dict(size=6),
+        name="Imag residual",
+        line=dict(color=COLOR_PALETTE[1])
+    )
+
+    fig.update_layout(
+        title=f"Nyquist Residuals – {fname}",
+        xaxis=dict(title="Frequency [Hz]", type="log"),
+        yaxis=dict(title="Residual [%]"),
+        template="plotly_dark"
+    )
+
+    return fig
+
+def cnls_bar_plotly(series: pd.Series):
+
+    # Detect all Rn columns dynamically (excluding R_ohmic)
+    r_keys = sorted(
+        [k for k in series.index if k.startswith("R") and k != "R_ohmic"],
+        key=lambda x: int(x[1:])
+    )
+
+    # Reverse order so highest index appears first
+    r_keys = list(reversed(r_keys))
+
+    order = ["ASR", "R_ohmic"] + r_keys
+
+    y = [series.get(k, np.nan) for k in order]
+
+    fig = go.Figure()
+    fig.add_bar(x=order, y=y)
+
+    fig.update_layout(
+        title="CNLS bar plot",
+        xaxis_title="Parameter",
+        yaxis_title="R [Ω·cm²]",
+        yaxis_type="log",
+        template="plotly_dark",
+    )
+
+    return fig
+
+def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
+
+    if not cnls_file.exists():
+        return None
+
+    xls = pd.ExcelFile(cnls_file)
+
+    if "DRT" not in xls.sheet_names or "Summary" not in xls.sheet_names:
+        return None
+
+    # ---- Detect RQ elements from Summary ----
+    summary_df = pd.read_excel(xls, "Summary", header=None)
+
+    elements_raw = summary_df.iloc[1, 0]  # A2 cell
+
+    # Example: ['L1', 'R2', 'RQ3', 'RQ4', ...]
+    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
+
+    # ---- Read DRT sheet ----
+    df = pd.read_excel(xls, "DRT")
+
+    if df.shape[1] < 6:
+        return None
+
+    freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+    gamma_total = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+
+    fig = go.Figure()
+
+    # ---- Main total DRT ----
+    fig.add_scatter(
+        x=freq,
+        y=gamma_total,
+        mode="lines",
+        name="Total γ",
+        line=dict(color="white", width=3)
+    )
+
+    # ---- Individual RQ contributions ----
+    for i, rq in enumerate(rq_elements):
+
+        # DRT sheet structure:
+        # After col 4, gamma contributions start
+        gamma_elem = pd.to_numeric(
+            df.iloc[:, 5 + i], errors="coerce"
+        )
+
+        fig.add_scatter(
+            x=freq,
+            y=gamma_elem,
+            mode="lines",
+            name=rq,
+            line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)])
+        )
+
+    fig.update_layout(
+        title=f"CNLS Elements Fitting – {fname}",
+        xaxis=dict(title="Frequency [Hz]", type="log"),
+        yaxis=dict(title="γ [Ω·s·cm²]"),
+        template="plotly_dark"
+    )
+
+    return fig
+
+def cnls_heatmap_plotly(df_cnls: pd.DataFrame):
+
+    r_cols = sorted(
+        [c for c in df_cnls.columns if c.startswith("R") and c != "R_ohmic"],
+        key=lambda x: int(x[1:])
+    )
+
+    col_order = ["ASR", "R_ohmic"] + r_cols
+    df_plot = df_cnls[col_order]
+
+    data = df_plot.values.astype(float)
+    data[data <= 0] = np.nan
+    log_data = np.log10(data)
+
+    fig = go.Figure(data=go.Heatmap(
+        z=log_data,
+        x=col_order,
+        y=df_plot.index.tolist(),
+        colorscale="Viridis",   # scientific perceptual colormap
+        xgap=2,
+        ygap=2,
+        colorbar=dict(
+            title=dict(
+                text="log(R [Ω·cm²])",
+                side="right"
+            )
+        )
+    ))
+
+    fig.update_layout(
+        title="CNLS resistances heatmap",
+        template="plotly_dark",
+        xaxis_title="Parameter",
+        yaxis_title="File",
+    )
+
+    return fig
+
+
+
+
+
+# ===============================
+# Matplotlib → write PNG bytes directly into ZIP
+# ===============================
+def _fig_to_png_bytes(fig) -> bytes:
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    return buf.getvalue()
+
+
+def add_nyquist_png(zf: zipfile.ZipFile, datasets, title: str):
+
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=600)
+
+    all_x = []
+    all_y = []
+
+    for i, (name, df) in enumerate(datasets):
+        x = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+        y = -pd.to_numeric(df.iloc[:, 2], errors="coerce")
+
+        ax.plot(
+            x, y,
+            linestyle='None',
+            marker='o',
+            markersize=3,
+            markerfacecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            markeredgecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            alpha=0.6
+        )
+
+        ax.plot(
+            x, y,
+            linewidth=1.5,
+            color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            alpha=0.85,
+            label=name
+        )
+
+        all_x.extend(x.dropna())
+        all_y.extend(y.dropna())
+
+    if all_x and all_y:
+        xmin, xmax = min(all_x), max(all_x)
+        ymin, ymax = min(all_y), max(all_y)
+
+        margin_x = (xmax - xmin) * 0.03
+        margin_y = (ymax - ymin) * 0.03
+
+        ax.set_xlim(xmin - margin_x, xmax + margin_x)
+
+        if ymin < 0:
+            ax.set_ylim(ymin - margin_y, ymax + margin_y)
+        else:
+            ax.set_ylim(0, ymax + margin_y)
+
+    ax.set_xlabel("Z′ [Ω·cm²]")
+    ax.set_ylabel("−Z″ [Ω·cm²]")
+
+    ax.grid(True, linewidth=0.5, alpha=0.3)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    ax.set_aspect('equal', adjustable='box')
+
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.38),
+        ncol=min(len(datasets), 4),
+        frameon=False
+    )
+
+    fig.subplots_adjust(bottom=0.22)
+
+    zf.writestr(f"Nyquist/{title}.png", _fig_to_png_bytes(fig))
+
+
+def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
+
+    fig = drt_3d_plotly(datasets, title)
+    n_files = len(datasets)
+    legend_font_size = max(10, min(16, int(22 - 0.8 * n_files)))
+
+    fig.update_layout(
+        template="plotly_white",
+        title=None,
+
+        font=dict(
+            family="Arial",
+            size=16,
+            color="black"
+        ),
+        scene=dict(
+
+            xaxis=dict(
+                title=dict(
+                    text="Frequency [Hz]",
+                    font=dict(size=16, color="black")
+                ),
+                type="log",
+                dtick=1,
+                tickformat=".1g",        # clean numeric format
+                exponentformat="power",  # 10^x style if needed
+                tickangle=0,
+                tickfont=dict(size=12, color="black"),
+
+                showgrid=True,
+                gridcolor="lightgray",
+                gridwidth=1,
+
+                showline=True,
+                linecolor="black",
+                linewidth=3,
+
+                ticks="outside",
+            ),
+
+            yaxis=dict(
+                title="",
+                tickangle=0,
+                tickfont=dict(size=12, color="black"),
+
+                showgrid=True,
+                gridcolor="lightgray",
+                gridwidth=1,
+
+                showline=True,
+                linecolor="black",
+                linewidth=3,
+
+                ticks="outside",
+            ),
+
+            zaxis=dict(
+                title=dict(
+                    text="γ [Ω·cm²·s]",
+                    font=dict(size=16, color="black")
+                ),
+                tickangle=0,
+                tickfont=dict(size=12, color="black"),
+
+                showgrid=True,
+                gridcolor="lightgray",
+                gridwidth=1,
+
+                showline=True,
+                linecolor="black",
+                linewidth=3,
+
+                ticks="outside",
+            ),
+
+            aspectmode="manual",
+            aspectratio=dict(x=1.2, y=0.7, z=0.9),
+
+            camera=dict(
+                projection=dict(type="orthographic"),
+                eye=dict(
+                    x=-1.7,
+                    y=1.7,
+                    z=1.7
+                )
+            )
+
+        ),
+
+        legend=dict(
+            orientation="h",
+            y=-0.15,
+            x=0.5,
+            xanchor="center",
+            font=dict(size=legend_font_size, color="black"),
+            bgcolor="rgba(255,255,255,0.9)"
+        ),
+
+        margin=dict(l=0, r=0, b=120, t=20)
+    )
+
+    img_bytes = fig.to_image(
+        format="png",
+        scale=4,
+        width=1600,
+        height=1000
+    )
+
+    zf.writestr(f"DRT_3D/{title}_3D.png", img_bytes)
+
+def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
+
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=600)
+
+    all_x = []
+    all_y = []
+
+    for i, (name, df) in enumerate(datasets):
+
+        x = pd.to_numeric(df.iloc[:, 2], errors="coerce")
+        y = -pd.to_numeric(df.iloc[:, 3], errors="coerce")
+
+        ax.plot(
+            x, y,
+            linestyle='None',
+            marker='o',
+            markersize=3,
+            markerfacecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            markeredgecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            alpha=0.6
+        )
+
+        ax.plot(
+            x, y,
+            linewidth=1.5,
+            color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            alpha=0.85,
+            label=name
+        )
+
+        all_x.extend(x.dropna())
+        all_y.extend(y.dropna())
+
+    if all_x and all_y:
+        xmin, xmax = min(all_x), max(all_x)
+        ymin, ymax = min(all_y), max(all_y)
+
+        margin_x = (xmax - xmin) * 0.03
+        margin_y = (ymax - ymin) * 0.03
+
+        ax.set_xlim(xmin - margin_x, xmax + margin_x)
+
+        if ymin < 0:
+            ax.set_ylim(ymin - margin_y, ymax + margin_y)
+        else:
+            ax.set_ylim(0, ymax + margin_y)
+
+    ax.set_xlabel("Z′ [Ω·cm²]")
+    ax.set_ylabel("−Z″ [Ω·cm²]")
+
+    ax.set_aspect("equal", adjustable="box")
+
+    ax.grid(True, linewidth=0.5, alpha=0.3)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.20),
+        ncol=min(len(datasets), 4),
+        frameon=False
+    )
+
+    fig.subplots_adjust(bottom=0.25)
+
+    zf.writestr("DRT/Nyquist_fit.png", _fig_to_png_bytes(fig))
+
+
+def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
+
+    fig = nyquist_3d_plotly(datasets, title)
+    n_files = len(datasets)
+    legend_font_size = max(10, min(16, int(22 - 0.8 * n_files)))
+
+    # --------------------------------------------------
+    # 🔎 Compute TRUE global ranges for equal scaling
+    # --------------------------------------------------
+    all_x = []
+    all_z = []
+
+    for _, df in datasets:
+        x = pd.to_numeric(df.iloc[:, 1], errors="coerce").to_numpy()
+        z = (-pd.to_numeric(df.iloc[:, 2], errors="coerce")).to_numpy()
+
+        x = x[np.isfinite(x)]
+        z = z[np.isfinite(z)]
+
+        if len(x):
+            all_x.append(x)
+        if len(z):
+            all_z.append(z)
+
+    if all_x:
+        all_x = np.concatenate(all_x)
+        xmin, xmax = float(np.min(all_x)), float(np.max(all_x))
+    else:
+        xmin, xmax = 0.0, 1.0
+
+    if all_z:
+        all_z = np.concatenate(all_z)
+        zmin, zmax = float(np.min(all_z)), float(np.max(all_z))
+    else:
+        zmin, zmax = 0.0, 1.0
+
+    x_range = max(xmax - xmin, 1e-12)
+    z_range = max(zmax - zmin, 1e-12)
+
+    # --------------------------------------------------
+    # 🧪 Scientific white layout with TRUE equal scaling
+    # --------------------------------------------------
+    fig.update_layout(
+        template="plotly_white",
+        title=None,
+
+        font=dict(
+            family="Arial",
+            size=16,
+            color="black"
+        ),
+
+        scene=dict(
+
+            xaxis=dict(
+                title=dict(
+                    text="Z′ [Ω·cm²]",
+                    font=dict(size=16, color="black")
+                ),
+                tickangle=0,
+                tickfont=dict(size=12, color="black"),
+                showgrid=True,
+                gridcolor="lightgray",
+                gridwidth=1,
+                showline=True,
+                linecolor="black",
+                linewidth=3,
+                ticks="outside",
+            ),
+
+            yaxis=dict(
+                title="",
+                tickangle=0,
+                tickfont=dict(size=12, color="black"),
+                showgrid=True,
+                gridcolor="lightgray",
+                gridwidth=1,
+                showline=True,
+                linecolor="black",
+                linewidth=3,
+                ticks="outside",
+            ),
+
+            zaxis=dict(
+                title=dict(
+                    text="−Z″ [Ω·cm²]",
+                    font=dict(size=16, color="black")
+                ),
+                tickangle=0,
+                tickfont=dict(size=12, color="black"),
+                showgrid=True,
+                gridcolor="lightgray",
+                gridwidth=1,
+                showline=True,
+                linecolor="black",
+                linewidth=3,
+                ticks="outside",
+            ),
+
+            # ✅ TRUE equal scaling between Z′ and Z″
+            aspectmode="manual",
+            aspectratio=dict(
+                x=x_range,
+                y=0.35 * x_range,   # compress file axis
+                z=z_range
+            ),
+
+            camera=dict(
+                projection=dict(type="orthographic"),
+                eye=dict(
+                    x=-1.7,
+                    y=1.7,
+                    z=1.7
+                )
+            )
+        ),
+
+        legend=dict(
+            orientation="h",
+            y=-0.15,
+            x=0.5,
+            xanchor="center",
+            font=dict(size=legend_font_size, color="black"),
+            bgcolor="rgba(255,255,255,0.9)"
+        ),
+
+        margin=dict(l=0, r=0, b=120, t=20)
+    )
+
+    img_bytes = fig.to_image(
+        format="png",
+        scale=4,
+        width=1600,
+        height=1000
+    )
+
+    zf.writestr(f"Nyquist_3D/{title}_3D.png", img_bytes)
+
+
+
+
+
+
+def add_bode_png(zf: zipfile.ZipFile, datasets, title: str, real: bool):
+
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=600)
+
+    all_x = []
+    all_y = []
+
+    for i, (name, df) in enumerate(datasets):
+
+        freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+
+        if real:
+            y = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+            ylabel = "Z′ [Ω·cm²]"
+            subfolder = "Zreal"
+        else:
+            y = -pd.to_numeric(df.iloc[:, 2], errors="coerce")
+            ylabel = "−Z″ [Ω·cm²]"
+            subfolder = "Zimag"
+
+        color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
+
+        # --- markers (raw style)
+        ax.semilogx(
+            freq, y,
+            linestyle='None',
+            marker='o',
+            markersize=3,
+            markerfacecolor=color,
+            markeredgecolor=color,
+            alpha=0.6
+        )
+
+        # --- smooth connecting line
+        ax.semilogx(
+            freq, y,
+            linewidth=1.5,
+            color=color,
+            alpha=0.85,
+            label=name
+        )
+
+        all_x.extend(freq.dropna())
+        all_y.extend(y.dropna())
+
+    # ---- Smart limits ----
+    if all_x and all_y:
+
+        xmin, xmax = min(all_x), max(all_x)
+        ymin, ymax = min(all_y), max(all_y)
+
+        margin_y = (ymax - ymin) * 0.03 if ymax != ymin else 0.05 * ymax
+
+        ax.set_xlim(xmin, xmax)
+
+        if ymin < 0:
+            ax.set_ylim(ymin - margin_y, ymax + margin_y)
+        else:
+            ax.set_ylim(0, ymax + margin_y)
+
+    ax.set_xlabel("Frequency [Hz]")
+    ax.set_ylabel(ylabel)
+
+    # Nature-style grid
+    ax.grid(True, linewidth=0.5, alpha=0.3)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # ---- Legend BELOW ----
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.20),
+        ncol=min(len(datasets), 4),
+        frameon=False
+    )
+
+    fig.subplots_adjust(bottom=0.25)
+
+    zf.writestr(f"Bode/{subfolder}/{title}_{subfolder}.png", _fig_to_png_bytes(fig))
+
+
+
+
+
+def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
+
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=600)
+
+    all_freq = []
+    ymax = 0
+
+    for i, (name, df) in enumerate(datasets):
+
+        freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+        gamma = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+
+        ax.semilogx(
+            freq,
+            gamma,
+            linewidth=1.5,
+            alpha=0.85,
+            color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            label=name
+        )
+
+        all_freq.extend(freq.dropna())
+
+        gamma_valid = gamma[np.isfinite(gamma)]
+        if len(gamma_valid):
+            ymax = max(ymax, gamma_valid.max())
+
+    # ---- Smart limits ----
+    if all_freq:
+        ax.set_xlim(min(all_freq), max(all_freq))
+
+    ax.set_ylim(0, 1.05 * ymax if ymax > 0 else 1)
+
+    ax.set_xlabel("Frequency [Hz]")
+    ax.set_ylabel("γ [Ω·cm²·s]")
+
+    ax.grid(True, linewidth=0.5, alpha=0.3)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # ---- Legend BELOW ----
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.20),
+        ncol=min(len(datasets), 4),
+        frameon=False
+    )
+
+    fig.subplots_adjust(bottom=0.25)
+
+    zf.writestr(f"DRT/{title}.png", _fig_to_png_bytes(fig))
+
+
+
+
+def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str):
+
+    # Detect dynamic Rn keys
+    r_keys = sorted(
+        [k for k in series.index if k.startswith("R") and k != "R_ohmic"],
+        key=lambda x: int(x[1:])
+    )
+
+    r_keys = list(reversed(r_keys))
+    order_keys = ["ASR", "R_ohmic"] + r_keys
+
+    # Extract values using TRUE keys
+    y = [series.get(k, np.nan) for k in order_keys]
+
+    # Create display labels (LaTeX only for R_ohmic)
+    display_labels = []
+    for k in order_keys:
+        if k == "R_ohmic":
+            display_labels.append(r"$R_{\mathrm{ohmic}}$")
+        else:
+            display_labels.append(k)
+
+    fig, ax = plt.subplots(figsize=(7, 4), dpi=300)
+
+    ax.bar(display_labels, y, label=fname)
+
+    ax.set_yscale("log")
+    ax.set_ylabel("R [Ω·cm²]")
+
+    ax.grid(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.tick_params(axis="x", rotation=30)
+
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.22),
+        frameon=False
+    )
+
+    fig.subplots_adjust(bottom=0.30)
+
+    zf.writestr(f"CNLS/{fname}_bar.png", _fig_to_png_bytes(fig))
+
+def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
+
+    x = np.arange(1, len(df_cnls) + 1)
+    y = df_cnls[param].values
+
+    mean_val = np.nanmean(y)
+    std_val = np.nanstd(y)
+
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=600)
+
+    # ---- White main line (no legend) ----
+    ax.plot(
+        x,
+        y,
+        linewidth=1.5,
+        color="black"
+    )
+
+    # ---- Colored hollow markers + legend ----
+    legend_handles = []
+
+    for i, (idx, val) in enumerate(zip(df_cnls.index.tolist(), y)):
+
+        color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
+
+        sc = ax.scatter(
+            i+1,
+            val,
+            facecolors="white",
+            edgecolors=color,
+            s=80,
+            linewidth=2
+        )
+
+        legend_handles.append(
+            plt.Line2D(
+                [0], [0],
+                marker='o',
+                color='white',
+                markeredgecolor=color,
+                markerfacecolor='white',
+                markersize=8,
+                linewidth=0,
+                label=f"{i+1} - {idx}"
+            )
+        )
+
+    ax.set_xlabel("File index")
+    ax.set_ylabel("R [Ω·cm²]")
+
+    ax.set_title(
+        f"Mean value: {mean_val:.3g} | Std value: {std_val:.3g}"
+    )
+
+    ax.grid(True, linewidth=0.5, alpha=0.3)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    ax.legend(
+        handles=legend_handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.18),
+        frameon=False,
+        ncol=2
+    )
+
+    fig.subplots_adjust(bottom=0.28)
+
+    zf.writestr(
+        f"CNLS/LinePlots/{param}.png",
+        _fig_to_png_bytes(fig)
+    )
+
+def add_cnls_elements_fitting_png(
+    zf: zipfile.ZipFile,
+    cnls_file: Path,
+    fname: str
+):
+
+    if not cnls_file.exists():
+        return
+
+    xls = pd.ExcelFile(cnls_file)
+
+    if "DRT" not in xls.sheet_names or "Summary" not in xls.sheet_names:
+        return
+
+    # ---- Detect RQ elements from Summary ----
+    summary_df = pd.read_excel(xls, "Summary", header=None)
+    elements_raw = summary_df.iloc[1, 0]
+    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
+
+    df = pd.read_excel(xls, "DRT")
+
+    if df.shape[1] < 6:
+        return
+
+    freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+    gamma_total = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=600)
+
+    # ---- TOTAL γ (main DRT) ----
+    ax.semilogx(
+        freq,
+        gamma_total,
+        linewidth=2.5,
+        color="black",
+        label="Total γ"
+    )
+
+    ymax = np.nanmax(gamma_total)
+
+    # ---- Individual RQ contributions ----
+    for i, rq in enumerate(rq_elements):
+
+        gamma_elem = pd.to_numeric(
+            df.iloc[:, 5 + i],
+            errors="coerce"
+        )
+
+        ax.semilogx(
+            freq,
+            gamma_elem,
+            linewidth=1.5,
+            color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            label=rq
+        )
+
+        elem_max = np.nanmax(gamma_elem)
+        if np.isfinite(elem_max):
+            ymax = max(ymax, elem_max)
+
+    # ---- Scientific limits ----
+    ax.set_xlim(np.nanmin(freq), np.nanmax(freq))
+    ax.set_ylim(0, 1.05 * ymax)
+
+    ax.set_xlabel("Frequency [Hz]")
+    ax.set_ylabel("γ [Ω·cm²·s]")
+
+    ax.grid(True, linewidth=0.5, alpha=0.3)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # ---- Legend BELOW (consistent with others) ----
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.20),
+        ncol=min(len(rq_elements) + 1, 4),
+        frameon=False
+    )
+
+    fig.subplots_adjust(bottom=0.25)
+
+    zf.writestr(
+        f"CNLS/Fitting/{fname}_DRTFitting.png",
+        _fig_to_png_bytes(fig)
+    )
+
+def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
+
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=600)
+
+    xls = pd.ExcelFile(cnls_file)
+    summary_df = pd.read_excel(xls, "Summary", header=None)
+    elements_raw = summary_df.iloc[1, 0]
+    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
+
+    df = pd.read_excel(xls, "Z")
+
+    # ---- Main Nyquist ----
+    z_real_total = pd.to_numeric(df.iloc[:, 1], errors="coerce")
+    z_imag_total = -pd.to_numeric(df.iloc[:, 2], errors="coerce")
+
+    ax.plot(
+        z_real_total,
+        z_imag_total,
+        linewidth=2.5,
+        color="black",
+        label="Total Z"
+    )
+
+    # ---- Ohmic real column
+    z_ohmic = pd.to_numeric(df.iloc[:, 11], errors="coerce")
+    offset = z_ohmic.iloc[-1]
+
+    start_col = 13
+
+    for i, rq in enumerate(rq_elements):
+
+        real_col = start_col + 2*i
+        imag_col = start_col + 2*i + 1
+
+        if imag_col >= df.shape[1]:
+            break
+
+        z_r = pd.to_numeric(df.iloc[:, real_col], errors="coerce")
+        z_i = -pd.to_numeric(df.iloc[:, imag_col], errors="coerce")
+
+        shifted_real = z_r + offset
+
+        ax.plot(
+            shifted_real,
+            z_i,
+            linewidth=1.5,
+            color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            label=rq
+        )
+
+        offset += z_r.iloc[-1]
+
+    ax.set_xlabel("Z′ [Ω·cm²]")
+    ax.set_ylabel("−Z″ [Ω·cm²]")
+    ax.set_aspect("equal", adjustable="box")
+
+    ax.grid(True, linewidth=0.5, alpha=0.3)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.35),
+        ncol=min(len(rq_elements) + 1, 4),
+        frameon=False
+    )
+
+    fig.subplots_adjust(bottom=0.25)
+
+    zf.writestr(
+        f"CNLS/Fitting/{fname}_NyquistFit.png",
+        _fig_to_png_bytes(fig)
+    )
+
+def add_cnls_residuals_png(zf, cnls_file, fname):
+
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=600)
+
+    xls = pd.ExcelFile(cnls_file)
+    df = pd.read_excel(xls, "Z")
+
+    freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+    res_real = 100 * pd.to_numeric(df.iloc[:, 7], errors="coerce")
+    res_imag = 100 * pd.to_numeric(df.iloc[:, 8], errors="coerce")
+
+    ax.semilogx(
+        freq, res_real,
+        marker='o',
+        markersize=4,
+        linewidth=1.2,
+        color=COLOR_PALETTE[0],
+        label="Real residual"
+    )
+
+    ax.semilogx(
+        freq, res_imag,
+        marker='o',
+        markersize=4,
+        linewidth=1.2,
+        color=COLOR_PALETTE[1],
+        label="Imag residual"
+    )
+
+    ax.set_xlabel("Frequency [Hz]")
+    ax.set_ylabel("Residual [%]")
+
+    ax.grid(True, linewidth=0.5, alpha=0.3)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    ax.legend(
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.20),
+        frameon=False
+    )
+
+    fig.subplots_adjust(bottom=0.25)
+
+    zf.writestr(
+        f"CNLS/Fitting/{fname}_Residuals.png",
+        _fig_to_png_bytes(fig)
+    )
+
+def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame):
+
+    # ---- Detect dynamic Rn columns ----
+    r_cols = sorted(
+        [c for c in df_cnls.columns if c.startswith("R") and c != "R_ohmic"],
+        key=lambda x: int(x[1:])
+    )
+
+    col_order = ["ASR", "R_ohmic"] + r_cols
+    df_plot = df_cnls[col_order]
+
+    data = df_plot.values.astype(float)
+
+    # ---- Log scale ----
+    data[data <= 0] = np.nan
+    log_data = np.log10(data)
+
+    n_rows, n_cols = log_data.shape
+
+    fig, ax = plt.subplots(
+        figsize=(1.2 * n_cols, max(3, 0.6 * n_rows)),
+        dpi=600
+    )
+
+    im = ax.imshow(
+        log_data,
+        aspect="auto",
+        cmap="viridis"
+    )
+
+    # ---- Major ticks ----
+    ax.set_xticks(np.arange(n_cols))
+    ax.set_xticklabels(col_order, rotation=30, ha="right")
+
+    ax.set_yticks(np.arange(n_rows))
+    ax.set_yticklabels(df_plot.index.tolist())
+
+    # ---- Minor ticks for grid ----
+    ax.set_xticks(np.arange(-.5, n_cols, 1), minor=True)
+    ax.set_yticks(np.arange(-.5, n_rows, 1), minor=True)
+
+    ax.grid(which="minor", color="white", linestyle="-", linewidth=1.2)
+    ax.tick_params(which="minor", bottom=False, left=False)
+
+    # ---- Remove top/right spines ----
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # ---- Colorbar ----
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label("log(R [Ω·cm²])")
+
+    fig.tight_layout()
+
+    zf.writestr("CNLS/CNLS_heatmap.png", _fig_to_png_bytes(fig))
+
+
+
+
+# ===============================
+# App
+# ===============================
+st.set_page_config(page_title="SOCEIS Data Viewer", layout="wide")
+st.title("SOCEIS Data Viewer")
+
+with st.sidebar:
+    root_input = st.text_input("Root folder (auto-discover EIS)", value=str(DEFAULT_ROOT_FOLDER))
+    root_path = Path(root_input)
+
+    eis_files = discover_eis_files(root_path) if root_path.exists() else []
+    if not eis_files:
+        st.warning("No EIS folders/files found under the given root.")
+        st.stop()
+
+    display_map = {str(f.relative_to(root_path)): f for f in eis_files}
+
+    selected = st.multiselect("Select EIS files", list(display_map.keys()))
+    files_to_process = [display_map[s] for s in selected]
+
+    st.header("Nyquist")
+    nyquist_selected = st.multiselect("Nyquist types", NYQUIST_TYPES, default=DEFAULT_NYQUIST)
+    nyquist_show_params = st.checkbox("Parameters", value=False, key="nyq_params")
+
+    st.header("Bode")
+    bode_selected = st.multiselect("Bode types", BODE_TYPES, default=[])
+
+    st.header("DRT")
+    drt_selected = st.multiselect("DRT types", DRT_TYPES, default=[])
+    nyquist_fit_selected = st.checkbox("Nyquist fit", value=False)
+    drt_show_params = st.checkbox("Parameters", value=False, key="drt_params")
+
+
+    st.header("CNLS")
+
+    if len(selected) == 1:
+        # Single file
+        cnls_plot_modes = st.multiselect(
+            "CNLS plot types",
+            ["Bar plot", "Elements fitting"],
+            default=[]
+        )
+        cnls_line_selection = []
+    else:
+        # Multiple files
+        cnls_plot_modes = st.multiselect(
+            "CNLS plot types",
+            ["Heatmap", "Line plots"],
+            default=[]
+        )
+        cnls_line_selection = []
+
+    cnls_show_params = st.checkbox("Parameters", value=False, key="cnls_params")
+    analyze_cnls = bool(cnls_plot_modes) or cnls_show_params
+
+    st.header("3D Visualization")
+    nyquist_3d = st.checkbox("3D Nyquist", value=False)
+    drt_3d = st.checkbox("3D DRT", value=False)
+
+    st.header("Export")
+    export_folder = Path(st.text_input("Export folder path", value=str(DEFAULT_EXPORT_FOLDER)))
+    save_zip = st.button("💾 Save ZIP")
+
+if not files_to_process:
+    st.info("Select at least one EIS file.")
+    st.stop()
+
+# ===============================
+# Load data
+# ===============================
+eis_param_rows: List[Dict] = []
+drt_param_rows: List[Dict] = []
+cnls_rows: List[Dict] = []
+
+nyquist_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in nyquist_selected}
+bode_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in bode_selected}
+drt_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in drt_selected}
+nyquist_fit_data: List[Tuple[str, pd.DataFrame]] = []
+
+for eis_file in files_to_process:
+    fname = eis_file.name
+    xls = pd.ExcelFile(eis_file)
+
+    # EIS parameters
+    eis_param_rows.append(extract_eis_parameters(xls, fname))
+
+    # Nyquist + Bode from EIS file
+    for p in nyquist_selected:
+        if p in xls.sheet_names:
+            df = pd.read_excel(xls, p)
+            if df.shape[1] >= 3:
+                nyquist_data[p].append((fname, df))
+
+    for p in bode_selected:
+        if p in xls.sheet_names:
+            df = pd.read_excel(xls, p)
+            if df.shape[1] >= 3:
+                bode_data[p].append((fname, df))
+
+    # DRT from sibling DRT file
+    drt_file = sibling_file(eis_file, "DRT")
+    if drt_file.exists():
+        drt_xls = pd.ExcelFile(drt_file)
+
+        lam_row = extract_drt_lambda(drt_xls, fname)
+        if lam_row is not None:
+            drt_param_rows.append(lam_row)
+
+        for p in drt_selected:
+            sheet = DRT_SHEET_MAP[p]
+            if sheet in drt_xls.sheet_names:
+                df = pd.read_excel(drt_xls, sheet)
+                if df.shape[1] >= 2:
+                    drt_data[p].append((fname, df))
+        if nyquist_fit_selected:
+            drt_xls = pd.ExcelFile(drt_file)
+            if "Tknv_ReIm_s" in drt_xls.sheet_names:
+                df_fit = pd.read_excel(drt_xls, "Tknv_ReIm_s")
+                if df_fit.shape[1] >= 4:
+                    nyquist_fit_data.append((fname, df_fit))
+
+    # CNLS from sibling CNLS file (optional)
+    if analyze_cnls:
+        cnls_file = sibling_file(eis_file, "CNLS")
+        params = extract_cnls_parameters(cnls_file)
+        if params is not None:
+            params_row = {"File": fname, **params}
+            cnls_rows.append(params_row)
+
+
+# ===============================
+# Plot display
+# ===============================
+if nyquist_show_params:
+    st.subheader("Nyquist")
+    eis_cols = ["File"] + [lbl for (lbl, _) in EIS_PARAM_ORDER]
+    df_eis_params = pd.DataFrame(eis_param_rows).reindex(columns=eis_cols)
+    df_eis_params.index = np.arange(1, len(df_eis_params) + 1)
+    df_eis_params.index.name = "Index"
+    st.dataframe(df_eis_params, width="stretch")
+
+if nyquist_selected:
+    if not nyquist_show_params:
+        st.subheader("Nyquist")
+    
+    for p, data in nyquist_data.items():
+        if data:
+            if nyquist_3d:
+                st.plotly_chart(nyquist_3d_plotly(data, p), width="stretch")
+            else:
+                st.plotly_chart(nyquist_plotly(data, p), width="stretch")
+
+if bode_selected:
+    st.subheader("Bode")
+
+    for p, data in bode_data.items():
+        if data:
+            # One title per Bode type
+            st.markdown(f"**{p}**")
+
+            # Real part
+            st.plotly_chart(
+                bode_plotly(data, p, real=True),
+                width="stretch"
+            )
+
+            # Imaginary part
+            st.plotly_chart(
+                bode_plotly(data, p, real=False),
+                width="stretch"
+            )
+if drt_show_params and drt_param_rows:
+    st.subheader("DRT")
+    df_drt_params = pd.DataFrame(drt_param_rows)
+    df_drt_params.index = np.arange(1, len(df_drt_params) + 1)
+    df_drt_params.index.name = "Index"
+    st.dataframe(df_drt_params, width="stretch")
+if drt_selected:
+    if not drt_show_params:
+        st.subheader("DRT")
+
+    for p, data in drt_data.items():
+        if data:
+            if drt_3d:
+                st.plotly_chart(drt_3d_plotly(data, p), width="stretch")
+            else:
+                st.plotly_chart(drt_plotly(data, p), width="stretch")       
+    if nyquist_fit_selected and nyquist_fit_data:
+            st.plotly_chart(nyquist_fit_plotly(nyquist_fit_data), width="stretch")
+# CNLS section
+df_cnls = None
+if analyze_cnls:
+    st.subheader("CNLS")
+
+    if cnls_rows:
+        df_cnls = pd.DataFrame(cnls_rows).set_index("File")
+        if len(df_cnls) > 1:
+            resistance_columns = [
+                c for c in df_cnls.columns
+                if c.startswith("R") or c == "ASR"
+            ]
+
+            # Update selectable list dynamically
+            if "Line plots" in cnls_plot_modes:
+                cnls_line_selection = st.multiselect(
+                    "Select resistances to plot",
+                    resistance_columns,
+                    default=resistance_columns
+                )
+
+        # ---- Dynamic column ordering ----
+        r_indices = sorted(
+            {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k != "R_ohmic"}
+        )
+
+        ordered_cols = ["ASR", "R_ohmic"]
+
+        for idx in r_indices:
+            if f"R{idx}" in df_cnls.columns:
+                ordered_cols.append(f"R{idx}")
+            if f"tau{idx}" in df_cnls.columns:
+                ordered_cols.append(f"tau{idx}")
+            if f"alpha{idx}" in df_cnls.columns:
+                ordered_cols.append(f"alpha{idx}")
+
+        df_display = df_cnls[ordered_cols]
+
+        # ---- Rename columns with Greek letters ----
+        rename_map = {"R_ohmic": "Rₒₕₘ"}
+
+        for idx in r_indices:
+            if f"tau{idx}" in df_display.columns:
+                rename_map[f"tau{idx}"] = f"τ{idx}"
+            if f"alpha{idx}" in df_display.columns:
+                rename_map[f"alpha{idx}"] = f"α{idx}"
+
+        df_display = df_display.rename(columns=rename_map)
+
+        if cnls_show_params:
+            df_display.index = np.arange(1, len(df_display) + 1)
+            df_display.index.name = "Index"
+            st.dataframe(df_display, width="stretch")
+
+
+        # ---- Plot section unchanged ----
+        if len(df_cnls) == 1:
+
+            series = df_cnls.iloc[0]
+            cnls_file = sibling_file(files_to_process[0], "CNLS")
+
+            if "Bar plot" in cnls_plot_modes:
+                st.plotly_chart(cnls_bar_plotly(series), width="stretch")
+
+            if "Elements fitting" in cnls_plot_modes:
+
+                cnls_file = sibling_file(files_to_process[0], "CNLS")
+
+                # DRT elements (already done)
+                fig_elem = cnls_elements_fitting_plotly(cnls_file, df_cnls.index[0])
+                if fig_elem:
+                    st.plotly_chart(fig_elem, width="stretch")
+
+                # Nyquist fit
+                fig_nyq = cnls_nyquist_fit_plotly(cnls_file, df_cnls.index[0])
+                if fig_nyq:
+                    st.plotly_chart(fig_nyq, width="stretch")
+
+                # Residuals
+                fig_res = cnls_residuals_plotly(cnls_file, df_cnls.index[0])
+                if fig_res:
+                    st.plotly_chart(fig_res, width="stretch")
+        else:
+
+            if "Heatmap" in cnls_plot_modes:
+                st.plotly_chart(cnls_heatmap_plotly(df_cnls), width="stretch")
+
+            if "Line plots" in cnls_plot_modes and cnls_line_selection:
+                for param in cnls_line_selection:
+                    st.plotly_chart(
+                        cnls_line_plotly(df_cnls, param),
+                        width="stretch"
+                    )
+
+
+    else:
+        st.info("CNLS enabled, but no CNLS files/sheets were found for the selected EIS files.")
+
+
+# ===============================
+# ZIP Export (ONLY plots shown; PNGs; non-empty)
+# ===============================
+if save_zip:
+    export_folder.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    zip_path = export_folder / f"SOCEIS_figures_{timestamp}.zip"
+
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        # Nyquist
+        for p, data in nyquist_data.items():
+            if data:
+                if nyquist_3d:
+                    add_nyquist_3d_png(zf, data, p)
+                else:
+                    add_nyquist_png(zf, data, p)
+
+
+        # Bode
+        for p, data in bode_data.items():
+            if data:
+                add_bode_png(zf, data, p, real=True)
+                add_bode_png(zf, data, p, real=False)
+
+        # DRT
+        for p, data in drt_data.items():
+            if data:
+                if drt_3d:
+                    add_drt_3d_png(zf, data, p)
+                else:
+                    add_drt_png(zf, data, p)
+        if nyquist_fit_selected and nyquist_fit_data:
+            add_nyquist_fit_png(zf, nyquist_fit_data)
+
+
+        # CNLS
+        if analyze_cnls and df_cnls is not None and not df_cnls.empty:
+
+            if len(files_to_process) == 1:
+
+                cnls_file = sibling_file(files_to_process[0], "CNLS")
+
+                if "Bar plot" in cnls_plot_modes:
+                    add_cnls_bar_png(zf, df_cnls.iloc[0], df_cnls.index[0])
+
+                if "Elements fitting" in cnls_plot_modes:
+                    add_cnls_elements_fitting_png(
+                        zf,
+                        cnls_file,
+                        df_cnls.index[0]
+                    )
+                    add_cnls_nyquist_fit_png(
+                            zf,
+                            cnls_file,
+                            df_cnls.index[0]
+                    )
+                    add_cnls_residuals_png(
+                            zf,
+                            cnls_file,
+                            df_cnls.index[0]
+                    )
+
+            else:
+
+                if "Heatmap" in cnls_plot_modes:
+                    add_cnls_heatmap_png(zf, df_cnls)
+
+                if "Line plots" in cnls_plot_modes and cnls_line_selection:
+                    for param in cnls_line_selection:
+                        add_cnls_line_png(zf, df_cnls, param)
+
+
+    st.success(f"ZIP saved at: {zip_path.resolve()}")

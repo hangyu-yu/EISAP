@@ -7,3 +7,4 @@
 **/.DS_Store
 src/GUI/config.json
 Projects/
+.streamlit/

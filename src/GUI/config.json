@@ -1,8 +1,19 @@
 {
-    "folder_path": "",
-    "file_list": [],
-    "selected_files": [],
+    "font_size": 20,
+    "folder_path": "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Documents/Git/SOCEIS/Projects/00_Code test/99_eg_degradation",
+    "file_list": [
+        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Documents/Git/SOCEIS/Projects/00_Code test/99_eg_degradation/2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
+        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Documents/Git/SOCEIS/Projects/00_Code test/99_eg_degradation/2024-09-02_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis02.txt",
+        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Documents/Git/SOCEIS/Projects/00_Code test/99_eg_degradation/2024-09-03_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis03.txt",
+        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Documents/Git/SOCEIS/Projects/00_Code test/99_eg_degradation/2024-09-04_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis04.txt"
+    ],
+    "selected_files": [
+        "2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
+        "2024-09-02_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis02.txt",
+        "2024-09-03_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis03.txt",
+        "2024-09-04_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis04.txt"
+    ],
     "file_extensions": ".txt",
-    "display_file": "",
-    "data_import_function": []
+    "display_file": "2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
+    "data_import_function": "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Documents/Git/SOCEIS/src/Functions/01_Data_read/read_general_all.py"
 }

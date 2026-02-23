@@ -39,6 +39,8 @@ Under development, more features up to come.
 | Matplotlib | ≥3.5 | Publication-quality visualization |
 | DearPyGui | ≥1.7 | GPU-accelerated UI framework |
 | OpenPyXL | ≥3.0 | Excel report generation |
+| streamlit |  | SOCEIS Viewer |
+| plotly |  | SOCEIS Viewer |
 
 <p align="center">
   <img src="assets/images/Fig_example_main.png" width="width: 100%;">

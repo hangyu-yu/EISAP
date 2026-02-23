@@ -6,3 +6,6 @@ dearpygui
 openpyxl
 natsort
 requests
+streamlit
+plotly
+psutil

@@ -1,7 +1,10 @@
 import os
+import sys
 import glob
 import shutil
+import psutil
 import platform
+import subprocess
 import numpy as np
 import src.GUI as gui
 from pathlib import Path
@@ -174,6 +177,37 @@ def folder_selector_cancel_callback(sender, app_data):
     print("Sender: ", sender)
     print("App Data: ", app_data)
 
+def launch_data_viewer(config):
+    """
+    在指定 Functions 目录下寻找 SOCEIS_view.py，并防止重复启动
+    """
+    # 1. 路径定位：当前文件 -> 上一级 -> Functions / SOCEIS_view.py
+    # gui_tab_soceis.py 在 src/GUI/Tabs/ (假设) 
+    # 或者根据你的实际结构：Path(__file__).parent.parent.parent / "Functions"
+    # 这里我们定义：当前文件的父目录的父目录下的 Functions 文件夹
+    current_file_path = Path(__file__).resolve()
+    viewer_script = current_file_path.parent.parent / "Functions" / "SOCEIS_view.py"
+
+    if not viewer_script.exists():
+        print(f"Error: Could not find viewer at {viewer_script}")
+        return
+
+    # 2. 获取当前选择的路径
+    folder_path = config.folder_path if config.folder_path and "[Error]" not in config.folder_path else os.getcwd()
+
+    # 4. 启动进程
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", str(viewer_script),
+        "--", "--root_folder", str(folder_path)
+    ]
+    
+    try:
+        # 使用 subprocess.Popen 启动，不阻塞主 GUI
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"Launching Data Viewer from: {viewer_script}")
+    except Exception as e:
+        print(f"Failed to launch: {e}")
+
 # Main function to create the SOCEIS tab
 def gui_tab_soceis(config, EIS, CNLS):
     """
@@ -327,6 +361,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                     dpg.add_button(label="EIS analysis", callback=lambda: gui.gui_tab_eis(config, EIS, CNLS))
                     dpg.add_button(label="DRT analysis", callback=lambda: gui.gui_tab_drt(config, EIS, CNLS))
                     dpg.add_button(label="CNLS fitting", callback=lambda: gui.gui_tab_cnls(config, EIS, CNLS))
+                    dpg.add_button(label="Data viewer", callback=lambda: launch_data_viewer(config))
 
     # Set up viewport resize callback using correct API
     dpg.set_viewport_resize_callback(update_image_sizes)
