@@ -135,7 +135,7 @@ CNLS_PARAM_MAP = {
 def nyquist_fit_plotly(datasets):
 
     fig = go.Figure()
-
+    show_legend = len(datasets) > 1
     for i, (name, df) in enumerate(datasets):
 
         x = pd.to_numeric(df.iloc[:, 2], errors="coerce")   # Re
@@ -149,18 +149,28 @@ def nyquist_fit_plotly(datasets):
             line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)])
         )
 
-    fig.update_layout(
-        title="Nyquist – DRT Smooth Fit",
-        xaxis=dict(
-            title="Z′ [Ω·cm²]",
-            scaleanchor="y",
-            scaleratio=1
-        ),
-        yaxis=dict(
-            title="−Z″ [Ω·cm²]"
-        ),
-        template="plotly_dark"
-    )
+        show_legend = len(datasets) > 1
+
+        fig.update_layout(
+            title="Nyquist – DRT Smooth Fit",
+            xaxis=dict(
+                title="Z′ [Ω·cm²]",
+                scaleanchor="y",
+                scaleratio=1
+            ),
+            yaxis=dict(
+                title="−Z″ [Ω·cm²]"
+            ),
+            template="plotly_dark",
+            legend=dict(
+                orientation="v",
+                y=1,
+                yanchor="top",
+                x=1.02,
+                xanchor="left",
+                font=dict(size=11)
+            ) if show_legend else dict(visible=False)
+        )
 
     return fig
 
@@ -186,6 +196,8 @@ def cnls_line_plotly(df_cnls: pd.DataFrame, param: str):
     # ---- Points + Legend mapping ----
     for i, (idx, val) in enumerate(zip(df_cnls.index.tolist(), y)):
 
+        label = latex_label(idx)
+
         color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
 
         fig.add_scatter(
@@ -197,7 +209,7 @@ def cnls_line_plotly(df_cnls: pd.DataFrame, param: str):
                 color="white",
                 line=dict(width=2, color=color)
             ),
-            name=f"{i+1} - {idx}",
+            name=f"{i+1} - {label}",
             showlegend=True
         )
 
@@ -350,6 +362,21 @@ def render_palette_preview(colors: List[str]) -> str:
     )
     return f"<div style='margin-top:6px;margin-bottom:4px;'>{swatches}</div>"
 
+def latex_label(text: str) -> str:
+
+    # Explicit LaTeX patterns
+    if (
+        "\\" in text or
+        "_{" in text or
+        "^{" in text
+    ):
+        # Avoid double wrapping
+        if text.startswith("$") and text.endswith("$"):
+            return text
+        return f"${text}$"
+
+    return text
+
 def pick_folder_dialog() -> Optional[str]:
     """Open a native folder picker and return selected path or None."""
     if not TK_AVAILABLE:
@@ -374,6 +401,12 @@ def discover_eis_files(root: Path) -> List[Path]:
             files.extend(sorted(eis_dir.glob("*.xlsx")))
     return files
 
+def natural_key(s: str):
+    """
+    Natural sort key: 's2' < 's10', case-insensitive.
+    Splits into text + number chunks.
+    """
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", s)]
 
 def sibling_file(eis_file: Path, sibling_folder: str) -> Path:
     """
@@ -735,7 +768,10 @@ def cnls_nyquist_fit_plotly(cnls_file: Path, fname: str):
     offset = z_ohmic.iloc[-1]  # last value only
 
     start_col = 13
-
+    element_colors = sample_palette_colors(
+        st.session_state.palette_choice,
+        n=len(rq_elements)
+    )
     for i, rq in enumerate(rq_elements):
 
         real_col = start_col + 2*i
@@ -755,7 +791,7 @@ def cnls_nyquist_fit_plotly(cnls_file: Path, fname: str):
             y=z_i,
             mode="lines",
             name=rq,
-            line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)])
+            line=dict(color=element_colors[i])
         )
 
         # Update offset using LAST value of this element real part
@@ -843,7 +879,11 @@ def cnls_bar_plotly(series: pd.Series):
     y = [series.get(k, np.nan) for k in order]
 
     fig = go.Figure()
-    fig.add_bar(x=order, y=y)
+    fig.add_bar(
+        x=order,
+        y=y,
+        showlegend=False
+    )
 
     fig.update_layout(
         title="CNLS bar plot",
@@ -893,6 +933,12 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
         line=dict(color="white", width=3)
     )
 
+    # Generate enough colors for all RQ elements
+    element_colors = sample_palette_colors(
+        st.session_state.palette_choice,
+        n=len(rq_elements)
+    )
+
     # ---- Individual RQ contributions ----
     for i, rq in enumerate(rq_elements):
 
@@ -907,11 +953,11 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
             y=gamma_elem,
             mode="lines",
             name=rq,
-            line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)])
+            line=dict(color=element_colors[i])
         )
 
     fig.update_layout(
-        title=f"CNLS Elements Fitting – {fname}",
+        title=f"CNLS DRT Fit – {fname}",
         xaxis=dict(title="Frequency [Hz]", type="log"),
         yaxis=dict(title="γ [Ω·s·cm²]"),
         template="plotly_dark"
@@ -919,7 +965,7 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
 
     return fig
 
-def cnls_heatmap_plotly(df_cnls: pd.DataFrame):
+def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str):
 
     r_cols = sorted(
         [c for c in df_cnls.columns if c.startswith("R") and c != "R_ohmic"],
@@ -929,15 +975,38 @@ def cnls_heatmap_plotly(df_cnls: pd.DataFrame):
     col_order = ["ASR", "R_ohmic"] + r_cols
     df_plot = df_cnls[col_order]
 
+    # ---- Pretty x-axis labels ----
+    x_labels = []
+
+    for col in col_order:
+        if col == "R_ohmic":
+            x_labels.append("R<sub>ohmic</sub>")
+        else:
+            x_labels.append(col)
+
     data = df_plot.values.astype(float)
     data[data <= 0] = np.nan
     log_data = np.log10(data)
 
+    # ---- Pretty x-axis labels ----
+    x_labels = []
+    for col in col_order:
+        if col == "R_ohmic":
+            x_labels.append("R<sub>ohmic</sub>")
+        else:
+            x_labels.append(col)
+    # ---- Determine heatmap colorscale ----
+    if palette_choice in PLOTLY_SEQ:
+        # Continuous scientific palettes
+        colorscale = palette_choice.split(" ")[0]  # "Viridis (perceptual)" -> "Viridis"
+    else:
+        # Discrete palettes → fallback to perceptual default
+        colorscale = "Viridis"
     fig = go.Figure(data=go.Heatmap(
         z=log_data,
-        x=col_order,
-        y=df_plot.index.tolist(),
-        colorscale="Viridis",   # scientific perceptual colormap
+        x=x_labels,
+        y=[latex_label(i) for i in df_plot.index.tolist()],
+        colorscale=colorscale,
         xgap=2,
         ygap=2,
         colorbar=dict(
@@ -997,7 +1066,7 @@ def add_nyquist_png(zf: zipfile.ZipFile, datasets, title: str):
             linewidth=1.5,
             color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
             alpha=0.85,
-            label=name
+            label=latex_label(name)
         )
 
         all_x.extend(x.dropna())
@@ -1175,7 +1244,7 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
             linewidth=1.5,
             color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
             alpha=0.85,
-            label=name
+            label=latex_label(name)
         )
 
         all_x.extend(x.dropna())
@@ -1204,14 +1273,13 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.20),
-        ncol=min(len(datasets), 4),
-        frameon=False
-    )
-
-    fig.subplots_adjust(bottom=0.25)
+    if len(datasets) > 1:
+        ax.legend(
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            frameon=False
+        )
+        fig.subplots_adjust(right=0.78)
 
     zf.writestr("DRT/Nyquist_fit.png", _fig_to_png_bytes(fig))
 
@@ -1398,7 +1466,7 @@ def add_bode_png(zf: zipfile.ZipFile, datasets, title: str, real: bool):
             linewidth=1.5,
             color=color,
             alpha=0.85,
-            label=name
+            label=latex_label(name)
         )
 
         all_x.extend(freq.dropna())
@@ -1460,7 +1528,7 @@ def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
             linewidth=1.5,
             alpha=0.85,
             color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
-            label=name
+            label=latex_label(name)
         )
 
         all_freq.extend(freq.dropna())
@@ -1520,7 +1588,7 @@ def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str):
 
     fig, ax = plt.subplots(figsize=(7, 4), dpi=300)
 
-    ax.bar(display_labels, y, label=fname)
+    ax.bar(display_labels, y)
 
     ax.set_yscale("log")
     ax.set_ylabel("R [Ω·cm²]")
@@ -1529,13 +1597,6 @@ def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.tick_params(axis="x", rotation=30)
-
-    ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        frameon=False
-    )
-    fig.subplots_adjust(right=0.78)
 
     zf.writestr(f"CNLS/{fname}_bar.png", _fig_to_png_bytes(fig))
 
@@ -1582,7 +1643,7 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
                 markerfacecolor='white',
                 markersize=8,
                 linewidth=0,
-                label=f"{i+1} - {idx}"
+                label=f"{i+1} - {latex_label(idx)}"
             )
         )
 
@@ -1649,13 +1710,18 @@ def add_cnls_elements_fitting_png(
     ax.semilogx(
         freq,
         gamma_total,
-        linewidth=2.5,
+        linewidth=1.5,
         color="black",
+        alpha=0.3,
         label="Total γ"
     )
 
     ymax = np.nanmax(gamma_total)
-
+    # Generate enough distinct colors for all RQ elements
+    element_colors = sample_palette_colors(
+        st.session_state.palette_choice,
+        n=len(rq_elements)
+    )
     # ---- Individual RQ contributions ----
     for i, rq in enumerate(rq_elements):
 
@@ -1668,7 +1734,7 @@ def add_cnls_elements_fitting_png(
             freq,
             gamma_elem,
             linewidth=1.5,
-            color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            color=element_colors[i],
             label=rq
         )
 
@@ -1720,8 +1786,9 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
     ax.plot(
         z_real_total,
         z_imag_total,
-        linewidth=2.5,
+        linewidth=1.5,
         color="black",
+        alpha=0.3,
         label="Total Z"
     )
 
@@ -1730,6 +1797,12 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
     offset = z_ohmic.iloc[-1]
 
     start_col = 13
+
+    # Generate enough distinct colors for all RQ elements
+    element_colors = sample_palette_colors(
+        st.session_state.palette_choice,
+        n=len(rq_elements)
+    )
 
     for i, rq in enumerate(rq_elements):
 
@@ -1748,7 +1821,7 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
             shifted_real,
             z_i,
             linewidth=1.5,
-            color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+            color=element_colors[i],
             label=rq
         )
 
@@ -1824,16 +1897,22 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
         _fig_to_png_bytes(fig)
     )
 
-def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame):
+def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_choice: str):
 
     # ---- Detect dynamic Rn columns ----
     r_cols = sorted(
         [c for c in df_cnls.columns if c.startswith("R") and c != "R_ohmic"],
         key=lambda x: int(x[1:])
     )
-
+    
     col_order = ["ASR", "R_ohmic"] + r_cols
     df_plot = df_cnls[col_order]
+    
+    # ---- Determine matplotlib colormap ----
+    if palette_choice in PLOTLY_SEQ:
+        cmap_name = PALETTE_LIBRARY.get(palette_choice, "viridis")
+    else:
+        cmap_name = "viridis"
 
     data = df_plot.values.astype(float)
 
@@ -1847,19 +1926,30 @@ def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame):
         figsize=(1.2 * n_cols, max(3, 0.6 * n_rows)),
         dpi=600
     )
-
+    zmin = np.nanmin(log_data)
+    zmax = np.nanmax(log_data)
     im = ax.imshow(
         log_data,
         aspect="auto",
-        cmap="viridis"
+        cmap=cmap_name,
+        vmin=zmin,
+        vmax=zmax
     )
 
-    # ---- Major ticks ----
+    # ---- Pretty x-axis labels ----
+    pretty_labels = []
+
+    for col in col_order:
+        if col == "R_ohmic":
+            pretty_labels.append(r"$R_{\mathrm{ohmic}}$")
+        else:
+            pretty_labels.append(col)
+
     ax.set_xticks(np.arange(n_cols))
-    ax.set_xticklabels(col_order, rotation=30, ha="right")
+    ax.set_xticklabels(pretty_labels, rotation=30, ha="right")
 
     ax.set_yticks(np.arange(n_rows))
-    ax.set_yticklabels(df_plot.index.tolist())
+    ax.set_yticklabels([latex_label(i) for i in df_plot.index.tolist()])
 
     # ---- Minor ticks for grid ----
     ax.set_xticks(np.arange(-.5, n_cols, 1), minor=True)
@@ -1951,8 +2041,22 @@ with st.sidebar:
             options=list(display_map.keys()),
             key="selected_files"
         )
+    # ---- Optional alphabetical ordering ----
+    sort_alphabetically = st.checkbox(
+        "Order selected files alphabetically",
+        value=False
+    )
 
-    files_to_process = [display_map[s] for s in st.session_state.selected_files]
+    selected_keys = st.session_state.selected_files
+
+    if sort_alphabetically:
+        # sort by filename first (natural), then by full relative path to break ties
+        selected_keys = sorted(
+            selected_keys,
+            key=lambda k: (natural_key(Path(k).name), natural_key(k))
+        )
+
+    files_to_process = [display_map[s] for s in selected_keys]
 
 
     n_files = max(2, len(files_to_process))
@@ -2021,6 +2125,53 @@ if not files_to_process:
     st.stop()
 
 # ===============================
+# File Label Editor (Main Page)
+# ===============================
+
+st.subheader("Selected Files")
+
+# Initialize session storage for custom names
+if "custom_names" not in st.session_state:
+    st.session_state.custom_names = {}
+
+rows = []
+
+for idx, f in enumerate(files_to_process, start=1):
+    fname = f.name
+
+    if fname not in st.session_state.custom_names:
+        st.session_state.custom_names[fname] = fname
+
+    rows.append({
+        "Index": idx,
+        "File name": fname,
+        "Personalized name (LaTeX-friendly)": st.session_state.custom_names[fname]
+    })
+
+df_labels = pd.DataFrame(rows)
+
+edited_df = st.data_editor(
+    df_labels,
+    column_config={
+        "Index": st.column_config.NumberColumn(disabled=True),
+        "File name": st.column_config.TextColumn(disabled=True),
+        "Personalized name (LaTeX-friendly)": st.column_config.TextColumn()
+    },
+    hide_index=True,
+    use_container_width=True
+)
+
+# Update session state after editing
+for _, row in edited_df.iterrows():
+    st.session_state.custom_names[row["File name"]] = row["Personalized name (LaTeX-friendly)"]
+
+# Build display name map
+display_name_map = {
+    fname: st.session_state.custom_names.get(fname, fname)
+    for fname in [f.name for f in files_to_process]
+}
+
+# ===============================
 # Load data
 # ===============================
 eis_param_rows: List[Dict] = []
@@ -2044,13 +2195,15 @@ for eis_file in files_to_process:
         if p in xls.sheet_names:
             df = pd.read_excel(xls, p)
             if df.shape[1] >= 3:
-                nyquist_data[p].append((fname, df))
+                label = display_name_map.get(fname, fname)
+                nyquist_data[p].append((latex_label(label), df))
 
     for p in bode_selected:
         if p in xls.sheet_names:
             df = pd.read_excel(xls, p)
             if df.shape[1] >= 3:
-                bode_data[p].append((fname, df))
+                label = display_name_map.get(fname, fname)
+                bode_data[p].append((latex_label(label), df))
 
     # DRT from sibling DRT file
     drt_file = sibling_file(eis_file, "DRT")
@@ -2066,21 +2219,23 @@ for eis_file in files_to_process:
             if sheet in drt_xls.sheet_names:
                 df = pd.read_excel(drt_xls, sheet)
                 if df.shape[1] >= 2:
-                    drt_data[p].append((fname, df))
+                    label = display_name_map.get(fname, fname)
+                    drt_data[p].append((latex_label(label), df))
         if nyquist_fit_selected:
             drt_xls = pd.ExcelFile(drt_file)
             if "Tknv_ReIm_s" in drt_xls.sheet_names:
                 df_fit = pd.read_excel(drt_xls, "Tknv_ReIm_s")
                 if df_fit.shape[1] >= 4:
-                    nyquist_fit_data.append((fname, df_fit))
+                    nyquist_fit_data.append((display_name_map.get(fname, fname), df_fit))
 
     # CNLS from sibling CNLS file (optional)
-    if analyze_cnls:
-        cnls_file = sibling_file(eis_file, "CNLS")
-        params = extract_cnls_parameters(cnls_file)
-        if params is not None:
-            params_row = {"File": fname, **params}
-            cnls_rows.append(params_row)
+        if analyze_cnls:
+            cnls_file = sibling_file(eis_file, "CNLS")
+            params = extract_cnls_parameters(cnls_file)
+            if params is not None:
+                display_label = display_name_map.get(fname, fname)
+                params_row = {"File": display_label, **params}
+                cnls_rows.append(params_row)
 
 
 # ===============================
@@ -2132,6 +2287,10 @@ if drt_show_params and drt_param_rows:
     df_drt_params.index = np.arange(1, len(df_drt_params) + 1)
     df_drt_params.index.name = "Index"
     st.dataframe(df_drt_params, width="stretch")
+if nyquist_fit_selected and nyquist_fit_data:
+        if not drt_show_params:
+            st.subheader("DRT")
+        st.plotly_chart(nyquist_fit_plotly(nyquist_fit_data), width="stretch")
 if drt_selected:
     if not drt_show_params:
         st.subheader("DRT")
@@ -2142,8 +2301,7 @@ if drt_selected:
                 st.plotly_chart(drt_3d_plotly(data, p), width="stretch")
             else:
                 st.plotly_chart(drt_plotly(data, p), width="stretch")       
-    if nyquist_fit_selected and nyquist_fit_data:
-            st.plotly_chart(nyquist_fit_plotly(nyquist_fit_data), width="stretch")
+
 # CNLS section
 df_cnls = None
 if analyze_cnls:
@@ -2229,7 +2387,10 @@ if analyze_cnls:
         else:
 
             if "Heatmap" in cnls_plot_modes:
-                st.plotly_chart(cnls_heatmap_plotly(df_cnls), width="stretch")
+                st.plotly_chart(
+                    cnls_heatmap_plotly(df_cnls, st.session_state.palette_choice),
+                    width="stretch"
+                )
 
             if "Line plots" in cnls_plot_modes and cnls_line_selection:
                 for param in cnls_line_selection:
@@ -2308,7 +2469,11 @@ if save_zip:
             else:
 
                 if "Heatmap" in cnls_plot_modes:
-                    add_cnls_heatmap_png(zf, df_cnls)
+                    add_cnls_heatmap_png(
+                        zf,
+                        df_cnls,
+                        st.session_state.palette_choice
+                    )
 
                 if "Line plots" in cnls_plot_modes and cnls_line_selection:
                     for param in cnls_line_selection:
