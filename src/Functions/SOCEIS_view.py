@@ -1955,7 +1955,7 @@ with st.sidebar:
     files_to_process = [display_map[s] for s in st.session_state.selected_files]
 
 
-    n_files = max(1, len(files_to_process))
+    n_files = max(2, len(files_to_process))
     st.markdown("### Colors")
 
     # (2) Palette selector (single widget with one key)
@@ -2116,13 +2116,15 @@ if bode_selected:
             # Real part
             st.plotly_chart(
                 bode_plotly(data, p, real=True),
-                width="stretch"
+                width="stretch",
+                key=f"bode_{p}_real"
             )
 
             # Imaginary part
             st.plotly_chart(
                 bode_plotly(data, p, real=False),
-                width="stretch"
+                width="stretch",
+                key=f"bode_{p}_imag"
             )
 if drt_show_params and drt_param_rows:
     st.subheader("DRT")
