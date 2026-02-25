@@ -38,6 +38,7 @@ class Config:
 
     def load_config(self):
         """Load configuration from a JSON file"""
+        self.store['viewer_processes'] = []
         if os.path.exists(self.config_file):
             with open(self.config_file, "r") as f:
                 data = json.load(f)
