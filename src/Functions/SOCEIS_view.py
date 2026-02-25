@@ -21,7 +21,7 @@ The program automatically:
    and "CNLS" folders (if present)
 
 Required Python packages (install once):
-   pip install streamlit pandas numpy plotly matplotlib openpyxl ast
+   pip install streamlit pandas numpy plotly matplotlib openpyxl ast tkinter
 
  How to run the application:
    Open a terminal (PowerShell on Windows) in the folder
@@ -34,28 +34,29 @@ _________________________________________________________________
 
 """
 
-import os
-import re
-import ast
-import sys
-import time
+from pathlib import Path
+from datetime import datetime
+from typing import List, Dict, Tuple, Optional
+from io import BytesIO
 import zipfile
-import argparse
-import threading
+import re
 import numpy as np
 import pandas as pd
 import streamlit as st
-from io import BytesIO
-import plotly.io as pio
-from pathlib import Path
-from datetime import datetime
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
+import plotly.io as pio
+import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from streamlit.runtime import runtime
-from mpl_toolkits.mplot3d import Axes3D
-from typing import List, Dict, Tuple, Optional
-from streamlit.runtime.scriptrunner import get_script_run_ctx
+from matplotlib import colormaps
+import plotly.colors as pc
+
+# --- Optional GUI folder picker (works for local Streamlit runs) ---
+try:
+    import tkinter as tk
+    from tkinter import filedialog
+    TK_AVAILABLE = True
+except Exception:
+    TK_AVAILABLE = False
 
 pio.templates.default = "plotly_dark"
 
@@ -63,21 +64,7 @@ pio.templates.default = "plotly_dark"
 # Configuration
 # ===============================
 
-# 解析从主 GUI 传来的路径参数
-parser = argparse.ArgumentParser()
-parser.add_argument("--root_folder", type=str, default="")
-
-try:
-    args, _ = parser.parse_known_args()
-    parsed_path = args.root_folder
-except SystemExit:
-    parsed_path = ""
-
-if parsed_path:
-    DEFAULT_ROOT_FOLDER = Path(parsed_path)
-else:
-    DEFAULT_ROOT_FOLDER = Path("EIS/SIM")
-
+DEFAULT_ROOT_FOLDER = Path("EIS/SIM")
 DEFAULT_EXPORT_FOLDER = Path("SOCEIS_figures")
 
 plt.rcParams.update({
@@ -92,7 +79,7 @@ plt.rcParams.update({
     "figure.dpi": 300,
 })
 
-COLOR_PALETTE = [
+DEFAULT_COLOR_PALETTE = [
     "#4C78A8",  # blue
     "#F58518",  # orange
     "#54A24B",  # green
@@ -246,6 +233,136 @@ EIS_PARAM_ORDER = [
 # ===============================
 # Helpers
 # ===============================
+
+# ===============================
+# Color palette selection
+# ===============================
+
+def _rgb_str_to_hex(s: str) -> str:
+    # "rgb(12,34,56)" or "rgba(12,34,56,0.5)" -> "#0c2238"
+    nums = s.strip().lower().replace("rgba(", "").replace("rgb(", "").replace(")", "").split(",")
+    r, g, b = [int(float(x)) for x in nums[:3]]
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+PLOTLY_SEQ = {
+    "Viridis (perceptual)": pc.sequential.Viridis,
+    "Cividis (colorblind-friendly)": pc.sequential.Cividis,
+    "Plasma (perceptual)": pc.sequential.Plasma,
+    "Inferno (perceptual)": pc.sequential.Inferno,
+    "Magma (perceptual)": pc.sequential.Magma,
+    "Turbo (high-contrast)": pc.sequential.Turbo,
+}
+
+def sample_plotly_sequential(palette_choice: str, n: int, lo: float = 0.10, hi: float = 0.95) -> List[str]:
+    """
+    Sample a Plotly sequential colorscale to n HEX colors.
+    lo/hi trim avoids the extreme darkest/brightest ends.
+    """
+    scale = PLOTLY_SEQ[palette_choice]  # list of "rgb(...)"
+    if n <= 1:
+        t_vals = [0.5]
+    else:
+        t_vals = np.linspace(lo, hi, n)
+    rgb_list = pc.sample_colorscale(scale, t_vals)
+    return [_rgb_str_to_hex(c) for c in rgb_list]
+
+PALETTE_LIBRARY = {
+    "Default": "SOCEIS_DEFAULT",
+    "Viridis (perceptual)": "viridis",
+    "Cividis (colorblind-friendly)": "cividis",
+    "Plasma (perceptual)": "plasma",
+    "Inferno (perceptual)": "inferno",
+    "Magma (perceptual)": "magma",
+    "Turbo (high-contrast)": "turbo",
+    "Matplotlib tab10": "tab10",
+    "Matplotlib tab20": "tab20",
+    "Matplotlib Set2 (pastel)": "Set2",
+    "Matplotlib Dark2": "Dark2",
+    "Matplotlib Paired": "Paired",
+
+}
+
+
+def sample_palette_colors(palette_choice: str, n: int) -> List[str]:
+    # Default
+    if palette_choice == "Default":
+        base = DEFAULT_COLOR_PALETTE
+        if n <= len(base):
+            return base[:n]
+        return (base * ((n + len(base) - 1) // len(base)))[:n]
+
+    # Plotly scientific sequential palettes
+    if palette_choice in PLOTLY_SEQ:
+        return sample_plotly_sequential(palette_choice, n=n, lo=0.10, hi=0.95)
+
+    # Matplotlib qualitative (tab10/tab20/Set2/Dark2/Paired)
+    cmap_name = PALETTE_LIBRARY.get(palette_choice, "tab10")
+    cmap = colormaps.get_cmap(cmap_name)
+    if hasattr(cmap, "colors") and cmap.colors is not None:
+        base = [mcolors.to_hex(c) for c in cmap.colors]
+        if n <= len(base):
+            return base[:n]
+        return (base * ((n + len(base) - 1) // len(base)))[:n]
+
+    # fallback (shouldn't usually hit)
+    return DEFAULT_COLOR_PALETTE[:n]
+
+def get_palette_colors(palette_choice: str, n: int) -> List[str]:
+    """
+    Return n hex colors for the selected palette.
+    - Qualitative palettes: cycle through base colors if n > available.
+    - Sequential palettes: sample smoothly across [lo, hi] to avoid near-black endpoints.
+    """
+    
+    # Your custom default palette
+    if palette_choice == "Default":
+        base = DEFAULT_COLOR_PALETTE
+        if n <= len(base):
+            return base[:n]
+        return (base * ((n + len(base) - 1) // len(base)))[:n]
+
+    cmap_name = PALETTE_LIBRARY.get(palette_choice, "tab10")
+    cmap = colormaps[cmap_name]
+
+    # If the colormap is qualitative / listed, it often has a finite list of colors.
+    listed = getattr(cmap, "colors", None)
+    if listed is not None:
+        base = [mcolors.to_hex(c) for c in listed]
+        if n <= len(base):
+            return base[:n]
+        return (base * ((n + len(base) - 1) // len(base)))[:n]
+
+    # Sequential/continuous: sample smoothly over a trimmed range to avoid dark/bright extremes
+    if n <= 1:
+        t_vals = [0.6]  # single color: mid tone
+    else:
+        lo, hi = 0.08, 0.95  # trim ends: avoids near-black + near-white
+        t_vals = np.linspace(lo, hi, n)
+
+    return [mcolors.to_hex(cmap(t)) for t in t_vals]
+
+def render_palette_preview(colors: List[str]) -> str:
+    swatches = "".join(
+        f"<span style='display:inline-block;width:18px;height:18px;"
+        f"margin-right:6px;border-radius:4px;border:1px solid rgba(255,255,255,0.35);"
+        f"background:{c};'></span>"
+        for c in colors
+    )
+    return f"<div style='margin-top:6px;margin-bottom:4px;'>{swatches}</div>"
+
+def pick_folder_dialog() -> Optional[str]:
+    """Open a native folder picker and return selected path or None."""
+    if not TK_AVAILABLE:
+        return None
+
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)  # bring dialog to front
+    folder = filedialog.askdirectory()
+    root.destroy()
+
+    return folder if folder else None
+
 def yes_no(v) -> str:
     return "Yes" if str(v).lower() in ("1", "true", "yes") else "No"
 
@@ -910,11 +1027,11 @@ def add_nyquist_png(zf: zipfile.ZipFile, datasets, title: str):
     ax.set_aspect('equal', adjustable='box')
 
     ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.38),
-        ncol=min(len(datasets), 4),
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
         frameon=False
     )
+    fig.subplots_adjust(right=0.75)
 
     fig.subplots_adjust(bottom=0.22)
 
@@ -1011,15 +1128,15 @@ def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
         ),
 
         legend=dict(
-            orientation="h",
-            y=-0.15,
-            x=0.5,
-            xanchor="center",
+            orientation="v",
+            y=0.5,
+            yanchor="middle",
+            x=1.02,
+            xanchor="left",
             font=dict(size=legend_font_size, color="black"),
             bgcolor="rgba(255,255,255,0.9)"
         ),
-
-        margin=dict(l=0, r=0, b=120, t=20)
+        margin=dict(l=0, r=250, b=40, t=20)
     )
 
     img_bytes = fig.to_image(
@@ -1217,15 +1334,15 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
         ),
 
         legend=dict(
-            orientation="h",
-            y=-0.15,
-            x=0.5,
-            xanchor="center",
+            orientation="v",
+            y=0.5,
+            yanchor="middle",
+            x=1.02,
+            xanchor="left",
             font=dict(size=legend_font_size, color="black"),
             bgcolor="rgba(255,255,255,0.9)"
         ),
-
-        margin=dict(l=0, r=0, b=120, t=20)
+        margin=dict(l=0, r=250, b=40, t=20)
     )
 
     img_bytes = fig.to_image(
@@ -1313,13 +1430,11 @@ def add_bode_png(zf: zipfile.ZipFile, datasets, title: str, real: bool):
 
     # ---- Legend BELOW ----
     ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.20),
-        ncol=min(len(datasets), 4),
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
         frameon=False
     )
-
-    fig.subplots_adjust(bottom=0.25)
+    fig.subplots_adjust(right=0.75)
 
     zf.writestr(f"Bode/{subfolder}/{title}_{subfolder}.png", _fig_to_png_bytes(fig))
 
@@ -1370,13 +1485,11 @@ def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
 
     # ---- Legend BELOW ----
     ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.20),
-        ncol=min(len(datasets), 4),
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
         frameon=False
     )
-
-    fig.subplots_adjust(bottom=0.25)
+    fig.subplots_adjust(right=0.75)
 
     zf.writestr(f"DRT/{title}.png", _fig_to_png_bytes(fig))
 
@@ -1418,12 +1531,11 @@ def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str):
     ax.tick_params(axis="x", rotation=30)
 
     ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.22),
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
         frameon=False
     )
-
-    fig.subplots_adjust(bottom=0.30)
+    fig.subplots_adjust(right=0.78)
 
     zf.writestr(f"CNLS/{fname}_bar.png", _fig_to_png_bytes(fig))
 
@@ -1486,15 +1598,18 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
+    n = len(legend_handles)
+    legend_font = max(6, min(10, int(12 - 0.25 * n)))
+
     ax.legend(
         handles=legend_handles,
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.18),
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
         frameon=False,
-        ncol=2
+        fontsize=legend_font
     )
 
-    fig.subplots_adjust(bottom=0.28)
+    fig.subplots_adjust(right=0.78)
 
     zf.writestr(
         f"CNLS/LinePlots/{param}.png",
@@ -1575,13 +1690,12 @@ def add_cnls_elements_fitting_png(
 
     # ---- Legend BELOW (consistent with others) ----
     ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.20),
-        ncol=min(len(rq_elements) + 1, 4),
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        ncol=1,
         frameon=False
     )
-
-    fig.subplots_adjust(bottom=0.25)
+    fig.subplots_adjust(right=0.78)
 
     zf.writestr(
         f"CNLS/Fitting/{fname}_DRTFitting.png",
@@ -1649,13 +1763,12 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
     ax.spines["right"].set_visible(False)
 
     ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.35),
-        ncol=min(len(rq_elements) + 1, 4),
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        ncol=1,
         frameon=False
     )
-
-    fig.subplots_adjust(bottom=0.25)
+    fig.subplots_adjust(right=0.78)
 
     zf.writestr(
         f"CNLS/Fitting/{fname}_NyquistFit.png",
@@ -1679,7 +1792,7 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
         markersize=4,
         linewidth=1.2,
         color=COLOR_PALETTE[0],
-        label="Real residual"
+        label="Real"
     )
 
     ax.semilogx(
@@ -1688,7 +1801,7 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
         markersize=4,
         linewidth=1.2,
         color=COLOR_PALETTE[1],
-        label="Imag residual"
+        label="Imaginary"
     )
 
     ax.set_xlabel("Frequency [Hz]")
@@ -1699,12 +1812,12 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
     ax.spines["right"].set_visible(False)
 
     ax.legend(
-        loc="upper center",
-        bbox_to_anchor=(0.5, -0.20),
+        loc="center left",
+        bbox_to_anchor=(1.02, 0.5),
+        ncol=1,
         frameon=False
     )
-
-    fig.subplots_adjust(bottom=0.25)
+    fig.subplots_adjust(right=0.78)
 
     zf.writestr(
         f"CNLS/Fitting/{fname}_Residuals.png",
@@ -1777,8 +1890,32 @@ st.set_page_config(page_title="SOCEIS Data Viewer", layout="wide")
 st.title("SOCEIS Data Viewer")
 
 with st.sidebar:
-    root_input = st.text_input("Root folder (auto-discover EIS)", value=str(DEFAULT_ROOT_FOLDER))
-    root_path = Path(root_input)
+    # --- Root folder input + browse button (manual typing preserved) ---
+    if "root_input" not in st.session_state:
+        st.session_state.root_input = str(DEFAULT_ROOT_FOLDER)
+
+    col_left, col_right = st.columns([0.82, 0.18], vertical_alignment="bottom")
+
+    with col_left:
+        st.session_state.root_input = st.text_input(
+            "Root folder (auto-discover EIS)",
+            value=st.session_state.root_input
+        )
+
+    with col_right:
+        browse = st.button("📁", use_container_width=True)
+
+    if browse:
+        selected_folder = pick_folder_dialog()
+        if selected_folder:
+            st.session_state.root_input = selected_folder
+            st.rerun()
+        else:
+            if not TK_AVAILABLE:
+                st.warning("Folder picker unavailable (tkinter not available). Please type the path.")
+            # If user canceled dialog, do nothing.
+
+    root_path = Path(st.session_state.root_input)
 
     eis_files = discover_eis_files(root_path) if root_path.exists() else []
     if not eis_files:
@@ -1786,9 +1923,55 @@ with st.sidebar:
         st.stop()
 
     display_map = {str(f.relative_to(root_path)): f for f in eis_files}
+    
 
-    selected = st.multiselect("Select EIS files", list(display_map.keys()))
-    files_to_process = [display_map[s] for s in selected]
+   # ---- init palette choice BEFORE any read ----
+    if "palette_choice" not in st.session_state:
+        st.session_state.palette_choice = "Default"
+
+    PALETTE_PREVIEW_N = 10  # keep preview squares fixed
+
+    # ---- Initialize state ----
+    if "selected_files" not in st.session_state:
+        st.session_state.selected_files = []
+
+    st.markdown("### Select EIS files")
+
+    col_left, col_right = st.columns([0.88, 0.12], vertical_alignment="bottom")
+
+    # ---- Button FIRST ----
+    with col_right:
+        if st.button("All", use_container_width=True):
+            st.session_state.selected_files = list(display_map.keys())
+
+    # ---- Then create the widget ----
+    with col_left:
+        selected = st.multiselect(
+            " ",
+            options=list(display_map.keys()),
+            key="selected_files"
+        )
+
+    files_to_process = [display_map[s] for s in st.session_state.selected_files]
+
+
+    n_files = max(1, len(files_to_process))
+    st.markdown("### Colors")
+
+    # (2) Palette selector (single widget with one key)
+    st.selectbox(
+        "Color palette",
+        options=list(PALETTE_LIBRARY.keys()),
+        key="palette_choice",
+    )
+
+    # (3) Actual colors used in plots (adapts to number of selected files)
+    COLOR_PALETTE = sample_palette_colors(st.session_state.palette_choice, n=n_files)
+
+    # (4) Preview (fixed number of squares, but correct palette range)
+    preview_colors = sample_palette_colors(st.session_state.palette_choice, n=PALETTE_PREVIEW_N)
+    st.markdown(render_palette_preview(preview_colors), unsafe_allow_html=True)
+    
 
     st.header("Nyquist")
     nyquist_selected = st.multiselect("Nyquist types", NYQUIST_TYPES, default=DEFAULT_NYQUIST)
