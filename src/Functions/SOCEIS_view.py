@@ -652,7 +652,7 @@ def nyquist_3d_plotly(datasets, title):
         title=title,
         template="plotly_dark",
         scene=dict(
-            xaxis=dict(title="Z′ [Ω·cm²]"),
+            xaxis=dict(title="Z′ [Ω·cm²]",autorange="reversed"),
             yaxis=dict(title="", showticklabels=False),
             zaxis=dict(title="−Z″ [Ω·cm²]"),
             aspectmode="manual",
@@ -669,6 +669,66 @@ def nyquist_3d_plotly(datasets, title):
 
     return fig
 
+def nyquist_3d_plotly_cols(datasets, title, x_col: int, y_col: int, negate_y: bool = True):
+    fig = go.Figure()
+
+    # gather global ranges for equal-unit scaling
+    all_x = []
+    all_z = []
+    for _, df in datasets:
+        x = pd.to_numeric(df.iloc[:, x_col], errors="coerce").to_numpy()
+        zraw = pd.to_numeric(df.iloc[:, y_col], errors="coerce").to_numpy()
+        z = (-zraw) if negate_y else zraw
+        all_x.append(x)
+        all_z.append(z)
+
+    all_x = np.concatenate([v[np.isfinite(v)] for v in all_x]) if all_x else np.array([])
+    all_z = np.concatenate([v[np.isfinite(v)] for v in all_z]) if all_z else np.array([])
+
+    xmin, xmax = (float(np.min(all_x)), float(np.max(all_x))) if all_x.size else (0.0, 1.0)
+    zmin, zmax = (float(np.min(all_z)), float(np.max(all_z))) if all_z.size else (0.0, 1.0)
+
+    x_range = max(xmax - xmin, 1e-12)
+    z_range = max(zmax - zmin, 1e-12)
+
+    # plot traces
+    for i, (name, df) in enumerate(datasets):
+        x = pd.to_numeric(df.iloc[:, x_col], errors="coerce")
+        zraw = pd.to_numeric(df.iloc[:, y_col], errors="coerce")
+        z = -zraw if negate_y else zraw
+        y = np.full_like(x, i)
+
+        color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
+
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode="markers",
+            marker=dict(size=3, color=color, opacity=0.6),
+            showlegend=False
+        ))
+
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode="lines",
+            name=name,
+            line=dict(color=color, width=4)
+        ))
+
+    fig.update_layout(
+        title=title,
+        template="plotly_dark",
+        scene=dict(
+            xaxis=dict(title="Z′ [Ω·cm²]",autorange="reversed"),
+            yaxis=dict(title="", showticklabels=False),
+            zaxis=dict(title="−Z″ [Ω·cm²]"),
+            aspectmode="manual",
+            aspectratio=dict(x=x_range, y=0.35 * x_range, z=z_range),
+            camera=dict(eye=dict(x=-1.7, y=1.7, z=1.7))
+        ),
+        margin=dict(l=0, r=0, b=0, t=40)
+    )
+
+    return fig
 
 def drt_3d_plotly(datasets, title):
 
@@ -706,7 +766,8 @@ def drt_3d_plotly(datasets, title):
                 dtick=1,                 # one tick per decade
                 tickformat=".1g",        # clean numeric format
                 exponentformat="power",  # 10^x style if needed
-                showexponent="all"
+                showexponent="all",
+                autorange="reversed",
             ),
 
             yaxis=dict(
@@ -905,26 +966,20 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
     if "DRT" not in xls.sheet_names or "Summary" not in xls.sheet_names:
         return None
 
-    # ---- Detect RQ elements from Summary ----
     summary_df = pd.read_excel(xls, "Summary", header=None)
-
     elements_raw = summary_df.iloc[1, 0]  # A2 cell
-
-    # Example: ['L1', 'R2', 'RQ3', 'RQ4', ...]
     rq_elements = re.findall(r"RQ\d+", str(elements_raw))
 
-    # ---- Read DRT sheet ----
     df = pd.read_excel(xls, "DRT")
 
-    if df.shape[1] < 6:
+    # Need at least: freq(0), total(1), ... contributions start at col 5
+    if df.shape[1] <= 5:
         return None
 
     freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
     gamma_total = pd.to_numeric(df.iloc[:, 1], errors="coerce")
 
     fig = go.Figure()
-
-    # ---- Main total DRT ----
     fig.add_scatter(
         x=freq,
         y=gamma_total,
@@ -933,20 +988,19 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
         line=dict(color="white", width=3)
     )
 
-    # Generate enough colors for all RQ elements
+    # How many contribution columns actually exist?
+    contrib_start = 5
+    n_available = df.shape[1] - contrib_start
+    n_use = min(len(rq_elements), n_available)
+
     element_colors = sample_palette_colors(
         st.session_state.palette_choice,
-        n=len(rq_elements)
+        n=max(1, n_use)
     )
 
-    # ---- Individual RQ contributions ----
-    for i, rq in enumerate(rq_elements):
-
-        # DRT sheet structure:
-        # After col 4, gamma contributions start
-        gamma_elem = pd.to_numeric(
-            df.iloc[:, 5 + i], errors="coerce"
-        )
+    for i in range(n_use):
+        rq = rq_elements[i]
+        gamma_elem = pd.to_numeric(df.iloc[:, contrib_start + i], errors="coerce")
 
         fig.add_scatter(
             x=freq,
@@ -954,6 +1008,16 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
             mode="lines",
             name=rq,
             line=dict(color=element_colors[i])
+        )
+    
+    # Optional: warn in the UI if mismatch (helps debugging)
+    if len(rq_elements) > n_available:
+        dropped = ", ".join(rq_elements[n_available:])
+        st.warning(
+            f"Summary lists {len(rq_elements)} RQ elements but DRT sheet provides only "
+            f"{n_available} contribution columns.\n\n"
+            f"Plotted: {', '.join(rq_elements[:n_available])}\n"
+            f"Omitted: {dropped}"
         )
 
     fig.update_layout(
@@ -1051,15 +1115,16 @@ def add_nyquist_png(zf: zipfile.ZipFile, datasets, title: str):
         x = pd.to_numeric(df.iloc[:, 1], errors="coerce")
         y = -pd.to_numeric(df.iloc[:, 2], errors="coerce")
 
-        ax.plot(
-            x, y,
-            linestyle='None',
-            marker='o',
-            markersize=3,
-            markerfacecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
-            markeredgecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
-            alpha=0.6
-        )
+        if not st.session_state.get("export_no_nyquist_markers", False):
+            ax.plot(
+                x, y,
+                linestyle='None',
+                marker='o',
+                markersize=3,
+                markerfacecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+                markeredgecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+                alpha=0.6
+            )
 
         ax.plot(
             x, y,
@@ -1089,7 +1154,10 @@ def add_nyquist_png(zf: zipfile.ZipFile, datasets, title: str):
     ax.set_xlabel("Z′ [Ω·cm²]")
     ax.set_ylabel("−Z″ [Ω·cm²]")
 
-    ax.grid(True, linewidth=0.5, alpha=0.3)
+    if st.session_state.get("export_no_grid", False):
+        ax.grid(False)
+    else:
+        ax.grid(True, linewidth=0.5, alpha=0.3)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
@@ -1145,6 +1213,7 @@ def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
                 linewidth=3,
 
                 ticks="outside",
+                autorange="reversed",
             ),
 
             yaxis=dict(
@@ -1229,15 +1298,16 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
         x = pd.to_numeric(df.iloc[:, 2], errors="coerce")
         y = -pd.to_numeric(df.iloc[:, 3], errors="coerce")
 
-        ax.plot(
-            x, y,
-            linestyle='None',
-            marker='o',
-            markersize=3,
-            markerfacecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
-            markeredgecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
-            alpha=0.6
-        )
+        if not st.session_state.get("export_no_nyquist_markers", False):
+            ax.plot(
+                x, y,
+                linestyle='None',
+                marker='o',
+                markersize=3,
+                markerfacecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+                markeredgecolor=COLOR_PALETTE[i % len(COLOR_PALETTE)],
+                alpha=0.6
+            )
 
         ax.plot(
             x, y,
@@ -1269,7 +1339,10 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
 
     ax.set_aspect("equal", adjustable="box")
 
-    ax.grid(True, linewidth=0.5, alpha=0.3)
+    if st.session_state.get("export_no_grid", False):
+        ax.grid(False)
+    else:
+        ax.grid(True, linewidth=0.5, alpha=0.3)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
@@ -1283,7 +1356,141 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
 
     zf.writestr("DRT/Nyquist_fit.png", _fig_to_png_bytes(fig))
 
+def nyquist_fit_3d_plotly(datasets, title="Nyquist – DRT Smooth Fit (3D)"):
+    """
+    Nyquist-fit datasets use:
+      Re  -> df.iloc[:, 2]
+      Im  -> df.iloc[:, 3] (negated for -Z'')
+    """
+    fig = go.Figure()
 
+    # ---- global ranges for equal scaling ----
+    all_x = []
+    all_z = []
+    for _, df in datasets:
+        x = pd.to_numeric(df.iloc[:, 2], errors="coerce").to_numpy()
+        z = (-pd.to_numeric(df.iloc[:, 3], errors="coerce")).to_numpy()
+        x = x[np.isfinite(x)]
+        z = z[np.isfinite(z)]
+        if len(x): all_x.append(x)
+        if len(z): all_z.append(z)
+
+    if all_x:
+        all_x = np.concatenate(all_x)
+        xmin, xmax = float(np.min(all_x)), float(np.max(all_x))
+    else:
+        xmin, xmax = 0.0, 1.0
+
+    if all_z:
+        all_z = np.concatenate(all_z)
+        zmin, zmax = float(np.min(all_z)), float(np.max(all_z))
+    else:
+        zmin, zmax = 0.0, 1.0
+
+    x_range = max(xmax - xmin, 1e-12)
+    z_range = max(zmax - zmin, 1e-12)
+
+    # ---- traces ----
+    for i, (name, df) in enumerate(datasets):
+        x = pd.to_numeric(df.iloc[:, 2], errors="coerce")
+        z = -pd.to_numeric(df.iloc[:, 3], errors="coerce")
+        y = np.full_like(x, i)
+
+        color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
+
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode="markers",
+            marker=dict(size=3, color=color, opacity=0.6),
+            showlegend=False
+        ))
+
+        fig.add_trace(go.Scatter3d(
+            x=x, y=y, z=z,
+            mode="lines",
+            name=name,
+            line=dict(color=color, width=4)
+        ))
+
+    fig.update_layout(
+        title=title,
+        template="plotly_dark",
+        scene=dict(
+            xaxis=dict(title="Z′ [Ω·cm²]",autorange="reversed"),
+            yaxis=dict(title="", showticklabels=False),
+            zaxis=dict(title="−Z″ [Ω·cm²]"),
+            aspectmode="manual",
+            aspectratio=dict(x=x_range, y=0.35 * x_range, z=z_range),
+            camera=dict(eye=dict(x=-1.7, y=1.7, z=1.7))
+        ),
+        margin=dict(l=0, r=0, b=0, t=40)
+    )
+
+    return fig
+
+def add_nyquist_fit_3d_png(zf: zipfile.ZipFile, datasets, title: str = "Nyquist_fit"):
+    """
+    Export Nyquist-fit as 3D PNG using the SAME white/scientific layout
+    style as add_nyquist_3d_png, but with fit columns (Re col=2, Im col=3).
+    """
+    fig = nyquist_fit_3d_plotly(datasets, title)
+
+    n_files = len(datasets)
+    legend_font_size = max(10, min(16, int(22 - 0.8 * n_files)))
+
+    # ---- reuse same layout style as your other 3D Nyquist export ----
+    fig.update_layout(
+        template="plotly_white",
+        title=None,
+
+        font=dict(
+            family="Arial",
+            size=16,
+            color="black"
+        ),
+
+        scene=dict(
+            xaxis=dict(
+                title=dict(text="Z′ [Ω·cm²]", font=dict(size=16, color="black")),
+                tickfont=dict(size=12, color="black"),
+                showgrid=True, gridcolor="lightgray", gridwidth=1,
+                showline=True, linecolor="black", linewidth=3,
+                ticks="outside",
+                autorange="reversed",
+            ),
+            yaxis=dict(
+                title="",
+                showticklabels=False,
+                showgrid=True, gridcolor="lightgray", gridwidth=1,
+                showline=True, linecolor="black", linewidth=3,
+                ticks="outside",
+            ),
+            zaxis=dict(
+                title=dict(text="−Z″ [Ω·cm²]", font=dict(size=16, color="black")),
+                tickfont=dict(size=12, color="black"),
+                showgrid=True, gridcolor="lightgray", gridwidth=1,
+                showline=True, linecolor="black", linewidth=3,
+                ticks="outside",
+            ),
+            camera=dict(
+                projection=dict(type="orthographic"),
+                eye=dict(x=-1.7, y=1.7, z=1.7)
+            )
+        ),
+
+        legend=dict(
+            orientation="v",
+            y=0.5, yanchor="middle",
+            x=1.02, xanchor="left",
+            font=dict(size=legend_font_size, color="black"),
+            bgcolor="rgba(255,255,255,0.9)"
+        ),
+        margin=dict(l=0, r=250, b=40, t=20)
+    )
+
+    img_bytes = fig.to_image(format="png", scale=4, width=1600, height=1000)
+    zf.writestr(f"Nyquist_3D/{title}_3D.png", img_bytes)
+    
 def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
 
     fig = nyquist_3d_plotly(datasets, title)
@@ -1352,6 +1559,7 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
                 linecolor="black",
                 linewidth=3,
                 ticks="outside",
+                autorange="reversed",
             ),
 
             yaxis=dict(
@@ -1450,15 +1658,16 @@ def add_bode_png(zf: zipfile.ZipFile, datasets, title: str, real: bool):
         color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
 
         # --- markers (raw style)
-        ax.semilogx(
-            freq, y,
-            linestyle='None',
-            marker='o',
-            markersize=3,
-            markerfacecolor=color,
-            markeredgecolor=color,
-            alpha=0.6
-        )
+        if not st.session_state.get("export_no_nyquist_markers", False):
+            ax.semilogx(
+                freq, y,
+                linestyle='None',
+                marker='o',
+                markersize=3,
+                markerfacecolor=color,
+                markeredgecolor=color,
+                alpha=0.6
+            )
 
         # --- smooth connecting line
         ax.semilogx(
@@ -1491,7 +1700,10 @@ def add_bode_png(zf: zipfile.ZipFile, datasets, title: str, real: bool):
     ax.set_ylabel(ylabel)
 
     # Nature-style grid
-    ax.grid(True, linewidth=0.5, alpha=0.3)
+    if st.session_state.get("export_no_grid", False):
+        ax.grid(False)
+    else:
+        ax.grid(True, linewidth=0.5, alpha=0.3)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -1528,7 +1740,7 @@ def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
             linewidth=1.5,
             alpha=0.85,
             color=COLOR_PALETTE[i % len(COLOR_PALETTE)],
-            label=latex_label(name)
+            label=latex_label(name),
         )
 
         all_freq.extend(freq.dropna())
@@ -1546,7 +1758,10 @@ def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
     ax.set_xlabel("Frequency [Hz]")
     ax.set_ylabel("γ [Ω·cm²·s]")
 
-    ax.grid(True, linewidth=0.5, alpha=0.3)
+    if st.session_state.get("export_no_grid", False):
+        ax.grid(False)
+    else:
+        ax.grid(True, linewidth=0.5, alpha=0.3)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -1654,7 +1869,10 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
         f"Mean value: {mean_val:.3g} | Std value: {std_val:.3g}"
     )
 
-    ax.grid(True, linewidth=0.5, alpha=0.3)
+    if st.session_state.get("export_no_grid", False):
+        ax.grid(False)
+    else:
+        ax.grid(True, linewidth=0.5, alpha=0.3)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -1749,7 +1967,10 @@ def add_cnls_elements_fitting_png(
     ax.set_xlabel("Frequency [Hz]")
     ax.set_ylabel("γ [Ω·cm²·s]")
 
-    ax.grid(True, linewidth=0.5, alpha=0.3)
+    if st.session_state.get("export_no_grid", False):
+        ax.grid(False)
+    else:
+        ax.grid(True, linewidth=0.5, alpha=0.3)
 
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -1831,7 +2052,10 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
     ax.set_ylabel("−Z″ [Ω·cm²]")
     ax.set_aspect("equal", adjustable="box")
 
-    ax.grid(True, linewidth=0.5, alpha=0.3)
+    if st.session_state.get("export_no_grid", False):
+        ax.grid(False)
+    else:
+        ax.grid(True, linewidth=0.5, alpha=0.3)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
@@ -1859,28 +2083,49 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
     res_real = 100 * pd.to_numeric(df.iloc[:, 7], errors="coerce")
     res_imag = 100 * pd.to_numeric(df.iloc[:, 8], errors="coerce")
 
-    ax.semilogx(
-        freq, res_real,
-        marker='o',
-        markersize=4,
-        linewidth=1.2,
-        color=COLOR_PALETTE[0],
-        label="Real"
-    )
+    if st.session_state.get("export_no_nyquist_markers", False):
 
-    ax.semilogx(
-        freq, res_imag,
-        marker='o',
-        markersize=4,
-        linewidth=1.2,
-        color=COLOR_PALETTE[1],
-        label="Imaginary"
-    )
+        ax.semilogx(
+            freq, res_real,
+            linewidth=1.2,
+            color=COLOR_PALETTE[0],
+            label="Real"
+        )
+
+        ax.semilogx(
+            freq, res_imag,
+            linewidth=1.2,
+            color=COLOR_PALETTE[1],
+            label="Imaginary"
+        )
+
+    else:
+
+        ax.semilogx(
+            freq, res_real,
+            marker='o',
+            markersize=4,
+            linewidth=1.2,
+            color=COLOR_PALETTE[0],
+            label="Real"
+        )
+
+        ax.semilogx(
+            freq, res_imag,
+            marker='o',
+            markersize=4,
+            linewidth=1.2,
+            color=COLOR_PALETTE[1],
+            label="Imaginary"
+        )
 
     ax.set_xlabel("Frequency [Hz]")
     ax.set_ylabel("Residual [%]")
 
-    ax.grid(True, linewidth=0.5, alpha=0.3)
+    if st.session_state.get("export_no_grid", False):
+        ax.grid(False)
+    else:
+        ax.grid(True, linewidth=0.5, alpha=0.3)
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
@@ -1955,7 +2200,8 @@ def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_cho
     ax.set_xticks(np.arange(-.5, n_cols, 1), minor=True)
     ax.set_yticks(np.arange(-.5, n_rows, 1), minor=True)
 
-    ax.grid(which="minor", color="white", linestyle="-", linewidth=1.2)
+    if not st.session_state.get("export_no_grid", False):
+        ax.grid(which="minor", color="white", linestyle="-", linewidth=1.2)
     ax.tick_params(which="minor", bottom=False, left=False)
 
     # ---- Remove top/right spines ----
@@ -2117,8 +2363,20 @@ with st.sidebar:
     drt_3d = st.checkbox("3D DRT", value=False)
 
     st.header("Export")
+    export_no_nyquist_markers = st.checkbox(
+        "Remove markers",
+        value=False,
+        key="export_no_nyquist_markers"
+    )
+
+    export_no_grid = st.checkbox(
+        "Remove grid lines",
+        value=False,
+        key="export_no_grid"
+    )
     export_folder = Path(st.text_input("Export folder path", value=str(DEFAULT_EXPORT_FOLDER)))
     save_zip = st.button("💾 Save ZIP")
+    # --- Export styling toggles ---
 
 if not files_to_process:
     st.info("Select at least one EIS file.")
@@ -2281,16 +2539,25 @@ if bode_selected:
                 width="stretch",
                 key=f"bode_{p}_imag"
             )
+
+if nyquist_fit_selected and nyquist_fit_data:
+        if not nyquist_show_params and not nyquist_selected:
+            st.subheader("Nyquist")
+        if nyquist_fit_selected and nyquist_fit_data:
+            if nyquist_3d:
+                st.plotly_chart(
+                    nyquist_3d_plotly_cols(nyquist_fit_data, "Nyquist - DRT Smooth Fit", x_col=2, y_col=3, negate_y=True),
+                    width="stretch"
+                )
+            else:
+                st.plotly_chart(nyquist_fit_plotly(nyquist_fit_data), width="stretch")
+
 if drt_show_params and drt_param_rows:
     st.subheader("DRT")
     df_drt_params = pd.DataFrame(drt_param_rows)
     df_drt_params.index = np.arange(1, len(df_drt_params) + 1)
     df_drt_params.index.name = "Index"
     st.dataframe(df_drt_params, width="stretch")
-if nyquist_fit_selected and nyquist_fit_data:
-        if not drt_show_params:
-            st.subheader("DRT")
-        st.plotly_chart(nyquist_fit_plotly(nyquist_fit_data), width="stretch")
 if drt_selected:
     if not drt_show_params:
         st.subheader("DRT")
@@ -2436,7 +2703,10 @@ if save_zip:
                 else:
                     add_drt_png(zf, data, p)
         if nyquist_fit_selected and nyquist_fit_data:
-            add_nyquist_fit_png(zf, nyquist_fit_data)
+            if nyquist_3d:
+                add_nyquist_fit_3d_png(zf, nyquist_fit_data, title="Nyquist_fit")
+            else:
+                add_nyquist_fit_png(zf, nyquist_fit_data)
 
 
         # CNLS
