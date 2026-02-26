@@ -351,6 +351,230 @@ def separate_multichannel_biologic(config, EIS, CNLS):
         except Exception as e:
             print(f"Error processing file {data_file}: {str(e)}")
 
+import pandas as pd
+import numpy as np
+import re
+import os
+import csv
+
+def separate_multichannel_ftd(config, EIS, CNLS):
+    """
+    Process FTD files by separating stack and cell impedance data into different CSV files.
+    """
+    def smart_split(line):
+        """Split line by tabs."""
+        return [x.strip() for x in line.strip().split('\t') if x]
+
+    def detect_impedance_columns(header):
+        """Detect all impedance-related columns."""
+        columns = {}
+        
+        for i, col_name in enumerate(header):
+            # 检测频率列
+            if 'Z_Freq' in col_name or 'Freq' in col_name:
+                columns['freq'] = i
+                print(f"Detected frequency column: {col_name} at index {i}")
+            
+            # 检测电堆阻抗列 (无数字后缀)
+            elif col_name.startswith('Z_Real') and not re.match(r'Z_Real\d+', col_name):
+                columns['real_stack'] = i
+                print(f"Detected stack real impedance: {col_name} at index {i}")
+            
+            elif col_name.startswith('Z_Imag') and not re.match(r'Z_Imag\d+', col_name):
+                columns['imag_stack'] = i
+                print(f"Detected stack imaginary impedance: {col_name} at index {i}")
+            
+            # 检测电池阻抗列 (数字后缀格式)
+            elif re.match(r'Z_Real\d+', col_name):
+                if 'real_cells' not in columns:
+                    columns['real_cells'] = {}
+                # 提取数字后缀
+                cell_num = re.search(r'Z_Real(\d+)', col_name).group(1)
+                columns['real_cells'][cell_num] = i
+                print(f"Detected cell {cell_num} real impedance: {col_name} at index {i}")
+            
+            elif re.match(r'Z_Imag\d+', col_name):
+                if 'imag_cells' not in columns:
+                    columns['imag_cells'] = {}
+                # 提取数字后缀
+                cell_num = re.search(r'Z_Imag(\d+)', col_name).group(1)
+                columns['imag_cells'][cell_num] = i
+                print(f"Detected cell {cell_num} imaginary impedance: {col_name} at index {i}")
+        
+        return columns
+
+    def extract_channel_data(data_rows, impedance_cols, header, channel_type, channel_num=None):
+        """Extract data for specific channel (stack or cell)."""
+        extracted_data = []
+        
+        for row in data_rows:
+            try:
+                # 验证频率数据
+                freq = float(row[impedance_cols['freq']])
+                if freq <= 0 or np.isnan(freq):
+                    continue
+                
+                # 根据通道类型提取数据
+                if channel_type == 'stack':
+                    # 电堆数据：频率 + 电堆阻抗
+                    if 'real_stack' in impedance_cols and 'imag_stack' in impedance_cols:
+                        z_real = float(row[impedance_cols['real_stack']])
+                        z_imag = float(row[impedance_cols['imag_stack']])
+                        
+                        if not (np.isnan(z_real) or np.isinf(z_real) or 
+                                np.isnan(z_imag) or np.isinf(z_imag)):
+                            extracted_row = [
+                                row[impedance_cols['freq']],  # Frequency
+                                row[impedance_cols['real_stack']],  # Z_Real
+                                row[impedance_cols['imag_stack']]   # Z_Imag
+                            ]
+                            extracted_data.append(extracted_row)
+                
+                elif channel_type == 'cell' and channel_num is not None:
+                    # 电池数据：频率 + 指定电池的阻抗
+                    real_key = str(channel_num)
+                    imag_key = str(channel_num)
+                    
+                    if (real_key in impedance_cols.get('real_cells', {}) and 
+                        imag_key in impedance_cols.get('imag_cells', {})):
+                        
+                        z_real = float(row[impedance_cols['real_cells'][real_key]])
+                        z_imag = float(row[impedance_cols['imag_cells'][imag_key]])
+                        
+                        if not (np.isnan(z_real) or np.isinf(z_real) or 
+                                np.isnan(z_imag) or np.isinf(z_imag)):
+                            extracted_row = [
+                                row[impedance_cols['freq']],  # Frequency
+                                row[impedance_cols['real_cells'][real_key]],  # Z_Real
+                                row[impedance_cols['imag_cells'][imag_key]]   # Z_Imag
+                            ]
+                            extracted_data.append(extracted_row)
+                            
+            except (ValueError, IndexError):
+                continue
+        
+        return extracted_data
+
+    # Create output directory
+    directory = config.folder_path
+    individual_dir = os.path.join(directory, "Individual")
+    os.makedirs(individual_dir, exist_ok=True)
+    
+    # Get all FTD files
+    data_files = [f for f in os.listdir(directory) if f.lower().endswith('.ftd')]
+    
+    for data_file in data_files:
+        file_path = os.path.join(directory, data_file)
+        
+        try:
+            # Read file
+            encodings = ['utf-8', 'ISO-8859-1', 'latin1']
+            lines = []
+            for encoding in encodings:
+                try:
+                    with open(file_path, 'r', encoding=encoding) as f:
+                        lines = [line.strip() for line in f if line.strip()]
+                    break
+                except UnicodeDecodeError:
+                    continue
+            
+            if not lines:
+                print(f"Warning: Could not read file {data_file}")
+                continue
+            
+            # Find data start and header
+            data_start_idx = None
+            header_idx = None
+            
+            for i, line in enumerate(lines):
+                if line == "End Comments":
+                    data_start_idx = i + 1
+                    if data_start_idx < len(lines):
+                        header_idx = data_start_idx - 2
+                        header = smart_split(lines[header_idx])
+                        break
+            
+            if header_idx is None:
+                print(f"Warning: Data format incorrect in file {data_file}")
+                continue
+            
+            # Detect impedance columns
+            impedance_cols = detect_impedance_columns(header)
+            if 'freq' not in impedance_cols:
+                print(f"Warning: No frequency column found in {data_file}")
+                continue
+            
+            # Extract all raw data
+            raw_data = []
+            for i in range(header_idx + 1, len(lines)):
+                parts = smart_split(lines[i])
+                if len(parts) >= len(header):
+                    raw_data.append(parts)
+            
+            base_name = os.path.splitext(data_file)[0]
+            files_created = []
+            
+            # 保存电堆数据 (_0后缀)
+            if 'real_stack' in impedance_cols and 'imag_stack' in impedance_cols:
+                stack_data = extract_channel_data(raw_data, impedance_cols, header, 'stack')
+                if stack_data:
+                    stack_df = pd.DataFrame(stack_data, columns=['Freq', 'Z_Real', 'Z_Imag'])
+                    output_file = f"{base_name}_0.csv"
+                    output_path = os.path.join(individual_dir, output_file)
+                    
+                    stack_df.to_csv(
+                        output_path,
+                        index=False,
+                        sep='\t',
+                        encoding='utf-8',
+                        lineterminator='\n',
+                        quoting=csv.QUOTE_NONE,
+                        escapechar='\\'
+                    )
+                    files_created.append(f"stack (_0): {len(stack_data)} points")
+                    print(f"Saved stack data to {output_file}")
+            
+            # 保存各电池数据 (_1, _2, _3...后缀)
+            if 'real_cells' in impedance_cols:
+                for cell_num in impedance_cols['real_cells'].keys():
+                    if cell_num in impedance_cols.get('imag_cells', {}):
+                        cell_data = extract_channel_data(raw_data, impedance_cols, header, 'cell', cell_num)
+                        if cell_data:
+                            cell_df = pd.DataFrame(cell_data, columns=['Freq', 'Z_Real', 'Z_Imag'])
+                            output_file = f"{base_name}_{cell_num}.csv"
+                            output_path = os.path.join(individual_dir, output_file)
+                            
+                            cell_df.to_csv(
+                                output_path,
+                                index=False,
+                                sep='\t',
+                                encoding='utf-8',
+                                lineterminator='\n',
+                                quoting=csv.QUOTE_NONE,
+                                escapechar='\\'
+                            )
+                            files_created.append(f"cell {cell_num} (_{cell_num}): {len(cell_data)} points")
+                            print(f"Saved cell {cell_num} data to {output_file}")
+            
+            if files_created:
+                print(f"Successfully processed {data_file}: {', '.join(files_created)}")
+            else:
+                print(f"Warning: No valid impedance data found in {data_file}")
+            
+            # Update GUI
+            config.folder_path = individual_dir
+            dpg.delete_item("selected_directory")
+            dpg.add_text(config.folder_path, tag="selected_directory", parent="child_window_folder_directory")
+            dpg.set_value("file_extension_selector", ".csv")
+            config.data_import_function = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                "Functions", "01_Data_read", "read_general_all.py")
+            gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
+            
+        except Exception as e:
+            print(f"Error processing file {data_file}: {str(e)}")
+            import traceback
+            traceback.print_exc()
 
 def font_size_confirm_callback(sender, app_data, config, font_path_medium, font_path_light):
     config.font_size = dpg.get_value("input_text_font_size")
