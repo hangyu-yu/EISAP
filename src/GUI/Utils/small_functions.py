@@ -357,9 +357,9 @@ import re
 import os
 import csv
 
-def separate_multichannel_ftd(config, EIS, CNLS):
+def separate_multichannel_fcd(config, EIS, CNLS):
     """
-    Process FTD files by separating stack and cell impedance data into different CSV files.
+    Process fcd files by separating stack and cell impedance data into different CSV files.
     """
     def smart_split(line):
         """Split line by tabs."""
@@ -460,8 +460,8 @@ def separate_multichannel_ftd(config, EIS, CNLS):
     individual_dir = os.path.join(directory, "Individual")
     os.makedirs(individual_dir, exist_ok=True)
     
-    # Get all FTD files
-    data_files = [f for f in os.listdir(directory) if f.lower().endswith('.ftd')]
+    # Get all fcd files
+    data_files = [f for f in os.listdir(directory) if f.lower().endswith('.fcd')]
     
     for data_file in data_files:
         file_path = os.path.join(directory, data_file)

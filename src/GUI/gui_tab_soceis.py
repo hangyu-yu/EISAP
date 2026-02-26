@@ -327,7 +327,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                     with dpg.menu(label="Selected directory"):
                         dpg.add_menu_item(label="Separate multi-channel zahner files", callback=lambda: gui_utils.small_functions.separate_multichannel_zahner(config, EIS, CNLS)) 
                         dpg.add_menu_item(label="Separate multi-channel biologic files", callback=lambda: gui_utils.small_functions.separate_multichannel_biologic(config, EIS, CNLS)) 
-                        dpg.add_menu_item(label="Separate multi-channel ftd files", callback=lambda: gui_utils.small_functions.separate_multichannel_ftd(config, EIS, CNLS)) 
+                        dpg.add_menu_item(label="Separate multi-channel fcd files", callback=lambda: gui_utils.small_functions.separate_multichannel_fcd(config, EIS, CNLS)) 
                 dpg.add_text(config.folder_path, tag="selected_directory", parent="child_window_folder_directory")
 
         # Setup the file dialog
@@ -338,7 +338,7 @@ def gui_tab_soceis(config, EIS, CNLS):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="extension_spacer")
             dpg.add_text("File extension:")
             dpg.add_combo(
-                items=[".txt", ".mpt", ".csv", ".xlsx", ".dta", ".z", ".ftd"],
+                items=[".txt", ".mpt", ".csv", ".xlsx", ".dta", ".z", ".fcd"],
                 tag = 'file_extension_selector',
                 default_value=config.file_extensions,
                 callback=lambda _, app_data: gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS),
