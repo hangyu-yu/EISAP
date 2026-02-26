@@ -34,21 +34,30 @@ _________________________________________________________________
 
 """
 
-from pathlib import Path
-from datetime import datetime
-from typing import List, Dict, Tuple, Optional
-from io import BytesIO
-import zipfile
+import argparse
+import ast
+import os
 import re
+import sys
+import threading
+import time
+import zipfile
+from datetime import datetime
+from io import BytesIO
+from pathlib import Path
+from typing import List, Dict, Tuple, Optional
+from matplotlib import colormaps
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import streamlit as st
+import plotly.colors as pc
 import plotly.graph_objects as go
 import plotly.io as pio
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-from matplotlib import colormaps
-import plotly.colors as pc
+import streamlit as st
+from mpl_toolkits.mplot3d import Axes3D
+from streamlit.runtime import runtime
+from streamlit.runtime.scriptrunner import get_script_run_ctx
 
 # --- Optional GUI folder picker (works for local Streamlit runs) ---
 try:
@@ -64,8 +73,21 @@ pio.templates.default = "plotly_dark"
 # Configuration
 # ===============================
 
-DEFAULT_ROOT_FOLDER = Path("EIS/SIM")
-DEFAULT_EXPORT_FOLDER = Path("SOCEIS_figures")
+parser = argparse.ArgumentParser()
+parser.add_argument("--root_folder", type=str, default="")
+
+try:
+    args, _ = parser.parse_known_args()
+    parsed_path = args.root_folder
+except SystemExit:
+    parsed_path = ""
+
+if parsed_path:
+    DEFAULT_ROOT_FOLDER = Path(parsed_path)
+else:
+    DEFAULT_ROOT_FOLDER = Path("EIS/SIM")
+
+DEFAULT_EXPORT_FOLDER = Path(os.path.join(DEFAULT_ROOT_FOLDER, "SOCEIS_figures"))
 
 plt.rcParams.update({
     "font.size": 11,
