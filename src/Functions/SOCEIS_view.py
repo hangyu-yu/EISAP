@@ -72,6 +72,49 @@ pio.templates.default = "plotly_dark"
 # ===============================
 # Configuration
 # ===============================
+from pathlib import Path
+
+def ensure_email_prompt_disabled():
+    try:
+        config_path = Path.home() / ".streamlit" / "config.toml"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        if config_path.exists():
+            content = config_path.read_text(encoding="utf-8")
+
+            # If already set to false, do nothing
+            if "showEmailPrompt = false" in content:
+                return
+
+            # If explicitly set to true, replace it
+            if "showEmailPrompt = true" in content:
+                content = content.replace(
+                    "showEmailPrompt = true",
+                    "showEmailPrompt = false"
+                )
+            else:
+                # If the field does not exist, append it
+                if "[general]" in content:
+                    content += "\nshowEmailPrompt = false\n"
+                else:
+                    content += "\n[general]\nshowEmailPrompt = false\n"
+
+            config_path.write_text(content, encoding="utf-8")
+
+        else:
+            # If config file does not exist, create it
+            config_path.write_text(
+                "[general]\nshowEmailPrompt = false\n",
+                encoding="utf-8"
+            )
+
+    except Exception:
+        # Fail silently to avoid breaking Streamlit startup
+        pass
+
+
+# Call before any Streamlit UI code
+ensure_email_prompt_disabled()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--root_folder", type=str, default="")
