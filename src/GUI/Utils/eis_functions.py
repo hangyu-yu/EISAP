@@ -6,6 +6,78 @@ import pandas as pd
 import importlib.util
 import dearpygui.dearpygui as dpg
 
+def _parse_index_list(text: str):
+    """
+    Parse a user string like '1, 3, 10-15' into a sorted unique list of
+    0-based indices.
+
+    User input is 1-based.
+    Internal indexing is converted to 0-based.
+
+    Supports:
+      - commas
+      - spaces
+      - ranges like 10-15
+    """
+
+    if text is None:
+        return []
+
+    s = str(text).strip()
+    if s == "" or s.lower() in {"n/a", "na", "none"}:
+        return []
+
+    out = []
+
+    for token in s.replace(" ", "").split(","):
+        if token == "":
+            continue
+
+        # Range handling (e.g., 3-7)
+        if "-" in token:
+            parts = token.split("-", 1)
+            if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                a, b = int(parts[0]), int(parts[1])
+                lo, hi = (a, b) if a <= b else (b, a)
+
+                # Convert to 0-based and ignore <= 0
+                out.extend([i - 1 for i in range(lo, hi + 1) if i > 0])
+
+        # Single index
+        else:
+            if token.isdigit():
+                val = int(token)
+                if val > 0:
+                    out.append(val - 1)
+
+    # Unique + sorted
+    return sorted(set(out))
+
+
+def _remove_points_from_raw(EIS_tmp, indices):
+    """
+    Remove points from EIS_tmp.raw arrays by index.
+    Applies to raw['f'], raw['Re'], raw['Im'], raw['Z'] and raw['significance'] if present.
+    """
+    if not indices:
+        return
+
+    n = len(EIS_tmp.raw.get("f", []))
+    if n == 0:
+        return
+
+    # Keep only valid indices
+    indices = [i for i in indices if 0 <= i < n]
+    if not indices:
+        return
+
+    mask = np.ones(n, dtype=bool)
+    mask[indices] = False
+
+    for key in ["f", "Re", "Im", "Z", "significance"]:
+        if key in EIS_tmp.raw and EIS_tmp.raw[key] is not None:
+            EIS_tmp.raw[key] = np.asarray(EIS_tmp.raw[key])[mask]
+
 def call_function(file_path, *args, **kwargs):
     """Directly call a function with the same name as the Python file"""
     # Extract the module name (remove path and .py)
@@ -92,6 +164,19 @@ def load_parameters(sender, app_data, config, EIS):
             EIS_tmp.parameter["Extrapolation"]["fmax"] = float(dpg.get_value("extrapolation_fmax"))
             EIS_tmp.parameter["Extrapolation"]["PointsPerDecade"] = int(dpg.get_value("Extrapolation_PointsPerDecade"))
 
+            # --- Manual removal (by indices) ---
+            # You need to create these GUI widgets in gui_tab_eis.py:
+            #   checkbox_manual_remove_points
+            #   input_manual_remove_indices
+            manual_enabled = bool(dpg.get_value("checkbox_manual_remove_points")) if dpg.does_item_exist("checkbox_manual_remove_points") else False
+            manual_text = dpg.get_value("input_manual_remove_indices") if dpg.does_item_exist("input_manual_remove_indices") else ""
+            manual_indices = _parse_index_list(manual_text) if manual_enabled else []
+
+            EIS_tmp.parameter["ManualRemoval"] = {
+                "enabled": manual_enabled,
+                "indices": manual_indices,
+            }
+
             # Store the cell area
             EIS_tmp.store['cell_area_old'] = EIS_tmp.parameter["Sample"]["CellArea"]
             EIS_tmp.store['n_cell_old'] = EIS_tmp.parameter["Sample"]["n_cell"]
@@ -100,44 +185,103 @@ def load_parameters(sender, app_data, config, EIS):
 def process_data(sender, app_data, config, EIS):
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
+
         if file_name_no_ext not in config.store.keys():
+            # If the file isn't loaded yet, nothing meaningful to process here
+            # (data_import should create the store entry + raw data).
+            config.store[file_name_no_ext] = {}
             config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
-        else:
-            EIS_tmp = config.store[file_name_no_ext]['EIS']
-            # 01 - Data cut based on the upper and lower numbers
-            EIS_tmp.rm_hfc_lfc()
 
-            # 02 - Data cut based on the significance values
-            if EIS_tmp.parameter['RM_significance']['rm_significance']:
-                EIS_tmp.rm_significance()
+        EIS_tmp = config.store[file_name_no_ext]['EIS']
 
-            # 04 - Data cut based on KK criterion
-            if EIS_tmp.parameter['KKpreprocess']['OptimalCut']:
-                EIS_tmp.Linear_KK_opt_mu_cut(EIS_tmp.truncated, EIS_tmp.parameter['KKpreprocess'])
+        # ---------------------------------------------------------------------
+        # 0) Always start from RAW (do NOT touch raw; rebuild truncated fresh)
+        # ---------------------------------------------------------------------
+        if EIS_tmp.raw is None or EIS_tmp.raw.get("f", None) is None:
+            print(f"[Warning] No raw data found for {file_name_no_ext}. Skipping.")
+            continue
 
-            # 03 - Data cut due to outliers
-            if EIS_tmp.parameter['Rmoutliers']['Rmoutliers']:
-                EIS_tmp.rm_outliers()
+        EIS_tmp.truncated = {
+            "f": np.copy(EIS_tmp.raw["f"]),
+            "Re": np.copy(EIS_tmp.raw["Re"]),
+            "Im": np.copy(EIS_tmp.raw["Im"]),
+            "Z": np.copy(EIS_tmp.raw["Z"]),
+        }
+        # carry significance if present (some routines may expect it)
+        if "significance" in EIS_tmp.raw and EIS_tmp.raw["significance"] is not None:
+            EIS_tmp.truncated["significance"] = np.copy(EIS_tmp.raw["significance"])
 
-            # 05 - KK test
-            if EIS_tmp.parameter['KK']['KK_test']:
-                EIS_tmp.KK_test(EIS_tmp.truncated)
-            
-            # 06 - Data cut based on KK residual
-            if EIS_tmp.parameter['KK']['RmNonKK']:
-                EIS_tmp.rm_auto_KK()
-                EIS_tmp.KK_test(EIS_tmp.truncated)
-            
-            # 06 - Get smoothed data, LCcorrected data, and extrapolated data
-            EIS_tmp.parameter['Smoothing']['fmax'] = max(EIS_tmp.truncated['f'])
-            EIS_tmp.parameter['Smoothing']['fmin'] = min(EIS_tmp.truncated['f'])
-            EIS_tmp.smooth = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Smoothing'])
+        # ---------------------------------------------------------------------
+        # 1) Automatic preprocessing (operates on truncated)
+        # ---------------------------------------------------------------------
+        # 01 - Upper/lower cut
+        EIS_tmp.rm_hfc_lfc()
+
+        # 02 - Remove based on significance
+        if EIS_tmp.parameter.get('RM_significance', {}).get('rm_significance', False):
+            EIS_tmp.rm_significance()
+
+        # 04 - KK criterion optimal cut
+        if EIS_tmp.parameter.get('KKpreprocess', {}).get('OptimalCut', False):
+            EIS_tmp.Linear_KK_opt_mu_cut(EIS_tmp.truncated, EIS_tmp.parameter['KKpreprocess'])
+
+        # 03 - Outliers removal
+        if EIS_tmp.parameter.get('Rmoutliers', {}).get('Rmoutliers', False):
+            EIS_tmp.rm_outliers()
+
+        # 05 - KK test
+        if EIS_tmp.parameter.get('KK', {}).get('KK_test', False):
+            EIS_tmp.KK_test(EIS_tmp.truncated)
+
+        # 06 - Remove non-KK points (and re-test)
+        if EIS_tmp.parameter.get('KK', {}).get('RmNonKK', False):
+            EIS_tmp.rm_auto_KK()
+            EIS_tmp.KK_test(EIS_tmp.truncated)
+
+        # ---------------------------------------------------------------------
+        # 2) Manual removal (ONLY on truncated, AFTER auto cuts, BEFORE smoothing)
+        # ---------------------------------------------------------------------
+        mr = EIS_tmp.parameter.get("ManualRemoval", {"enabled": False, "indices": []})
+        if mr.get("enabled", False) and EIS_tmp.truncated is not None and EIS_tmp.truncated.get("f", None) is not None:
+            indices = mr.get("indices", [])
+            n = len(EIS_tmp.truncated["f"])
+
+            # Keep valid indices only
+            indices = [i for i in indices if 0 <= i < n]
+
+            if indices:
+                mask = np.ones(n, dtype=bool)
+                mask[indices] = False
+
+                for key in ["f", "Re", "Im", "Z", "significance"]:
+                    if key in EIS_tmp.truncated and EIS_tmp.truncated[key] is not None:
+                        EIS_tmp.truncated[key] = np.asarray(EIS_tmp.truncated[key])[mask]
+
+                print(f"---- Manual removal applied to truncated ({len(indices)} points) for {file_name_no_ext}.")
+        # Recompute KK residuals after manual removal so KK_data matches the final truncated set
+        if EIS_tmp.parameter.get('KK', {}).get('KK_test', False):
+            EIS_tmp.KK_test(EIS_tmp.truncated)
+        # ---------------------------------------------------------------------
+        # 3) Derived datasets from (manually) truncated
+        # ---------------------------------------------------------------------
+        if EIS_tmp.truncated.get("f", None) is None or len(EIS_tmp.truncated["f"]) == 0:
+            print(f"[Warning] Truncated data empty after preprocessing for {file_name_no_ext}. Skipping resampling.")
+            continue
+
+        EIS_tmp.parameter['Smoothing']['fmax'] = float(np.max(EIS_tmp.truncated['f']))
+        EIS_tmp.parameter['Smoothing']['fmin'] = float(np.min(EIS_tmp.truncated['f']))
+
+        EIS_tmp.smooth = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Smoothing'])
+
+        # reset LC correction state before generating LCcorrect curve
+        if 'RsLCinv_kk' in EIS_tmp.store:
             EIS_tmp.store['RsLCinv_kk']['L'] = 0
             EIS_tmp.store['RsLCinv_kk']['Cinv'] = 0
-            EIS_tmp.LCcorrect = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Smoothing'])
-            EIS_tmp.extrapolation = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Extrapolation'])
 
-            print(f"---- Data has been processed successfully for {file_name_no_ext}.")
+        EIS_tmp.LCcorrect = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Smoothing'])
+        EIS_tmp.extrapolation = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Extrapolation'])
+
+        print(f"---- Data has been processed successfully for {file_name_no_ext}.")
 
 def save_eis(sender, app_data, config):
     print("-- Saving EIS data...")
