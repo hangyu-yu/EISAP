@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-def read_ftd_multichannel(file):
+def read_fcd_multichannel(file):
     """
     Reads a Scribner PEMFC file and extracts metadata and data.
 
