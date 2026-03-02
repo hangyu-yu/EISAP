@@ -66,18 +66,24 @@ def _update_residual_plots(data, parent_tag):
         f"{parent_tag}_ReIm_residual", -1, int(dpg.get_viewport_height() * 0.4),
         "Frequency [Hz]", "Residual [%]", log_x=True
     )
-    _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Re']-data.tknv_truncated['ReIm']['Re'])/np.abs(data.truncated['Z'])*100}, y_axis_re, f"ReIm_Re", False)
-    _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Im']-data.tknv_truncated['ReIm']['Im'])/np.abs(data.truncated['Z'])*100}, y_axis_re, f"ReIm_Im", False)
-    dpg.add_plot_legend(parent=f"{parent_tag}_ReIm_residual")
+    if len(data.truncated['f']) != len(data.tknv_truncated['ReIm']['f']):
+        print(f"-- Warning: Frequency arrays have different lengths (truncated: {len(data.truncated['f'])}, tknv_truncated: {len(data.tknv_truncated['ReIm']['f'])}).")
+    else:
+        _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Re']-data.tknv_truncated['ReIm']['Re'])/np.abs(data.truncated['Z'])*100}, y_axis_re, f"ReIm_Re", False)
+        _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Im']-data.tknv_truncated['ReIm']['Im'])/np.abs(data.truncated['Z'])*100}, y_axis_re, f"ReIm_Im", False)
+        dpg.add_plot_legend(parent=f"{parent_tag}_ReIm_residual")
 
     # Imaginary part (-Z'')
     y_axis_im = _create_plot_with_axes(
         f"{parent_tag}_Re_residual", -1, int(dpg.get_viewport_height() * 0.4),
         "Frequency [Hz]", "Residual [%]", log_x=True
     )
-    _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Re']-data.tknv_truncated['Re']['Re']) / np.abs(data.truncated['Z']) * 100}, y_axis_im, f"Re_Re", False)
-    _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Im']-data.tknv_truncated['Re']['Im']) / np.abs(data.truncated['Z']) * 100}, y_axis_im, f"Re_Im", False)
-    dpg.add_plot_legend(parent=f"{parent_tag}_Re_residual")
+    if len(data.truncated['f']) != len(data.tknv_truncated['Re']['f']):
+        print(f"-- Warning: Frequency arrays have different lengths (truncated: {len(data.truncated['f'])}, tknv_truncated: {len(data.tknv_truncated['Re']['f'])}).")
+    else:
+        _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Re']-data.tknv_truncated['Re']['Re']) / np.abs(data.truncated['Z']) * 100}, y_axis_im, f"Re_Re", False)
+        _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Im']-data.tknv_truncated['Re']['Im']) / np.abs(data.truncated['Z']) * 100}, y_axis_im, f"Re_Im", False)
+        dpg.add_plot_legend(parent=f"{parent_tag}_Re_residual")
 
 def update_single_plots(config):
     """Update single-file DRT plots."""

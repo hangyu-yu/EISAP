@@ -17,11 +17,12 @@ from src.Methods.CNLS.Circuit import Circuit
 def on_exit(config):
     config.save_config()
     print("[LOG] SOCEIS is shutting down, cleaning up subprocesses...")
-    for proc in config.store['viewer_processes']:
-        if proc.poll() is None:  # 如果进程还在运行
-            proc.terminate()      # 尝试优雅关闭
-            # proc.kill()        # 如果想强制关闭可以用这个
-    print("[LOG] Configuration saved.")
+    if 'viewer_processes' in config.store:
+        for proc in config.store['viewer_processes']:
+            if proc.poll() is None:  # 如果进程还在运行
+                proc.terminate()      # 尝试优雅关闭
+                # proc.kill()        # 如果想强制关闭可以用这个
+        print("[LOG] Configuration saved.")
 
 # 01 - Initialization
 # Set the DPI awareness to system DPI
