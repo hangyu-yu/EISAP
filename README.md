@@ -106,6 +106,8 @@ Beta version 0.2 with complete EIS, DRT and CNLS fit functionalities. Small bugs
 - [ ] Modularized code design
 - [ ] Delete only the curves instead of the whole tab
 - [ ] Add functions
+	- [ ] Add Frequency-Tau switch for CNLS fit
+	- [ ] Add Error bar for CNLS fit in long-term durability data
 	- [ ] Add Warburg element for Li-BAT
   - [ ] Peak finder for quick frequency selection
   - [ ] Plot lambda in DRT

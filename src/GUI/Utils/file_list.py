@@ -164,24 +164,26 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             print(f"---- DRT data imported from {file} successfully.")
                 if os.path.isdir(os.path.join(config.folder_path, "CNLS")) and "[Error]" not in file and os.path.exists(os.path.join(os.path.join(config.folder_path, "CNLS"), file_name_no_ext+".xlsx")):
                     file_data = config.store.get(file_name_no_ext, {})
-                    if "CNLS" not in file_data:
-                        if file_name_no_ext not in config.store.keys():
-                            config.store[file_name_no_ext] = {}
-                        if "ReIm" in config.store[file_name_no_ext]['EIS']['tknv_truncated'].keys():
-                            config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(file_folder=config.folder_path, filename=os.path.basename(file), Elements = None, EIS = config.store[file_name_no_ext]['EIS'] if 'EIS' in config.store[file_name_no_ext].keys() and config.store[file_name_no_ext]['EIS'].tknv_truncated is not None else None, data_type = 'truncated'))
-                            CNLS_tmp = config.store[file_name_no_ext]['CNLS']
-                            CNLS_tmp.ImportCircuit()
-                        else:
-                            print("[Warning] The file does not concern the impedance data. Or check file_list.py.")
-                            continue
-                    
-                        if idx == len(config.file_list) - 1:
-                            CNLS.file_folder = config.folder_path
-                            CNLS.filename = os.path.basename(file)
-                            CNLS.ImportCircuit()
-                            config.store["Elements"] = CNLS.Elements if CNLS.Elements is not None else {}
-                            config.store["segment_constraints"] = CNLS.constraint_type
-                            print(f"---- CNLS data imported from {file} successfully.")
+                    try:
+                        if "CNLS" not in file_data:
+                            if file_name_no_ext not in config.store.keys():
+                                config.store[file_name_no_ext] = {}
+                            if "ReIm" in config.store[file_name_no_ext]['EIS']['tknv_truncated'].keys():
+                                config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(file_folder=config.folder_path, filename=os.path.basename(file), Elements = None, EIS = config.store[file_name_no_ext]['EIS'] if 'EIS' in config.store[file_name_no_ext].keys() and config.store[file_name_no_ext]['EIS'].tknv_truncated is not None else None, data_type = 'truncated'))
+                                CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+                                CNLS_tmp.ImportCircuit()
+                            else:
+                                continue
+                        
+                            if idx == len(config.file_list) - 1:
+                                CNLS.file_folder = config.folder_path
+                                CNLS.filename = os.path.basename(file)
+                                CNLS.ImportCircuit()
+                                config.store["Elements"] = CNLS.Elements if CNLS.Elements is not None else {}
+                                config.store["segment_constraints"] = CNLS.constraint_type
+                                print(f"---- CNLS data imported from {file} successfully.")
+                    except Exception as e:
+                        print(f"[Warning] CNLS data import failed for {file}. Please check the CNLS and EIS data folder in the file. Error details: {e}")
                             
             config.store['beacon_DRT_import'] = False
     file_alignment(config)

@@ -127,6 +127,8 @@ with dpg.window(label="Main Window", tag='fullscreen'):
         with dpg.menu(label="Settings"):
             # dpg.add_menu_item(label="Setting 1", callback=print_me, check=True)
             dpg.add_menu_item(label="Font size", callback=lambda sender, app_data: gui_utils.small_functions.font_size_callback(sender, app_data, config, font_path_medium, font_path_light))
+        with dpg.menu(label="Help"):
+            dpg.add_menu_item(label="Update", callback=lambda: gui_utils.small_functions.download_and_replace(config))
 
         # dpg.add_menu_item(label="Help", callback=print_me)
         dpg.bind_theme(plot_theme)

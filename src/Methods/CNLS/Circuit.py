@@ -300,6 +300,11 @@ class Circuit:
                 start_idx = self.ElementsStartIndex[counter]
                 end_idx = self.ElementsEndIndex[counter] + 1
                 params = self.ElementsParamValues[start_idx:end_idx]
+                if self.w is None and self.f is not None:
+                    self.w = self.f*(2*np.pi)
+                    print('---- Angular frequency array (w) is not defined, but frequency array (f) is provided. Angular frequency array (w) has been calculated as w = 2 * pi * f.')
+                elif self.w is None and self.f is None:
+                    raise ValueError('Both angular frequency array (w) and frequency array (f) are not defined. Please ensure that the circuit has been initialized with valid impedance data containing frequency information.')
                 Z[self.ElementsNames[counter]] = func(self.w, params)
             else:
                 print(f'Element type {type} not recognized')
