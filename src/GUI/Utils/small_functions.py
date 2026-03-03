@@ -8,7 +8,6 @@ import src.GUI as gui
 from pathlib import Path
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
-from src.GUI.Utils.updater import Updater
 
 def string_abbreviation(string, begin=0, end=0):
     """
@@ -608,25 +607,3 @@ def font_size_callback(sender, app_data, config, font_path_medium, font_path_lig
         with dpg.group(horizontal=True):
             dpg.add_button(label="Confirm", callback=lambda: font_size_confirm_callback(sender, app_data, config, font_path_medium, font_path_light))
             dpg.add_button(label="Cancel", callback=lambda: print("---- Font size change cancelled."))
-
-def download_and_replace(config):
-    """Callback function for update button"""
-    with dpg.window(label="Confirm Update", modal=True, tag="update_confirm", show=True, 
-                   width=300, height=200, pos=[dpg.get_viewport_width()//2-150, dpg.get_viewport_height()//2-100]):
-        dpg.add_text("Are you sure you want to download and install the update?\nThe program will restart automatically after update.")
-        dpg.add_separator()
-        
-        with dpg.group(horizontal=True):
-            dpg.add_button(label="Confirm", callback=lambda: _start_update(config))
-            dpg.add_button(label="Cancel", callback=lambda: dpg.delete_item("update_confirm"))
-
-def _start_update(config):
-    """Start the update process"""
-    dpg.delete_item("update_confirm")
-    
-    with dpg.window(label="Update Progress", modal=True, tag="update_progress", show=True,
-                   width=400, height=150, pos=[dpg.get_viewport_width()//2-200, dpg.get_viewport_height()//2-75]):
-        dpg.add_text("Downloading update...", tag="status_text")
-        
-    updater = Updater(config)
-    updater.download_and_replace()

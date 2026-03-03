@@ -180,6 +180,11 @@ class DRT:
                 'lambda': 5e-4,                # Regularization parameter
                 'tknv_legend': None,           # Legend for Tikhonov regularization plot
                 'DRT_switch': True,            # Switch on Tikhonov regularization or not
+            },
+            # Manual cut
+            'ManualRemoval': {
+                'Enable': False,              # Enable manual removal of data points
+                'Indices': []                 # Indices of data points to be removed (1-based)
             }
         }
 
@@ -723,7 +728,9 @@ class DRT:
                 'DRT_switch': [self.parameter['DRT']['DRT_switch']],
                 'CellArea/cm2': [self.parameter['Sample']['CellArea']],
                 'n_cell': [self.parameter['Sample']['n_cell']],
-                'instrument_type': [self.parameter['Sample']['instrument_type']]
+                'instrument_type': [self.parameter['Sample']['instrument_type']],
+                'ManualRemoval': [self.parameter['ManualRemoval']['Enable']],
+                'ManualRemoval_Indices': [self.parameter['ManualRemoval']['Indices']]
             }).to_excel(writer, sheet_name='EIS_Parameters', index=False)
 
             # Original data
@@ -1014,11 +1021,13 @@ class DRT:
                 self.parameter['DRT']['Lambda_selection'] = safe_get('Lambda_selection', 'Manual', str)
                 self.parameter['DRT']['tknv_pos'] = safe_get('tknv_pos', False, bool)
                 self.parameter['DRT']['lambda'] = safe_get('lambda', 5e-4, float)
-                self.parameter['DRT']['tknv_legend'] = safe_get('tknv_legend', None, str)  # 处理tknv_legend为空的情况
+                self.parameter['DRT']['tknv_legend'] = safe_get('tknv_legend', None, str)
                 self.parameter['DRT']['DRT_switch'] = safe_get('DRT_switch', True, bool)
                 self.parameter['Sample']['CellArea'] = safe_get('CellArea/cm2', None, float)
                 self.parameter['Sample']['n_cell'] = safe_get('n_cell', None, int)
                 self.parameter['Sample']['instrument_type'] = safe_get('instrument_type', "Zahner", str)
+                self.parameter['ManualRemoval']['Enable'] = safe_get('ManualRemoval', False, bool)
+                self.parameter['ManualRemoval']['Indices'] = safe_get('ManualRemoval_Indices', None, str)
                 
             except Exception as e:
                 print(f"---- No 'EIS_Parameters' sheet found or error reading parameters: {str(e)}")

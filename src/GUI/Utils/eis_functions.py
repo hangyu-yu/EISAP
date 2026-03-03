@@ -53,31 +53,6 @@ def _parse_index_list(text: str):
     # Unique + sorted
     return sorted(set(out))
 
-
-def _remove_points_from_raw(EIS_tmp, indices):
-    """
-    Remove points from EIS_tmp.raw arrays by index.
-    Applies to raw['f'], raw['Re'], raw['Im'], raw['Z'] and raw['significance'] if present.
-    """
-    if not indices:
-        return
-
-    n = len(EIS_tmp.raw.get("f", []))
-    if n == 0:
-        return
-
-    # Keep only valid indices
-    indices = [i for i in indices if 0 <= i < n]
-    if not indices:
-        return
-
-    mask = np.ones(n, dtype=bool)
-    mask[indices] = False
-
-    for key in ["f", "Re", "Im", "Z", "significance"]:
-        if key in EIS_tmp.raw and EIS_tmp.raw[key] is not None:
-            EIS_tmp.raw[key] = np.asarray(EIS_tmp.raw[key])[mask]
-
 def call_function(file_path, *args, **kwargs):
     """Directly call a function with the same name as the Python file"""
     # Extract the module name (remove path and .py)
