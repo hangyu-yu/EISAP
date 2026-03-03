@@ -11,7 +11,7 @@ def reset_batch_cut(config):
             file_name_no_ext = os.path.splitext(file_name)[0]
             EIS_tmp = config.store[file_name_no_ext]['EIS']
             # Store internally
-            EIS_tmp.parameter["ManualRemoval"] = {"enabled": True, "indices": ""}
+            EIS_tmp.parameter["ManualRemoval"] = {"enable": True, "indices": ""}
     except Exception as e:
         print(f"[Error] Failed to reset manual cut for {file_name_no_ext}: {e}")
     dpg.set_value("input_manual_remove_batch_indices", EIS_tmp.parameter["ManualRemoval"]["indices"])
@@ -93,12 +93,12 @@ def open_manual_cut_window(config):
     Im = np.asarray(Im, dtype=float)
     f = np.asarray(f, dtype=float)
 
-    # selection source of truth = current text field (if enabled), otherwise stored parameter
-    enabled = dpg.get_value("checkbox_manual_remove_batch_points") if dpg.does_item_exist("checkbox_manual_remove_batch_points") else False
-    text = dpg.get_value("input_manual_remove_batch_indices") if dpg.does_item_exist("input_manual_remove_batch_indices") else ""
+    # selection source of truth = current text field (if enable), otherwise stored parameter
+    removal_enable = dpg.get_value("checkbox_manual_remove_batch_points") if dpg.does_item_exist("checkbox_manual_remove_batch_points") else False
+    removal_text = dpg.get_value("input_manual_remove_batch_indices") if dpg.does_item_exist("input_manual_remove_batch_indices") else ""
 
-    if enabled and text.strip():
-        prev = set(parse_indices_1based_to_0based(text))
+    if removal_enable and removal_text.strip():
+        prev = set(parse_indices_1based_to_0based(removal_text))
     else:
         prev = set(config.store[file_key]["EIS"].parameter.get("ManualRemoval", {}).get("indices", []) or [])
 
@@ -293,7 +293,7 @@ def process_manually_cut_data(config, n_points_preview):
         EIS_tmp = config.store[file_name_no_ext]['EIS']
 
         # Store internally
-        EIS_tmp.parameter["ManualRemoval"] = {"enabled": True, "indices": selected0}
+        EIS_tmp.parameter["ManualRemoval"] = {"enable": True, "indices": selected0}
 
         # ---------------------------------------------------------------------
         # 0) Always start from RAW (do NOT touch raw; rebuild truncated fresh)
@@ -315,8 +315,8 @@ def process_manually_cut_data(config, n_points_preview):
         # ---------------------------------------------------------------------
         # 2) Manual removal (ONLY on truncated, AFTER auto cuts, BEFORE smoothing)
         # ---------------------------------------------------------------------
-        mr = EIS_tmp.parameter.get("ManualRemoval", {"enabled": False, "indices": []})
-        if mr.get("enabled", False) and EIS_tmp.raw is not None and EIS_tmp.raw.get("f", None) is not None:
+        mr = EIS_tmp.parameter.get("ManualRemoval", {"enable": False, "indices": []})
+        if mr.get("enable", False) and EIS_tmp.raw is not None and EIS_tmp.raw.get("f", None) is not None:
             indices = mr.get("indices", [])
             n = len(EIS_tmp.raw["f"])
 

@@ -139,19 +139,6 @@ def load_parameters(sender, app_data, config, EIS):
             EIS_tmp.parameter["Extrapolation"]["fmax"] = float(dpg.get_value("extrapolation_fmax"))
             EIS_tmp.parameter["Extrapolation"]["PointsPerDecade"] = int(dpg.get_value("Extrapolation_PointsPerDecade"))
 
-            # --- Manual removal (by indices) ---
-            # You need to create these GUI widgets in gui_tab_eis.py:
-            #   checkbox_manual_remove_points
-            #   input_manual_remove_indices
-            manual_enabled = bool(dpg.get_value("checkbox_manual_remove_points")) if dpg.does_item_exist("checkbox_manual_remove_points") else False
-            manual_text = dpg.get_value("input_manual_remove_indices") if dpg.does_item_exist("input_manual_remove_indices") else ""
-            manual_indices = _parse_index_list(manual_text) if manual_enabled else []
-
-            EIS_tmp.parameter["ManualRemoval"] = {
-                "enabled": manual_enabled,
-                "indices": manual_indices,
-            }
-
             # Store the cell area
             EIS_tmp.store['cell_area_old'] = EIS_tmp.parameter["Sample"]["CellArea"]
             EIS_tmp.store['n_cell_old'] = EIS_tmp.parameter["Sample"]["n_cell"]

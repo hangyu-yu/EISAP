@@ -10,6 +10,8 @@ import src.GUI as gui
 from pathlib import Path
 import src.GUI.Utils as gui_utils
 import dearpygui.dearpygui as dpg
+from src.Methods.DRT.DRT import DRT
+from src.Methods.CNLS.Circuit import Circuit
 
 """
 SOCEIS GUI Module Documentation
@@ -133,6 +135,34 @@ def update_image_sizes():
     dpg.configure_item("welcome_text_1", wrap=int(viewport_width * 0.5))
     dpg.configure_item("welcome_text_2", wrap=int(viewport_width * 0.5))
 
+def initialize_eis_cnls(EIS, CNLS, folder_path):
+    """
+    Reinitialize existing EIS and CNLS instances using startup defaults
+    while keeping the same object references.
+    """
+    EIS_new = DRT(
+        Re_raw=None,
+        Im_raw=None,
+        f_raw=None,
+        CellArea=12.56,
+        n_cell=1,
+        file_folder=folder_path,
+        filename=None
+    )
+
+    CNLS_new = Circuit(
+        file_folder=folder_path,
+        filename=None,
+        Elements=None,
+        EIS=None,
+        data_type=None
+    )
+
+    EIS.__dict__.clear()
+    EIS.__dict__.update(EIS_new.__dict__)
+    CNLS.__dict__.clear()
+    CNLS.__dict__.update(CNLS_new.__dict__)
+
 # Functions for file dialog callbacks
 def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
     """
@@ -147,13 +177,13 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
         dpg.delete_item("tab_drt", children_only=False)  # Clear the tab content if it exists
         dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab content if it exists
         config.folder_path = app_data['file_path_name']
-    EIS.file_folder = config.folder_path
-    CNLS.file_folder = config.folder_path
+    initialize_eis_cnls(EIS, CNLS, config.folder_path)
     config.store['beacon_DRT_import'] = True
     print("Folder path:", config.folder_path)
     past_file_names = list(config.store.keys())
     for item in past_file_names:
         config.store.pop(item) if item not in ['element_list', 'peak_fixed_frequencies', 'Elements', 'segment_constraints', 'beacon_DRT_import', 'nbr_peaks'] else None
+        
         if item == 'Elements':
             config.store[item] = [{'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
                                   {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]}]

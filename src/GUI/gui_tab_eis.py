@@ -75,25 +75,33 @@ def manual_removal_callback(sender, app_data, config, EIS):
     
     # Print the updated value for debugging
     if app_data:
-        print(f"---- Manual removal enabled: {EIS.parameter['ManualRemoval']['Enable']}, set the autocut to not working.")
+        print(f"---- Manual removal enabled: {EIS.parameter['ManualRemoval']['enable']}, set the autocut to not working.")
         dpg.configure_item("num_cut_upper", enabled=False)
         dpg.configure_item("num_cut_lower", enabled=False)
         dpg.configure_item("sig_threshold", enabled=False)
         dpg.configure_item("kk_threshold", enabled=False)
         dpg.configure_item("rm_significance", enabled=False)
         dpg.configure_item("rm_outliers", enabled=False)
-        dpg.configure_item("rm_non_kk", enabled=False)
+        dpg.configure_item("RmNonKK", enabled=False)
         dpg.configure_item("button_manual_cut_single", enabled=False)
+        # Enable the complete manual cut
+        dpg.configure_item("input_manual_remove_batch_indices", enabled=True)
+        dpg.configure_item("button_manual_cut_batch", enabled=True)
+        dpg.configure_item("button_manual_cut_batch_reset", enabled=True)
     else:
-        print(f"---- Manual removal disabled: {EIS.parameter['ManualRemoval']['Enable']}, set the autocut to working.")
+        print(f"---- Manual removal disabled: {EIS.parameter['ManualRemoval']['enable']}, set the autocut to working.")
         dpg.configure_item("num_cut_upper", enabled=True)
         dpg.configure_item("num_cut_lower", enabled=True)
         dpg.configure_item("sig_threshold", enabled=True)
         dpg.configure_item("kk_threshold", enabled=True)
         dpg.configure_item("rm_significance", enabled=True)
         dpg.configure_item("rm_outliers", enabled=True)
-        dpg.configure_item("rm_non_kk", enabled=True)
+        dpg.configure_item("RmNonKK", enabled=True)
         dpg.configure_item("button_manual_cut_single", enabled=True)
+        # Disable the complete manual cut
+        dpg.configure_item("input_manual_remove_batch_indices", enabled=False)
+        dpg.configure_item("button_manual_cut_batch", enabled=False)
+        dpg.configure_item("button_manual_cut_batch_reset", enabled=False)
 
 # Functions for file dialog callbacks
 def file_selector_ok_callback(sender, app_data, config):
@@ -172,6 +180,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_checkbox(
                                         tag="rm_significance",
                                         label="Remove low sig. data",
+                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
                                         callback=lambda sender, app_data: rm_significance_callback(sender, app_data, EIS))
                                 with dpg.table_row():
                                     dpg.add_text("Cell No.:", tag="text_n_cell")
@@ -180,6 +189,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                         tag="rm_outliers",
                                         label="Remove outliers",
                                         default_value=EIS.parameter["Rmoutliers"]["Rmoutliers"],
+                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
                                         callback=lambda sender, app_data: rm_outliers_callback(sender, app_data, EIS))
                                 with dpg.table_row():
                                     dpg.add_text("Instrument", tag="text_instrument_type")
@@ -198,10 +208,15 @@ def gui_tab_eis(config, EIS, CNLS):
                                         tag="RmNonKK",
                                         label="Remove high KK residual data",
                                         default_value= EIS.parameter["KK"]["RmNonKK"],
+                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
                                         callback=lambda sender, app_data: RmNonKK_callback(sender, app_data, EIS))
                                 with dpg.table_row():
                                     dpg.add_text("Upper cut:", tag="text_num_cut_upper")
-                                    dpg.add_input_text(tag="num_cut_upper", default_value=EIS.parameter["Preprocessing"]["num_cut_upper"])
+                                    dpg.add_input_text(
+                                        tag="num_cut_upper", 
+                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
+                                        default_value=EIS.parameter["Preprocessing"]["num_cut_upper"]
+                                        )
                                     dpg.add_button(
                                         label="Data import function",
                                         callback=lambda: dpg.show_item("file_dialog_eis"),
@@ -210,7 +225,11 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.bind_item_theme("button_data_import_function", blue_button_theme)
                                 with dpg.table_row():
                                     dpg.add_text("Lower cut:", tag="text_num_cut_lower")
-                                    dpg.add_input_text(tag="num_cut_lower", default_value=EIS.parameter["Preprocessing"]["num_cut_lower"])
+                                    dpg.add_input_text(
+                                        tag="num_cut_lower", 
+                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
+                                        default_value=EIS.parameter["Preprocessing"]["num_cut_lower"]
+                                        )
                                     if config.data_import_function:
                                         data_import_function_text = os.path.basename(config.data_import_function)
                                     else:
@@ -218,15 +237,22 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_text(data_import_function_text, tag="function_import")
                                 with dpg.table_row():
                                     dpg.add_text("Min significance:", tag="text_sig_threshold")
-                                    dpg.add_input_text(tag="sig_threshold", default_value=EIS.parameter["RM_significance"]["sig_threshold"])
+                                    dpg.add_input_text(
+                                        tag="sig_threshold", 
+                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
+                                        default_value=EIS.parameter["RM_significance"]["sig_threshold"])
                                     dpg.add_button(
                                         tag="button_manual_cut_single",
                                         label="Manual cut & Process",
+                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
                                         callback=lambda s, a: gui_utils.eis_single_manual.open_manual_cut_window(config)
                                     )
                                 with dpg.table_row():
                                     dpg.add_text("Max. KK res. [%]")
-                                    dpg.add_input_text(tag="kk_threshold", default_value=EIS.parameter["KK"]["kk_threshold"])
+                                    dpg.add_input_text(
+                                        tag="kk_threshold", 
+                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
+                                        default_value=EIS.parameter["KK"]["kk_threshold"])
 
                         # Kramers–Kronig test parameters
                         with dpg.tab(label="Kramers Kronig", tag="tab_eis_parameter_KK"):
@@ -281,7 +307,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_text("Enable removal")
                                     dpg.add_checkbox(
                                         tag="checkbox_manual_remove_batch_points",
-                                        default_value=EIS.parameter["ManualRemoval"]["Enable"],
+                                        default_value=EIS.parameter["ManualRemoval"]["enable"],
                                         callback=lambda sender, app_data: manual_removal_callback(sender, app_data, config, EIS)
                                     )
                                     dpg.add_text("")
@@ -292,7 +318,8 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_input_text(
                                         tag="input_manual_remove_batch_indices",
                                         hint="Example: 2,3,5-10",
-                                        default_value=gui_utils.eis_batch_manual.compress_indices(EIS.parameter["ManualRemoval"]["Indices"]),
+                                        enabled=dpg.get_value("checkbox_manual_remove_batch_points"),
+                                        default_value=gui_utils.eis_batch_manual.compress_indices([i+1 for i in EIS.parameter["ManualRemoval"]["indices"]]),
                                         width=-1
                                     )
                                     dpg.add_text("")
@@ -301,7 +328,9 @@ def gui_tab_eis(config, EIS, CNLS):
                                 with dpg.table_row():
                                     dpg.add_text("Interactive selector")
                                     dpg.add_button(
+                                        tag = "button_manual_cut_batch",
                                         label="Open selector",
+                                        enabled=dpg.get_value("checkbox_manual_remove_batch_points"),
                                         callback=lambda s, a: gui_utils.eis_batch_manual.open_manual_cut_window(config)
                                     )
                                     dpg.add_text("")
@@ -310,7 +339,9 @@ def gui_tab_eis(config, EIS, CNLS):
                                 with dpg.table_row():
                                     dpg.add_text("Reset")
                                     dpg.add_button(
+                                        tag = "button_manual_cut_batch_reset",
                                         label="Clear",
+                                        enabled=dpg.get_value("checkbox_manual_remove_batch_points"),
                                         callback=lambda s, a: gui_utils.eis_batch_manual.reset_batch_cut(config)
                                     )
                                     dpg.add_text("")    

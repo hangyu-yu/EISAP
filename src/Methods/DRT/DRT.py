@@ -183,8 +183,8 @@ class DRT:
             },
             # Manual cut
             'ManualRemoval': {
-                'Enable': False,              # Enable manual removal of data points
-                'Indices': []                 # Indices of data points to be removed (1-based)
+                'enable': False,              # Enable manual removal of data points
+                'indices': []                 # Indices of data points to be removed (1-based)
             }
         }
 
@@ -729,8 +729,8 @@ class DRT:
                 'CellArea/cm2': [self.parameter['Sample']['CellArea']],
                 'n_cell': [self.parameter['Sample']['n_cell']],
                 'instrument_type': [self.parameter['Sample']['instrument_type']],
-                'ManualRemoval': [self.parameter['ManualRemoval']['Enable']],
-                'ManualRemoval_Indices': [self.parameter['ManualRemoval']['Indices']]
+                'ManualRemoval': [self.parameter['ManualRemoval']['enable']],
+                'ManualRemoval_Indices': [','.join(map(str, [i+1 for i in self.parameter['ManualRemoval']['indices']])) if self.parameter['ManualRemoval']['indices'] else '']
             }).to_excel(writer, sheet_name='EIS_Parameters', index=False)
 
             # Original data
@@ -1026,8 +1026,15 @@ class DRT:
                 self.parameter['Sample']['CellArea'] = safe_get('CellArea/cm2', None, float)
                 self.parameter['Sample']['n_cell'] = safe_get('n_cell', None, int)
                 self.parameter['Sample']['instrument_type'] = safe_get('instrument_type', "Zahner", str)
-                self.parameter['ManualRemoval']['Enable'] = safe_get('ManualRemoval', False, bool)
-                self.parameter['ManualRemoval']['Indices'] = safe_get('ManualRemoval_Indices', None, str)
+                self.parameter['ManualRemoval']['enable'] = safe_get('ManualRemoval', False, bool)
+                indices_str = safe_get('ManualRemoval_Indices', '', str)
+                if indices_str and indices_str.strip():
+                    try:
+                        self.parameter['ManualRemoval']['indices'] = [int(x)-1 for x in indices_str.split(',') if x.strip()]
+                    except ValueError:
+                        self.parameter['ManualRemoval']['indices'] = []
+                else:
+                    self.parameter['ManualRemoval']['indices'] = []
                 
             except Exception as e:
                 print(f"---- No 'EIS_Parameters' sheet found or error reading parameters: {str(e)}")
