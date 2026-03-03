@@ -34,31 +34,24 @@ _________________________________________________________________
 
 """
 
-import argparse
-import ast
-import os
-import re
-import sys
-import threading
-import time
-import zipfile
-from datetime import datetime
-from io import BytesIO
 from pathlib import Path
+from datetime import datetime
 from typing import List, Dict, Tuple, Optional
-from matplotlib import colormaps
-import matplotlib.colors as mcolors
-import matplotlib.pyplot as plt
+from io import BytesIO
+import zipfile
+import re
 import numpy as np
 import pandas as pd
-import plotly.colors as pc
+import streamlit as st
 import plotly.graph_objects as go
 import plotly.io as pio
-import streamlit as st
-from mpl_toolkits.mplot3d import Axes3D
-from streamlit.runtime import runtime
-from streamlit.runtime.scriptrunner import get_script_run_ctx
-
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from matplotlib import colormaps
+import plotly.colors as pc
+from pathlib import Path
+import argparse
+import os
 # --- Optional GUI folder picker (works for local Streamlit runs) ---
 try:
     import tkinter as tk
@@ -67,12 +60,10 @@ try:
 except Exception:
     TK_AVAILABLE = False
 
-pio.templates.default = "plotly_dark"
-
 # ===============================
 # Configuration
 # ===============================
-from pathlib import Path
+
 
 def ensure_email_prompt_disabled():
     try:
@@ -173,7 +164,7 @@ NYQUIST_TYPES = [
     "Extended",
 ]
 
-DEFAULT_NYQUIST = ["Original", "Truncated", "Smooth"]
+DEFAULT_NYQUIST = ["Original", "Truncated"]
 
 BODE_TYPES = NYQUIST_TYPES
 
@@ -188,14 +179,6 @@ DRT_SHEET_MAP = {
 # CNLS
 CNLS_ENABLED_DEFAULT = False
 CNLS_SHEET = "Elements"
-CNLS_PARAM_MAP = {
-    "R2_R":  "R_ohmic",
-    "RQ3_R": "R3",
-    "RQ4_R": "R4",
-    "RQ5_R": "R5",
-    "RQ6_R": "R6",
-    "RQ7_R": "R7",
-}
 
 def nyquist_fit_plotly(datasets):
 
@@ -213,8 +196,6 @@ def nyquist_fit_plotly(datasets):
             name=name,
             line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)])
         )
-
-        show_legend = len(datasets) > 1
 
         fig.update_layout(
             title="Nyquist – DRT Smooth Fit",
@@ -384,40 +365,6 @@ def sample_palette_colors(palette_choice: str, n: int) -> List[str]:
     # fallback (shouldn't usually hit)
     return DEFAULT_COLOR_PALETTE[:n]
 
-def get_palette_colors(palette_choice: str, n: int) -> List[str]:
-    """
-    Return n hex colors for the selected palette.
-    - Qualitative palettes: cycle through base colors if n > available.
-    - Sequential palettes: sample smoothly across [lo, hi] to avoid near-black endpoints.
-    """
-    
-    # Your custom default palette
-    if palette_choice == "Default":
-        base = DEFAULT_COLOR_PALETTE
-        if n <= len(base):
-            return base[:n]
-        return (base * ((n + len(base) - 1) // len(base)))[:n]
-
-    cmap_name = PALETTE_LIBRARY.get(palette_choice, "tab10")
-    cmap = colormaps[cmap_name]
-
-    # If the colormap is qualitative / listed, it often has a finite list of colors.
-    listed = getattr(cmap, "colors", None)
-    if listed is not None:
-        base = [mcolors.to_hex(c) for c in listed]
-        if n <= len(base):
-            return base[:n]
-        return (base * ((n + len(base) - 1) // len(base)))[:n]
-
-    # Sequential/continuous: sample smoothly over a trimmed range to avoid dark/bright extremes
-    if n <= 1:
-        t_vals = [0.6]  # single color: mid tone
-    else:
-        lo, hi = 0.08, 0.95  # trim ends: avoids near-black + near-white
-        t_vals = np.linspace(lo, hi, n)
-
-    return [mcolors.to_hex(cmap(t)) for t in t_vals]
-
 def render_palette_preview(colors: List[str]) -> str:
     swatches = "".join(
         f"<span style='display:inline-block;width:18px;height:18px;"
@@ -441,6 +388,7 @@ def latex_label(text: str) -> str:
         return f"${text}$"
 
     return text
+
 
 def pick_folder_dialog() -> Optional[str]:
     """Open a native folder picker and return selected path or None."""
@@ -501,14 +449,49 @@ def extract_eis_parameters(xls: pd.ExcelFile, fname: str) -> Dict:
             row[label] = None
     return row
 
+def has_drt_fit(files_to_process: List[Path]) -> bool:
+    """
+    True if at least one selected EIS file has a sibling DRT file
+    containing the DRT-fit sheet 'Tknv_ReIm_s' with >= 4 columns.
+    """
+    for eis_file in files_to_process:
+        drt_file = sibling_file(eis_file, "DRT")
+        if not drt_file.exists():
+            continue
+        try:
+            xls = pd.ExcelFile(drt_file)
+            if "Tknv_ReIm_s" in xls.sheet_names:
+                df = pd.read_excel(xls, "Tknv_ReIm_s")
+                if df.shape[1] >= 4:
+                    return True
+        except Exception:
+            continue
+    return False
 
 def extract_drt_lambda(drt_xls: pd.ExcelFile, fname: str) -> Optional[Dict]:
+
     if DRT_PARAMETERS_SHEET not in drt_xls.sheet_names:
         return None
-    df = pd.read_excel(drt_xls, DRT_PARAMETERS_SHEET)
-    lam = df["lambda"].iloc[0] if "lambda" in df.columns and len(df) else None
-    return {"File": fname, "lambda": lam}
 
+    df = pd.read_excel(drt_xls, DRT_PARAMETERS_SHEET)
+
+    if not len(df):
+        return None
+
+    lam = df["lambda"].iloc[0] if "lambda" in df.columns else None
+
+    # --- Read tknv_pos ---
+    if "tknv_pos" in df.columns:
+        tknv_pos_raw = df["tknv_pos"].iloc[0]
+        tknv_pos = bool(tknv_pos_raw)
+    else:
+        tknv_pos = False
+
+    return {
+        "File": fname,
+        "lambda": lam,
+        "tknv_pos": tknv_pos
+    }
 
 def _drt_ymax_from_datasets(datasets) -> float:
     global_max = 0.0
@@ -620,7 +603,139 @@ def nyquist_plotly(datasets, title):
 
     return fig
 
+def nyquist_compare_plotly(compare_mode, files_to_process, display_name_map):
 
+    fig = go.Figure()
+
+    mapping = {
+        "Truncated vs Original": ("Truncated", "Original"),
+        "Smooth vs Truncated": ("Truncated", "Smooth"),
+        "LC corrected vs Truncated": ("Truncated", "LC corrected"),
+        "Extended vs Truncated": ("Truncated", "Extended"),
+        "DRT Fit vs Truncated": ("Truncated", "DRT Fit")
+    }
+
+    sheet_trunc, sheet_other = mapping[compare_mode]
+
+    for i, eis_file in enumerate(files_to_process):
+
+        fname = eis_file.name
+        label = latex_label(display_name_map.get(fname, fname))
+        color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
+
+        xls = pd.ExcelFile(eis_file)
+
+        # -------------------------
+        # Load Truncated (always needed)
+        # -------------------------
+        df_trunc = None
+        if sheet_trunc in xls.sheet_names:
+            df_trunc = pd.read_excel(xls, sheet_trunc)
+
+        # -------------------------
+        # Load comparison dataset
+        # -------------------------
+        df_other = None
+
+        if sheet_other == "DRT Fit":
+            drt_file = sibling_file(eis_file, "DRT")
+            if drt_file.exists():
+                drt_xls = pd.ExcelFile(drt_file)
+                if "Tknv_ReIm_s" in drt_xls.sheet_names:
+                    df_other = pd.read_excel(drt_xls, "Tknv_ReIm_s")
+        else:
+            if sheet_other in xls.sheet_names:
+                df_other = pd.read_excel(xls, sheet_other)
+
+        if df_trunc is None:
+            continue
+
+        # ============================================================
+        # CASE 1 → Truncated vs Original
+        # ============================================================
+        if compare_mode == "Truncated vs Original":
+
+            # ---- Original FIRST (transparent hollow circles)
+            if df_other is not None:
+                fig.add_scatter(
+                    x=pd.to_numeric(df_other.iloc[:, 1], errors="coerce"),
+                    y=-pd.to_numeric(df_other.iloc[:, 2], errors="coerce"),
+                    mode="markers",
+                    marker=dict(
+                        size=7,
+                        symbol="circle",
+                        color="rgba(0,0,0,0)",      # transparent fill
+                        line=dict(width=2, color=color),
+                        opacity=0.5
+                    ),
+                    name=f"{label} - Original"
+                )
+
+            # ---- Truncated SECOND (solid filled circles)
+            fig.add_scatter(
+                x=pd.to_numeric(df_trunc.iloc[:, 1], errors="coerce"),
+                y=-pd.to_numeric(df_trunc.iloc[:, 2], errors="coerce"),
+                mode="markers",
+                marker=dict(
+                    size=7,
+                    symbol="circle",
+                    color=color,
+                    opacity=1.0,
+                    line=dict(width=1, color=color)
+                ),
+                name=f"{label} - Truncated"
+            )
+
+        # ============================================================
+        # CASE 2 → X vs Truncated
+        # ============================================================
+        else:
+
+            # ---- Truncated (filled markers, NO legend)
+            fig.add_scatter(
+                x=pd.to_numeric(df_trunc.iloc[:, 1], errors="coerce"),
+                y=-pd.to_numeric(df_trunc.iloc[:, 2], errors="coerce"),
+                mode="markers",
+                marker=dict(
+                    size=6,
+                    symbol="circle",
+                    color=color,
+                    opacity=1.0,
+                    line=dict(width=1, color=color)
+                ),
+                showlegend=False  # <-- important
+            )
+
+            if df_other is not None:
+
+                if sheet_other == "DRT Fit":
+                    xcol = 2
+                    ycol = 3
+                else:
+                    xcol = 1
+                    ycol = 2
+
+                # ---- Comparison curve (LINE only, appears in legend)
+                fig.add_scatter(
+                    x=pd.to_numeric(df_other.iloc[:, xcol], errors="coerce"),
+                    y=-pd.to_numeric(df_other.iloc[:, ycol], errors="coerce"),
+                    mode="lines",
+                    line=dict(width=3, color=color),
+                    name=label  # <-- ONLY filename in legend
+                )
+
+    fig.update_layout(
+        title=f"Nyquist Compare – {compare_mode}",
+        xaxis=dict(
+            title="Z′ [Ω·cm²]",
+            scaleanchor="y",
+            scaleratio=1
+        ),
+        yaxis=dict(title="−Z″ [Ω·cm²]"),
+        template="plotly_dark"
+    )
+
+    return fig
 
 def bode_plotly(datasets, title, real=True):
     fig = go.Figure()
@@ -686,24 +801,24 @@ def nyquist_3d_plotly(datasets, title):
     xmin, xmax = (float(np.min(all_x)), float(np.max(all_x))) if all_x.size else (0.0, 1.0)
     zmin, zmax = (float(np.min(all_z)), float(np.max(all_z))) if all_z.size else (0.0, 1.0)
 
-    x_range = max(xmax - xmin, 1e-12)
-    z_range = max(zmax - zmin, 1e-12)
 
     # --- plot traces ---
     for i, (name, df) in enumerate(datasets):
         x = pd.to_numeric(df.iloc[:, 1], errors="coerce")
         z = -pd.to_numeric(df.iloc[:, 2], errors="coerce")
-        y = np.full_like(x, i)
+        y_spacing = 1.0
+        y = np.full_like(x, i * y_spacing)
 
         color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
 
         # markers
-        fig.add_trace(go.Scatter3d(
-            x=x, y=y, z=z,
-            mode="markers",
-            marker=dict(size=3, color=color, opacity=0.6),
-            showlegend=False
-        ))
+        if not st.session_state.get("export_no_nyquist_markers", False):
+            fig.add_trace(go.Scatter3d(
+                x=x, y=y, z=z,
+                mode="markers",
+                marker=dict(size=3, color=color, opacity=0.6),
+                showlegend=False
+            ))
 
         # line
         fig.add_trace(go.Scatter3d(
@@ -712,7 +827,8 @@ def nyquist_3d_plotly(datasets, title):
             name=name,
             line=dict(color=color, width=4)
         ))
-
+    x_range = max(xmax - xmin, 1e-12)
+    z_range = max(zmax - zmin, 1e-12)    
     fig.update_layout(
         title=title,
         template="plotly_dark",
@@ -722,12 +838,18 @@ def nyquist_3d_plotly(datasets, title):
             zaxis=dict(title="−Z″ [Ω·cm²]"),
             aspectmode="manual",
             aspectratio=dict(
-                x=x_range,
-                y=0.35 * x_range,   # compress file axis (not relevant)
-                z=z_range
+                x=1,
+                y=0.05 * len(datasets),                     # arbitrary thin stacking axis
+                z=z_range / x_range         # THIS enforces equal units
             ),
 
-            camera=dict(eye=dict(x=-1.7, y=1.7, z=1.7))
+            camera=dict(
+                eye=dict(
+                    x=-1.7,
+                    y=1.7,
+                    z=1.7
+                )
+            )
         ),
         margin=dict(l=0, r=0, b=0, t=40)
     )
@@ -753,24 +875,23 @@ def nyquist_3d_plotly_cols(datasets, title, x_col: int, y_col: int, negate_y: bo
     xmin, xmax = (float(np.min(all_x)), float(np.max(all_x))) if all_x.size else (0.0, 1.0)
     zmin, zmax = (float(np.min(all_z)), float(np.max(all_z))) if all_z.size else (0.0, 1.0)
 
-    x_range = max(xmax - xmin, 1e-12)
-    z_range = max(zmax - zmin, 1e-12)
-
     # plot traces
     for i, (name, df) in enumerate(datasets):
         x = pd.to_numeric(df.iloc[:, x_col], errors="coerce")
         zraw = pd.to_numeric(df.iloc[:, y_col], errors="coerce")
         z = -zraw if negate_y else zraw
-        y = np.full_like(x, i)
+        y_spacing = 1.0
+        y = np.full_like(x, i * y_spacing)
 
         color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
 
-        fig.add_trace(go.Scatter3d(
-            x=x, y=y, z=z,
-            mode="markers",
-            marker=dict(size=3, color=color, opacity=0.6),
-            showlegend=False
-        ))
+        if not st.session_state.get("export_no_nyquist_markers", False):
+            fig.add_trace(go.Scatter3d(
+                x=x, y=y, z=z,
+                mode="markers",
+                marker=dict(size=3, color=color, opacity=0.6),
+                showlegend=False
+            ))
 
         fig.add_trace(go.Scatter3d(
             x=x, y=y, z=z,
@@ -778,7 +899,8 @@ def nyquist_3d_plotly_cols(datasets, title, x_col: int, y_col: int, negate_y: bo
             name=name,
             line=dict(color=color, width=4)
         ))
-
+    x_range = max(xmax - xmin, 1e-12)
+    z_range = max(zmax - zmin, 1e-12)    
     fig.update_layout(
         title=title,
         template="plotly_dark",
@@ -787,8 +909,19 @@ def nyquist_3d_plotly_cols(datasets, title, x_col: int, y_col: int, negate_y: bo
             yaxis=dict(title="", showticklabels=False),
             zaxis=dict(title="−Z″ [Ω·cm²]"),
             aspectmode="manual",
-            aspectratio=dict(x=x_range, y=0.35 * x_range, z=z_range),
-            camera=dict(eye=dict(x=-1.7, y=1.7, z=1.7))
+            aspectratio=dict(
+                x=1,
+                y=0.05*len(datasets),                     # arbitrary thin stacking axis
+                z=z_range / x_range         # THIS enforces equal units
+            ),
+
+            camera=dict(
+                eye=dict(
+                    x=-1.7,
+                    y=1.7,
+                    z=1.7
+                )
+            )
         ),
         margin=dict(l=0, r=0, b=0, t=40)
     )
@@ -845,11 +978,11 @@ def drt_3d_plotly(datasets, title):
 
             #  Match Nyquist 3D proportions
             aspectmode="manual",
-            aspectratio=dict(x=1, y=0.6, z=1),
+            aspectratio=dict(x=1.2, y=0.05*len(datasets), z=0.9),
 
             #  Same camera as Nyquist
             camera=dict(
-                eye=dict(x=-1.7, y=1.7, z=1.7)
+                eye=dict(x=-1.4, y=1.4, z=1.4)
             )
         ),
         margin=dict(l=0, r=0, b=0, t=40)
@@ -1162,12 +1295,19 @@ def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str):
 # ===============================
 # Matplotlib → write PNG bytes directly into ZIP
 # ===============================
-def _fig_to_png_bytes(fig) -> bytes:
+def _fig_to_bytes(fig, fmt: str) -> bytes:
+    """
+    Export matplotlib figure to selected format.
+    """
     buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=300, bbox_inches="tight")
+
+    if fmt == "pdf":
+        fig.savefig(buf, format="pdf", bbox_inches="tight")
+    else:
+        fig.savefig(buf, format=fmt, dpi=300, bbox_inches="tight")
+
     plt.close(fig)
     return buf.getvalue()
-
 
 def add_nyquist_png(zf: zipfile.ZipFile, datasets, title: str):
 
@@ -1227,18 +1367,208 @@ def add_nyquist_png(zf: zipfile.ZipFile, datasets, title: str):
     ax.spines["right"].set_visible(False)
 
     ax.set_aspect('equal', adjustable='box')
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            frameon=False
+        )
+        fig.subplots_adjust(right=0.75)
 
-    ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        frameon=False
-    )
-    fig.subplots_adjust(right=0.75)
+        fig.subplots_adjust(bottom=0.22)
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"Nyquist/{title}.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
+    
+def add_nyquist_compare_png(
+    zf: zipfile.ZipFile,
+    compare_mode: str,
+    files_to_process,
+    display_name_map
+):
 
-    fig.subplots_adjust(bottom=0.22)
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=600)
 
-    zf.writestr(f"Nyquist/{title}.png", _fig_to_png_bytes(fig))
+    mapping = {
+        "Truncated vs Original": ("Truncated", "Original"),
+        "Smooth vs Truncated": ("Truncated", "Smooth"),
+        "LC corrected vs Truncated": ("Truncated", "LC corrected"),
+        "Extended vs Truncated": ("Truncated", "Extended"),
+        "DRT Fit vs Truncated": ("Truncated", "DRT Fit")
+    }
 
+    sheet_trunc, sheet_other = mapping[compare_mode]
+
+    all_x = []
+    all_y = []
+
+    for i, eis_file in enumerate(files_to_process):
+
+        fname = eis_file.name
+        label = latex_label(display_name_map.get(fname, fname))
+        color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
+
+        xls = pd.ExcelFile(eis_file)
+
+        df_trunc = None
+        if sheet_trunc in xls.sheet_names:
+            df_trunc = pd.read_excel(xls, sheet_trunc)
+
+        df_other = None
+
+        if sheet_other == "DRT Fit":
+            drt_file = sibling_file(eis_file, "DRT")
+            if drt_file.exists():
+                drt_xls = pd.ExcelFile(drt_file)
+                if "Tknv_ReIm_s" in drt_xls.sheet_names:
+                    df_other = pd.read_excel(drt_xls, "Tknv_ReIm_s")
+        else:
+            if sheet_other in xls.sheet_names:
+                df_other = pd.read_excel(xls, sheet_other)
+
+        if df_trunc is None:
+            continue
+
+        # --------------------------------------------------
+        # Truncated vs Original
+        # --------------------------------------------------
+        if compare_mode == "Truncated vs Original":
+
+            # Original FIRST (hollow circles)
+            if df_other is not None:
+                x = pd.to_numeric(df_other.iloc[:, 1], errors="coerce")
+                y = -pd.to_numeric(df_other.iloc[:, 2], errors="coerce")
+
+                ax.plot(
+                    x, y,
+                    linestyle='None',
+                    marker='o',
+                    markersize=6,
+                    markerfacecolor='none',
+                    markeredgecolor=color,
+                    markeredgewidth=1.5,
+                    alpha=0.5,
+                    label=f"{label} - Original"
+                )
+
+                all_x.extend(x.dropna())
+                all_y.extend(y.dropna())
+
+            # Truncated SECOND (filled)
+            x = pd.to_numeric(df_trunc.iloc[:, 1], errors="coerce")
+            y = -pd.to_numeric(df_trunc.iloc[:, 2], errors="coerce")
+
+            ax.plot(
+                x, y,
+                linestyle='None',
+                marker='o',
+                markersize=6,
+                markerfacecolor=color,
+                markeredgecolor=color,
+                alpha=1.0,
+                label=f"{label} - Truncated"
+            )
+
+            all_x.extend(x.dropna())
+            all_y.extend(y.dropna())
+
+        # --------------------------------------------------
+        # X vs Truncated
+        # --------------------------------------------------
+        else:
+
+            # Truncated (filled circles)
+            x_tr = pd.to_numeric(df_trunc.iloc[:, 1], errors="coerce")
+            y_tr = -pd.to_numeric(df_trunc.iloc[:, 2], errors="coerce")
+
+            ax.plot(
+                x_tr, y_tr,
+                linestyle='None',
+                marker='o',
+                markersize=5,
+                markerfacecolor=color,
+                markeredgecolor=color,
+                alpha=1.0
+            )
+
+            all_x.extend(x_tr.dropna())
+            all_y.extend(y_tr.dropna())
+
+            if df_other is not None:
+
+                if sheet_other == "DRT Fit":
+                    xcol = 2
+                    ycol = 3
+                else:
+                    xcol = 1
+                    ycol = 2
+
+                x = pd.to_numeric(df_other.iloc[:, xcol], errors="coerce")
+                y = -pd.to_numeric(df_other.iloc[:, ycol], errors="coerce")
+
+                ax.plot(
+                    x, y,
+                    linewidth=1.8,
+                    color=color,
+                    alpha=0.9,
+                    label=label  # Only filename
+                )
+
+                all_x.extend(x.dropna())
+                all_y.extend(y.dropna())
+
+    # --------------------------------------------------
+    # Smart limits (same as add_nyquist_png)
+    # --------------------------------------------------
+    if all_x and all_y:
+        xmin, xmax = min(all_x), max(all_x)
+        ymin, ymax = min(all_y), max(all_y)
+
+        margin_x = (xmax - xmin) * 0.03
+        margin_y = (ymax - ymin) * 0.03
+
+        ax.set_xlim(xmin - margin_x, xmax + margin_x)
+
+        if ymin < 0:
+            ax.set_ylim(ymin - margin_y, ymax + margin_y)
+        else:
+            ax.set_ylim(0, ymax + margin_y)
+
+    ax.set_xlabel("Z′ [Ω·cm²]")
+    ax.set_ylabel("−Z″ [Ω·cm²]")
+
+    ax.set_aspect('equal', adjustable='box')
+
+    # Grid toggle
+    if st.session_state.get("export_no_grid", False):
+        ax.grid(False)
+    else:
+        ax.grid(True, linewidth=0.5, alpha=0.3)
+
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    # Legend toggle
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            frameon=False
+        )
+        fig.subplots_adjust(right=0.75)
+
+    # --------------------------------------------------
+    # Export formats
+    # --------------------------------------------------
+    safe_name = compare_mode.replace(" ", "_").replace("→", "to")
+
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"Nyquist_Compare/{safe_name}.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
 
 def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
 
@@ -1269,7 +1599,7 @@ def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
                 tickangle=0,
                 tickfont=dict(size=12, color="black"),
 
-                showgrid=True,
+                showgrid=not st.session_state.get("export_no_grid", False),
                 gridcolor="lightgray",
                 gridwidth=1,
 
@@ -1286,7 +1616,7 @@ def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
                 tickangle=0,
                 tickfont=dict(size=12, color="black"),
 
-                showgrid=True,
+                showgrid=not st.session_state.get("export_no_grid", False),
                 gridcolor="lightgray",
                 gridwidth=1,
 
@@ -1305,7 +1635,7 @@ def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
                 tickangle=0,
                 tickfont=dict(size=12, color="black"),
 
-                showgrid=True,
+                showgrid=not st.session_state.get("export_no_grid", False),
                 gridcolor="lightgray",
                 gridwidth=1,
 
@@ -1317,14 +1647,14 @@ def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
             ),
 
             aspectmode="manual",
-            aspectratio=dict(x=1.2, y=0.7, z=0.9),
+            aspectratio=dict(x=1.2, y=0.05*len(datasets), z=0.9),
 
             camera=dict(
                 projection=dict(type="orthographic"),
                 eye=dict(
-                    x=-1.7,
-                    y=1.7,
-                    z=1.7
+                    x=-1.4,
+                    y=1.4,
+                    z=1.4
                 )
             )
 
@@ -1342,14 +1672,36 @@ def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
         margin=dict(l=0, r=250, b=40, t=20)
     )
 
-    img_bytes = fig.to_image(
-        format="png",
-        scale=4,
-        width=1600,
-        height=1000
-    )
+    if st.session_state.get("export_no_legend", False):
 
-    zf.writestr(f"DRT_3D/{title}_3D.png", img_bytes)
+        fig.update_layout(
+            showlegend=False,
+            margin=dict(l=40, r=40, b=40, t=40)
+        )
+
+    else:
+
+        fig.update_layout(
+            legend=dict(
+                orientation="v",
+                y=1,
+                yanchor="top",
+                x=1.02,
+                xanchor="left",
+                font=dict(size=12, color="black"),
+            ),
+            margin=dict(l=40, r=220, b=40, t=40)
+        )
+    for fmt in st.session_state.export_formats:
+
+        img_bytes = fig.to_image(
+            format=fmt,
+            scale=4,
+            width=1600,
+            height=1000
+        )
+
+        zf.writestr(f"DRT_3D/{title}_3D.{fmt}", img_bytes)
 
 def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
 
@@ -1411,7 +1763,7 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    if len(datasets) > 1:
+    if len(datasets) > 1 and not st.session_state.get("export_no_legend", False):
         ax.legend(
             loc="center left",
             bbox_to_anchor=(1.02, 0.5),
@@ -1419,7 +1771,11 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
         )
         fig.subplots_adjust(right=0.78)
 
-    zf.writestr("DRT/Nyquist_fit.png", _fig_to_png_bytes(fig))
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"Nyquist/DRT_Fit.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
 
 def nyquist_fit_3d_plotly(datasets, title="Nyquist – DRT Smooth Fit (3D)"):
     """
@@ -1452,31 +1808,30 @@ def nyquist_fit_3d_plotly(datasets, title="Nyquist – DRT Smooth Fit (3D)"):
     else:
         zmin, zmax = 0.0, 1.0
 
-    x_range = max(xmax - xmin, 1e-12)
-    z_range = max(zmax - zmin, 1e-12)
-
     # ---- traces ----
     for i, (name, df) in enumerate(datasets):
         x = pd.to_numeric(df.iloc[:, 2], errors="coerce")
         z = -pd.to_numeric(df.iloc[:, 3], errors="coerce")
-        y = np.full_like(x, i)
+        y_spacing = 1.0
+        y = np.full_like(x, i * y_spacing)
 
         color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
 
-        fig.add_trace(go.Scatter3d(
-            x=x, y=y, z=z,
-            mode="markers",
-            marker=dict(size=3, color=color, opacity=0.6),
-            showlegend=False
-        ))
-
+        if not st.session_state.get("export_no_nyquist_markers", False):
+            fig.add_trace(go.Scatter3d(
+                x=x, y=y, z=z,
+                mode="markers",
+                marker=dict(size=3, color=color, opacity=0.6),
+                showlegend=False
+            ))
         fig.add_trace(go.Scatter3d(
             x=x, y=y, z=z,
             mode="lines",
             name=name,
             line=dict(color=color, width=4)
         ))
-
+    x_range = max(xmax - xmin, 1e-12)
+    z_range = max(zmax - zmin, 1e-12)    
     fig.update_layout(
         title=title,
         template="plotly_dark",
@@ -1485,8 +1840,19 @@ def nyquist_fit_3d_plotly(datasets, title="Nyquist – DRT Smooth Fit (3D)"):
             yaxis=dict(title="", showticklabels=False),
             zaxis=dict(title="−Z″ [Ω·cm²]"),
             aspectmode="manual",
-            aspectratio=dict(x=x_range, y=0.35 * x_range, z=z_range),
-            camera=dict(eye=dict(x=-1.7, y=1.7, z=1.7))
+            aspectratio=dict(
+                x=1,
+                y=0.05*len(datasets),                     # arbitrary thin stacking axis
+                z=z_range / x_range         # THIS enforces equal units
+            ),
+
+            camera=dict(
+                eye=dict(
+                    x=-1.7,
+                    y=1.7,
+                    z=1.7
+                )
+            )
         ),
         margin=dict(l=0, r=0, b=0, t=40)
     )
@@ -1502,7 +1868,35 @@ def add_nyquist_fit_3d_png(zf: zipfile.ZipFile, datasets, title: str = "Nyquist_
 
     n_files = len(datasets)
     legend_font_size = max(10, min(16, int(22 - 0.8 * n_files)))
+    all_x = []
+    all_z = []
 
+    for _, df in datasets:
+        x = pd.to_numeric(df.iloc[:, 2], errors="coerce").to_numpy()
+        z = (-pd.to_numeric(df.iloc[:, 3], errors="coerce")).to_numpy()
+
+        x = x[np.isfinite(x)]
+        z = z[np.isfinite(z)]
+
+        if len(x):
+            all_x.append(x)
+        if len(z):
+            all_z.append(z)
+
+    if all_x:
+        all_x = np.concatenate(all_x)
+        xmin, xmax = float(np.min(all_x)), float(np.max(all_x))
+    else:
+        xmin, xmax = 0.0, 1.0
+
+    if all_z:
+        all_z = np.concatenate(all_z)
+        zmin, zmax = float(np.min(all_z)), float(np.max(all_z))
+    else:
+        zmin, zmax = 0.0, 1.0
+    x_range = max(xmax - xmin, 1e-12)
+    z_range = max(zmax - zmin, 1e-12)    
+    
     # ---- reuse same layout style as your other 3D Nyquist export ----
     fig.update_layout(
         template="plotly_white",
@@ -1518,7 +1912,7 @@ def add_nyquist_fit_3d_png(zf: zipfile.ZipFile, datasets, title: str = "Nyquist_
             xaxis=dict(
                 title=dict(text="Z′ [Ω·cm²]", font=dict(size=16, color="black")),
                 tickfont=dict(size=12, color="black"),
-                showgrid=True, gridcolor="lightgray", gridwidth=1,
+                showgrid=not st.session_state.get("export_no_grid", False), gridcolor="lightgray", gridwidth=1,
                 showline=True, linecolor="black", linewidth=3,
                 ticks="outside",
                 autorange="reversed",
@@ -1526,20 +1920,30 @@ def add_nyquist_fit_3d_png(zf: zipfile.ZipFile, datasets, title: str = "Nyquist_
             yaxis=dict(
                 title="",
                 showticklabels=False,
-                showgrid=True, gridcolor="lightgray", gridwidth=1,
+                showgrid=not st.session_state.get("export_no_grid", False), gridcolor="lightgray", gridwidth=1,
                 showline=True, linecolor="black", linewidth=3,
                 ticks="outside",
             ),
             zaxis=dict(
                 title=dict(text="−Z″ [Ω·cm²]", font=dict(size=16, color="black")),
                 tickfont=dict(size=12, color="black"),
-                showgrid=True, gridcolor="lightgray", gridwidth=1,
+                showgrid=not st.session_state.get("export_no_grid", False), gridcolor="lightgray", gridwidth=1,
                 showline=True, linecolor="black", linewidth=3,
                 ticks="outside",
             ),
+            aspectmode="manual",
+            aspectratio=dict(
+                x=1,
+                y=0.05*len(datasets),                     # arbitrary thin stacking axis
+                z=z_range / x_range         # THIS enforces equal units
+            ),
+
             camera=dict(
-                projection=dict(type="orthographic"),
-                eye=dict(x=-1.7, y=1.7, z=1.7)
+                eye=dict(
+                    x=-1.7,
+                    y=1.7,
+                    z=1.7
+                )
             )
         ),
 
@@ -1552,16 +1956,41 @@ def add_nyquist_fit_3d_png(zf: zipfile.ZipFile, datasets, title: str = "Nyquist_
         ),
         margin=dict(l=0, r=250, b=40, t=20)
     )
+    if st.session_state.get("export_no_legend", False):
 
-    img_bytes = fig.to_image(format="png", scale=4, width=1600, height=1000)
-    zf.writestr(f"Nyquist_3D/{title}_3D.png", img_bytes)
+        fig.update_layout(
+            showlegend=False,
+            margin=dict(l=40, r=40, b=40, t=40)
+        )
+
+    else:
+
+        fig.update_layout(
+            legend=dict(
+                orientation="v",
+                y=1,
+                yanchor="top",
+                x=1.02,
+                xanchor="left",
+                font=dict(size=12, color="black"),
+            ),
+            margin=dict(l=40, r=220, b=40, t=40)
+        )
+    for fmt in st.session_state.export_formats:
+
+        img_bytes = fig.to_image(
+            format=fmt,
+            scale=4,
+            width=1600,
+            height=1000
+        )
+
+        zf.writestr(f"Nyquist_3D/{title}_3D.{fmt}", img_bytes)
     
 def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
 
     fig = nyquist_3d_plotly(datasets, title)
-    n_files = len(datasets)
-    legend_font_size = max(10, min(16, int(22 - 0.8 * n_files)))
-
+    
     # --------------------------------------------------
     # 🔎 Compute TRUE global ranges for equal scaling
     # --------------------------------------------------
@@ -1591,10 +2020,10 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
         zmin, zmax = float(np.min(all_z)), float(np.max(all_z))
     else:
         zmin, zmax = 0.0, 1.0
-
     x_range = max(xmax - xmin, 1e-12)
-    z_range = max(zmax - zmin, 1e-12)
-
+    z_range = max(zmax - zmin, 1e-12)    
+    span = max(x_range, z_range)
+    zoom_factor = span / 6
     # --------------------------------------------------
     # 🧪 Scientific white layout with TRUE equal scaling
     # --------------------------------------------------
@@ -1609,7 +2038,7 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
         ),
 
         scene=dict(
-
+            
             xaxis=dict(
                 title=dict(
                     text="Z′ [Ω·cm²]",
@@ -1617,7 +2046,7 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
                 ),
                 tickangle=0,
                 tickfont=dict(size=12, color="black"),
-                showgrid=True,
+                showgrid=not st.session_state.get("export_no_grid", False),
                 gridcolor="lightgray",
                 gridwidth=1,
                 showline=True,
@@ -1631,7 +2060,7 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
                 title="",
                 tickangle=0,
                 tickfont=dict(size=12, color="black"),
-                showgrid=True,
+                showgrid=not st.session_state.get("export_no_grid", False),
                 gridcolor="lightgray",
                 gridwidth=1,
                 showline=True,
@@ -1647,7 +2076,7 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
                 ),
                 tickangle=0,
                 tickfont=dict(size=12, color="black"),
-                showgrid=True,
+                showgrid=not st.session_state.get("export_no_grid", False),
                 gridcolor="lightgray",
                 gridwidth=1,
                 showline=True,
@@ -1659,13 +2088,12 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
             # ✅ TRUE equal scaling between Z′ and Z″
             aspectmode="manual",
             aspectratio=dict(
-                x=x_range,
-                y=0.35 * x_range,   # compress file axis
-                z=z_range
+                x=1,
+                y=0.05*len(datasets),                     # arbitrary thin stacking axis
+                z=z_range / x_range         # THIS enforces equal units
             ),
 
             camera=dict(
-                projection=dict(type="orthographic"),
                 eye=dict(
                     x=-1.7,
                     y=1.7,
@@ -1676,24 +2104,46 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
 
         legend=dict(
             orientation="v",
-            y=0.5,
-            yanchor="middle",
+            y=1,
+            yanchor="top",
             x=1.02,
             xanchor="left",
-            font=dict(size=legend_font_size, color="black"),
-            bgcolor="rgba(255,255,255,0.9)"
+            font=dict(size=12, color="black"),
         ),
-        margin=dict(l=0, r=250, b=40, t=20)
+        margin=dict(l=40, r=220, b=40, t=40)
     )
 
-    img_bytes = fig.to_image(
-        format="png",
-        scale=4,
-        width=1600,
-        height=1000
-    )
+    if st.session_state.get("export_no_legend", False):
 
-    zf.writestr(f"Nyquist_3D/{title}_3D.png", img_bytes)
+        fig.update_layout(
+            showlegend=False,
+            margin=dict(l=40, r=40, b=40, t=40)
+        )
+
+    else:
+
+        fig.update_layout(
+            legend=dict(
+                orientation="v",
+                y=1,
+                yanchor="top",
+                x=1.02,
+                xanchor="left",
+                font=dict(size=12, color="black"),
+            ),
+            margin=dict(l=40, r=220, b=40, t=40)
+        )
+
+    for fmt in st.session_state.export_formats:
+
+        img_bytes = fig.to_image(
+            format=fmt,
+            scale=4,
+            width=1600,
+            height=1000
+        )
+
+        zf.writestr(f"Nyquist_3D/{title}_3D.{fmt}", img_bytes)
 
 
 
@@ -1774,17 +2224,20 @@ def add_bode_png(zf: zipfile.ZipFile, datasets, title: str, real: bool):
     ax.spines["right"].set_visible(False)
 
     # ---- Legend BELOW ----
-    ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        frameon=False
-    )
-    fig.subplots_adjust(right=0.75)
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            frameon=False
+        )
+        fig.subplots_adjust(right=0.75)
 
-    zf.writestr(f"Bode/{subfolder}/{title}_{subfolder}.png", _fig_to_png_bytes(fig))
-
-
-
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"Bode/{subfolder}/{title}_{subfolder}.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
+   
 
 
 def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
@@ -1832,15 +2285,19 @@ def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
     ax.spines["right"].set_visible(False)
 
     # ---- Legend BELOW ----
-    ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        frameon=False
-    )
-    fig.subplots_adjust(right=0.75)
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            frameon=False
+        )
+        fig.subplots_adjust(right=0.75)
 
-    zf.writestr(f"DRT/{title}.png", _fig_to_png_bytes(fig))
-
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"DRT/{title}.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
 
 
 
@@ -1877,8 +2334,12 @@ def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
     ax.tick_params(axis="x", rotation=30)
-
-    zf.writestr(f"CNLS/{fname}_bar.png", _fig_to_png_bytes(fig))
+    
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"CNLS/{fname}_bar.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
 
 def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
 
@@ -1945,21 +2406,22 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
     n = len(legend_handles)
     legend_font = max(6, min(10, int(12 - 0.25 * n)))
 
-    ax.legend(
-        handles=legend_handles,
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        frameon=False,
-        fontsize=legend_font
-    )
-
-    fig.subplots_adjust(right=0.78)
-
-    zf.writestr(
-        f"CNLS/LinePlots/{param}.png",
-        _fig_to_png_bytes(fig)
-    )
-
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(
+            handles=legend_handles,
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            frameon=False,
+            fontsize=legend_font
+        )
+        fig.subplots_adjust(right=0.78)
+    
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"CNLS/LinePlots/{param}.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
+   
 def add_cnls_elements_fitting_png(
     zf: zipfile.ZipFile,
     cnls_file: Path,
@@ -2041,18 +2503,21 @@ def add_cnls_elements_fitting_png(
     ax.spines["right"].set_visible(False)
 
     # ---- Legend BELOW (consistent with others) ----
-    ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        ncol=1,
-        frameon=False
-    )
-    fig.subplots_adjust(right=0.78)
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            ncol=1,
+            frameon=False
+        )
+        fig.subplots_adjust(right=0.78)
 
-    zf.writestr(
-        f"CNLS/Fitting/{fname}_DRTFitting.png",
-        _fig_to_png_bytes(fig)
-    )
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"CNLS/Fitting/{fname}.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
+ 
 
 def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
 
@@ -2124,18 +2589,20 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        ncol=1,
-        frameon=False
-    )
-    fig.subplots_adjust(right=0.78)
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            ncol=1,
+            frameon=False
+        )
+        fig.subplots_adjust(right=0.78)
 
-    zf.writestr(
-        f"CNLS/Fitting/{fname}_NyquistFit.png",
-        _fig_to_png_bytes(fig)
-    )
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"CNLS/Fitting/Nyquist_{fname}.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
 
 def add_cnls_residuals_png(zf, cnls_file, fname):
 
@@ -2194,18 +2661,21 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 
-    ax.legend(
-        loc="center left",
-        bbox_to_anchor=(1.02, 0.5),
-        ncol=1,
-        frameon=False
-    )
-    fig.subplots_adjust(right=0.78)
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            ncol=1,
+            frameon=False
+        )
+        fig.subplots_adjust(right=0.78)
 
-    zf.writestr(
-        f"CNLS/Fitting/{fname}_Residuals.png",
-        _fig_to_png_bytes(fig)
-    )
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"CNLS/Fitting/Res_{fname}.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
+   
 
 def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_choice: str):
 
@@ -2279,8 +2749,11 @@ def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_cho
 
     fig.tight_layout()
 
-    zf.writestr("CNLS/CNLS_heatmap.png", _fig_to_png_bytes(fig))
-
+    for fmt in st.session_state.export_formats:
+        zf.writestr(
+            f"CNLS/CNLS_heatmap.{fmt}",
+            _fig_to_bytes(fig, fmt)
+        )
 
 
 
@@ -2304,7 +2777,7 @@ with st.sidebar:
         )
 
     with col_right:
-        browse = st.button("📁", use_container_width=True)
+        browse = st.button("📁", width='stretch')
 
     if browse:
         selected_folder = pick_folder_dialog()
@@ -2342,7 +2815,7 @@ with st.sidebar:
 
     # ---- Button FIRST ----
     with col_right:
-        if st.button("All", use_container_width=True):
+        if st.button("All", width='stretch'):
             st.session_state.selected_files = list(display_map.keys())
 
     # ---- Then create the widget ----
@@ -2353,22 +2826,62 @@ with st.sidebar:
             key="selected_files"
         )
     # ---- Optional alphabetical ordering ----
-    sort_alphabetically = st.checkbox(
-        "Order selected files alphabetically",
-        value=False
+    sort_mode = st.selectbox(
+        "File ordering",
+        [
+            "Original selection order",
+            "Alphabetical by filename (A → Z)",
+            "Alphabetical by filename (Z → A)",
+            "Alphabetical by full path (A → Z)",
+            "Alphabetical by full path (Z → A)"
+        ],
+        index=1
+    )
+    show_legend_table = st.checkbox(
+        "Show personalized legend table",
+        value=True,
+        key="show_legend_table"
     )
 
     selected_keys = st.session_state.selected_files
 
-    if sort_alphabetically:
-        # sort by filename first (natural), then by full relative path to break ties
+    if sort_mode == "Alphabetical by filename (A → Z)":
         selected_keys = sorted(
             selected_keys,
-            key=lambda k: (natural_key(Path(k).name), natural_key(k))
+            key=lambda k: natural_key(Path(k).name)
         )
 
-    files_to_process = [display_map[s] for s in selected_keys]
+    elif sort_mode == "Alphabetical by filename (Z → A)":
+        selected_keys = sorted(
+            selected_keys,
+            key=lambda k: natural_key(Path(k).name),
+            reverse=True
+        )
 
+    elif sort_mode == "Alphabetical by full path (A → Z)":
+        selected_keys = sorted(
+            selected_keys,
+            key=lambda k: natural_key(k)
+        )
+
+    elif sort_mode == "Alphabetical by full path (Z → A)":
+        selected_keys = sorted(
+            selected_keys,
+            key=lambda k: natural_key(k),
+            reverse=True
+        )
+
+# else: Original selection order → do nothing
+# else: keep original selection order
+
+    files_to_process = [display_map[s] for s in selected_keys]
+    # --- Always initialize custom_names once ---
+    if "custom_names" not in st.session_state:
+        st.session_state["custom_names"] = {}
+
+    # Ensure every selected file has a default label
+    for f in files_to_process:
+        st.session_state["custom_names"].setdefault(f.name, f.name)
 
     n_files = max(2, len(files_to_process))
     st.markdown("### Colors")
@@ -2389,7 +2902,41 @@ with st.sidebar:
     
 
     st.header("Nyquist")
-    nyquist_selected = st.multiselect("Nyquist types", NYQUIST_TYPES, default=DEFAULT_NYQUIST)
+    # Build Nyquist options dynamically
+    NYQUIST_TYPES_DYNAMIC = list(NYQUIST_TYPES)  # Original, Truncated, etc.
+    drt_fit_available = has_drt_fit(files_to_process)
+    if drt_fit_available:
+        NYQUIST_TYPES_DYNAMIC.append("DRT Fit")
+    # If "DRT Fit" was selected previously but now not available, remove it
+    prev = st.session_state.get("nyquist_selected", [])
+    if (not drt_fit_available) and ("DRT Fit" in prev):
+        st.session_state["nyquist_selected"] = [x for x in prev if x != "DRT Fit"]
+    nyquist_selected = st.multiselect(
+        "Nyquist types",
+        NYQUIST_TYPES_DYNAMIC,
+        default=[x for x in DEFAULT_NYQUIST if x in NYQUIST_TYPES_DYNAMIC],
+        key="nyquist_selected"
+    )
+    # -------------------------
+    # Nyquist Compare
+    # -------------------------
+
+    compare_options = [
+        "Truncated vs Original",
+        "Smooth vs Truncated",
+        "LC corrected vs Truncated",
+        "Extended vs Truncated"
+    ]
+
+    if drt_fit_available:
+        compare_options.append("DRT Fit vs Truncated")
+
+    nyquist_compare_selected = st.multiselect(
+        "Compare",
+        compare_options,
+        default=[]
+    )
+
     nyquist_show_params = st.checkbox("Parameters", value=False, key="nyq_params")
 
     st.header("Bode")
@@ -2397,7 +2944,6 @@ with st.sidebar:
 
     st.header("DRT")
     drt_selected = st.multiselect("DRT types", DRT_TYPES, default=[])
-    nyquist_fit_selected = st.checkbox("Nyquist fit", value=False)
     drt_show_params = st.checkbox("Parameters", value=False, key="drt_params")
 
 
@@ -2439,7 +2985,48 @@ with st.sidebar:
         value=False,
         key="export_no_grid"
     )
-    export_folder = Path(st.text_input("Export folder path", value=str(DEFAULT_EXPORT_FOLDER)))
+
+    export_no_legend = st.checkbox(
+        "Remove legends",
+        value=False,
+        key="export_no_legend"
+    )
+
+    if "export_input" not in st.session_state:
+        st.session_state.export_input = str(DEFAULT_EXPORT_FOLDER)
+
+    col_left, col_right = st.columns([0.82, 0.18], vertical_alignment="bottom")
+
+    with col_left:
+        st.session_state.export_input = st.text_input(
+            "Export folder path",
+            value=st.session_state.export_input
+        )
+
+    with col_right:
+        browse_export = st.button("📁", key="browse_export", width='stretch')
+
+    if browse_export:
+        selected_folder = pick_folder_dialog()
+        if selected_folder:
+            st.session_state.export_input = selected_folder
+            st.rerun()
+
+    export_folder = Path(st.session_state.export_input)
+    # ------------------------------
+    # Export file types
+    # ------------------------------
+
+    export_formats = st.multiselect(
+        "Select formats",
+        options=["png", "jpg", "pdf"],
+        default=["png"],
+        key="export_formats"
+    )
+
+    # Safety fallback
+    if not export_formats:
+        st.session_state.export_formats = ["png"]
     save_zip = st.button("💾 Save ZIP")
     # --- Export styling toggles ---
 
@@ -2447,52 +3034,67 @@ if not files_to_process:
     st.info("Select at least one EIS file.")
     st.stop()
 
+# --- Always build display_name_map (even if legend table is hidden) ---
+if show_legend_table:
+    display_name_map = {
+        f.name: st.session_state["custom_names"].get(f.name, f.name)
+        for f in files_to_process
+    }
+else:
+    # fallback to raw filenames
+    display_name_map = {f.name: f.name for f in files_to_process}
+
+
 # ===============================
 # File Label Editor (Main Page)
 # ===============================
+if show_legend_table:
+    st.subheader("Selected Files")
 
-st.subheader("Selected Files")
+    # Build current table from session_state (source of truth)
+    rows = []
+    for idx, f in enumerate(files_to_process, start=1):
+        fname = f.name
+        rows.append({
+            "Index": idx,
+            "File name": fname,
+            "Personalized name (LaTeX-friendly)": st.session_state.custom_names.get(fname, fname),
+        })
 
-# Initialize session storage for custom names
-if "custom_names" not in st.session_state:
-    st.session_state.custom_names = {}
+    df_labels = pd.DataFrame(rows)
 
-rows = []
+    # ---- EDITOR INSIDE A FORM (only commits on Apply) ----
+    with st.form("legend_editor_form", clear_on_submit=False):
+        edited_df = st.data_editor(
+            df_labels,
+            key="legend_editor",  # IMPORTANT: stable key
+            column_config={
+                "Index": st.column_config.NumberColumn(disabled=True),
+                "File name": st.column_config.TextColumn(disabled=True),
+                "Personalized name (LaTeX-friendly)": st.column_config.TextColumn(),
+            },
+            hide_index=True,
+            width='stretch',
+        )
 
-for idx, f in enumerate(files_to_process, start=1):
-    fname = f.name
+        colA, colB = st.columns([0.25, 0.75])
+        with colA:
+            apply_labels = st.form_submit_button("✅ Apply labels")
 
-    if fname not in st.session_state.custom_names:
-        st.session_state.custom_names[fname] = fname
+        # Optional: reset inside the form
+        with colB:
+            reset_labels = st.form_submit_button("↩ Reset to filenames")
 
-    rows.append({
-        "Index": idx,
-        "File name": fname,
-        "Personalized name (LaTeX-friendly)": st.session_state.custom_names[fname]
-    })
+    # ---- APPLY / RESET (only here, after button press) ----
+    if apply_labels:
+        for _, row in edited_df.iterrows():
+            st.session_state.custom_names[row["File name"]] = row["Personalized name (LaTeX-friendly)"]
+        st.rerun()
 
-df_labels = pd.DataFrame(rows)
-
-edited_df = st.data_editor(
-    df_labels,
-    column_config={
-        "Index": st.column_config.NumberColumn(disabled=True),
-        "File name": st.column_config.TextColumn(disabled=True),
-        "Personalized name (LaTeX-friendly)": st.column_config.TextColumn()
-    },
-    hide_index=True,
-    use_container_width=True
-)
-
-# Update session state after editing
-for _, row in edited_df.iterrows():
-    st.session_state.custom_names[row["File name"]] = row["Personalized name (LaTeX-friendly)"]
-
-# Build display name map
-display_name_map = {
-    fname: st.session_state.custom_names.get(fname, fname)
-    for fname in [f.name for f in files_to_process]
-}
+    if reset_labels:
+        for f in files_to_process:
+            st.session_state.custom_names[f.name] = f.name
+        st.rerun()
 
 # ===============================
 # Load data
@@ -2504,7 +3106,6 @@ cnls_rows: List[Dict] = []
 nyquist_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in nyquist_selected}
 bode_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in bode_selected}
 drt_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in drt_selected}
-nyquist_fit_data: List[Tuple[str, pd.DataFrame]] = []
 
 for eis_file in files_to_process:
     fname = eis_file.name
@@ -2513,7 +3114,7 @@ for eis_file in files_to_process:
     # EIS parameters
     eis_param_rows.append(extract_eis_parameters(xls, fname))
 
-    # Nyquist + Bode from EIS file
+    # Nyquist
     for p in nyquist_selected:
         if p in xls.sheet_names:
             df = pd.read_excel(xls, p)
@@ -2521,6 +3122,7 @@ for eis_file in files_to_process:
                 label = display_name_map.get(fname, fname)
                 nyquist_data[p].append((latex_label(label), df))
 
+    # Bode 
     for p in bode_selected:
         if p in xls.sheet_names:
             df = pd.read_excel(xls, p)
@@ -2544,12 +3146,15 @@ for eis_file in files_to_process:
                 if df.shape[1] >= 2:
                     label = display_name_map.get(fname, fname)
                     drt_data[p].append((latex_label(label), df))
-        if nyquist_fit_selected:
-            drt_xls = pd.ExcelFile(drt_file)
+
+        # ---- Nyquist "DRT Fit" (from DRT file) ----
+        if "DRT Fit" in nyquist_selected:
             if "Tknv_ReIm_s" in drt_xls.sheet_names:
                 df_fit = pd.read_excel(drt_xls, "Tknv_ReIm_s")
                 if df_fit.shape[1] >= 4:
-                    nyquist_fit_data.append((display_name_map.get(fname, fname), df_fit))
+                    label = display_name_map.get(fname, fname)
+                    nyquist_data.setdefault("DRT Fit", [])
+                    nyquist_data["DRT Fit"].append((latex_label(label), df_fit))
 
     # CNLS from sibling CNLS file (optional)
         if analyze_cnls:
@@ -2577,11 +3182,39 @@ if nyquist_selected:
         st.subheader("Nyquist")
     
     for p, data in nyquist_data.items():
-        if data:
-            if nyquist_3d:
+        if not data:
+            continue
+
+        if nyquist_3d:
+            if p == "DRT Fit":
+                st.plotly_chart(
+                    nyquist_3d_plotly_cols(data, "Nyquist - DRT Fit", x_col=2, y_col=3, negate_y=True),
+                    width="stretch"
+                )
+            else:
                 st.plotly_chart(nyquist_3d_plotly(data, p), width="stretch")
+        else:
+            if p == "DRT Fit":
+                st.plotly_chart(nyquist_fit_plotly(data), width="stretch")
             else:
                 st.plotly_chart(nyquist_plotly(data, p), width="stretch")
+
+# ===============================
+# Nyquist Compare Plots
+# ===============================
+
+if nyquist_compare_selected:
+
+    if not nyquist_show_params and not nyquist_selected:
+        st.subheader("Nyquist")
+
+    for mode in nyquist_compare_selected:
+        fig = nyquist_compare_plotly(
+            mode,
+            files_to_process,
+            display_name_map
+        )
+        st.plotly_chart(fig, width="stretch")
 
 if bode_selected:
     st.subheader("Bode")
@@ -2604,25 +3237,24 @@ if bode_selected:
                 width="stretch",
                 key=f"bode_{p}_imag"
             )
-
-if nyquist_fit_selected and nyquist_fit_data:
-        if not nyquist_show_params and not nyquist_selected:
-            st.subheader("Nyquist")
-        if nyquist_fit_selected and nyquist_fit_data:
-            if nyquist_3d:
-                st.plotly_chart(
-                    nyquist_3d_plotly_cols(nyquist_fit_data, "Nyquist - DRT Smooth Fit", x_col=2, y_col=3, negate_y=True),
-                    width="stretch"
-                )
-            else:
-                st.plotly_chart(nyquist_fit_plotly(nyquist_fit_data), width="stretch")
-
+    
 if drt_show_params and drt_param_rows:
     st.subheader("DRT")
     df_drt_params = pd.DataFrame(drt_param_rows)
     df_drt_params.index = np.arange(1, len(df_drt_params) + 1)
     df_drt_params.index.name = "Index"
-    st.dataframe(df_drt_params, width="stretch")
+    st.data_editor(
+        df_drt_params,
+        column_config={
+            "tknv_pos": st.column_config.CheckboxColumn(
+                "Tikhonov positive definite",
+                help="True if positivity constraint enabled"
+            )
+        },
+        disabled=True,
+        hide_index=False,
+        width="stretch"
+    )
 if drt_selected:
     if not drt_show_params:
         st.subheader("DRT")
@@ -2747,18 +3379,34 @@ if save_zip:
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         # Nyquist
         for p, data in nyquist_data.items():
-            if data:
-                if nyquist_3d:
+            if not data:
+                continue
+
+            if nyquist_3d:
+                if p == "DRT Fit":
+                    add_nyquist_fit_3d_png(zf, data, title="DRT_Fit")
+                else:
                     add_nyquist_3d_png(zf, data, p)
+            else:
+                if p == "DRT Fit":
+                    add_nyquist_fit_png(zf, data)
                 else:
                     add_nyquist_png(zf, data, p)
 
+        if nyquist_compare_selected:
+            for mode in nyquist_compare_selected:
+                add_nyquist_compare_png(
+                    zf,
+                    mode,
+                    files_to_process,
+                    display_name_map
+                )
 
         # Bode
         for p, data in bode_data.items():
             if data:
-                add_bode_png(zf, data, p, real=True)
-                add_bode_png(zf, data, p, real=False)
+                add_bode_png(zf, data, p, real=True) # Z'
+                add_bode_png(zf, data, p, real=False) # -Z"
 
         # DRT
         for p, data in drt_data.items():
@@ -2767,11 +3415,6 @@ if save_zip:
                     add_drt_3d_png(zf, data, p)
                 else:
                     add_drt_png(zf, data, p)
-        if nyquist_fit_selected and nyquist_fit_data:
-            if nyquist_3d:
-                add_nyquist_fit_3d_png(zf, nyquist_fit_data, title="Nyquist_fit")
-            else:
-                add_nyquist_fit_png(zf, nyquist_fit_data)
 
 
         # CNLS
