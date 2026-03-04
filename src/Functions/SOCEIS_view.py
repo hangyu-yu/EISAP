@@ -285,6 +285,7 @@ EIS_PARAM_ORDER = [
     ("Max. KK res. [%]", "kk_threshold"),
     ("Remove high KK resid.", "RmNonKK"),
     ("Remove outliers", "Rmoutliers"),
+    ("Manual removed indices", "ManualRemoval_Indices"),
 ]
 
 
@@ -414,6 +415,41 @@ def discover_eis_files(root: Path) -> List[Path]:
             files.extend(sorted(eis_dir.glob("*.xlsx")))
     return files
 
+
+def compress_indices(value) -> str:
+    """
+    Convert '1,2,3,4,5,6,7,8,9,10,37,41,42,43'
+    -> '1-10,37,41-43'
+    """
+
+    if pd.isna(value):
+        return ""
+
+    try:
+        nums = sorted(int(x.strip()) for x in str(value).split(",") if x.strip().isdigit())
+    except Exception:
+        return str(value)
+
+    if not nums:
+        return ""
+
+    ranges = []
+    start = nums[0]
+    prev = nums[0]
+
+    for n in nums[1:]:
+        if n == prev + 1:
+            prev = n
+        else:
+            ranges.append(f"{start}-{prev}" if start != prev else f"{start}")
+            start = prev = n
+
+    ranges.append(f"{start}-{prev}" if start != prev else f"{start}")
+
+    return ",".join(ranges)
+
+
+
 def natural_key(s: str):
     """
     Natural sort key: 's2' < 's10', case-insensitive.
@@ -442,8 +478,13 @@ def extract_eis_parameters(xls: pd.ExcelFile, fname: str) -> Dict:
     for label, key in EIS_PARAM_ORDER:
         if key in df.columns:
             val = df[key].iloc[0]
+
             if key in ("RmNonKK", "Rmoutliers"):
                 val = yes_no(val)
+
+            if key == "ManualRemoval_Indices":
+                val = compress_indices(val)
+
             row[label] = val
         else:
             row[label] = None
