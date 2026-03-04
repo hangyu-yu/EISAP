@@ -839,8 +839,6 @@ class DRT:
         """
         Save DRT data to an Excel file.
         """
-        self.backup_folder_to_temp_zip('DRT', 'DRT_old.zip')
-
         # Define file path
         ext_save = '.xlsx'
         folder_drt = os.path.join(self.file_folder, 'DRT')
