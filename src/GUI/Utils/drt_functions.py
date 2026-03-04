@@ -75,9 +75,9 @@ def process_data(sender, app_data, config):
 
             print(f"---- Data has been processed successfully for {file_name_no_ext}.")
 
-def save_drt(sender, app_data, config):
+def save_drt(sender, app_data, config, EIS):
     print("-- Saving DRT data...")
-    config.store[file_name_no_ext]['EIS'].backup_folder_to_temp_zip('DRT', 'DRT_backup.zip')
+    EIS.backup_folder_to_temp_zip('DRT', 'DRT_backup.zip')
     if config.selected_files != [] and config.selected_files is not None:
         for file_name in config.selected_files:
             try:

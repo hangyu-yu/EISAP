@@ -314,7 +314,7 @@ def gui_tab_drt(config, EIS, CNLS):
                             tag="Button_Save_DRT",
                             label="Save DRT",
                             width=-1,
-                            callback=lambda s, a: gui_utils.drt_functions.save_drt(s, a, config),
+                            callback=lambda s, a: gui_utils.drt_functions.save_drt(s, a, config, EIS),
                         )
                         dpg.bind_item_theme("Button_Save_DRT", blue_button_theme)
 

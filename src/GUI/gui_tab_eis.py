@@ -393,7 +393,7 @@ def gui_tab_eis(config, EIS, CNLS):
                         dpg.add_button(tag="Button_Process_data", label="Process data", width=int(viewport_width*0.075), callback=lambda s, a: callback_process_data(s, a, EIS, config))
                         dpg.bind_item_theme("Button_Process_data", blue_button_theme)
 
-                        dpg.add_button(tag="Button_Save_EIS", label="Save EIS", width=-1, callback=lambda s, a: gui_utils.eis_functions.save_eis(s, a, config))
+                        dpg.add_button(tag="Button_Save_EIS", label="Save EIS", width=-1, callback=lambda s, a: gui_utils.eis_functions.save_eis(s, a, config, EIS))
                         dpg.bind_item_theme("Button_Save_EIS", blue_button_theme)
                         
                     with dpg.group(horizontal=True, tag="group_eis_display_file"):

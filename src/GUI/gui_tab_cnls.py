@@ -190,7 +190,7 @@ def gui_tab_cnls(config, EIS, CNLS):
                         dpg.add_button(tag="Button_cnls_cnls_fit", label="CNLS fit", width=int(viewport_width*0.1), callback=lambda s, a: gui_utils.cnls_functions.cnls_fit(s, a, config))
                         dpg.bind_item_theme("Button_cnls_cnls_fit", blue_button_theme)
 
-                        dpg.add_button(tag="Button_Save_CNLS", label="Save CNLS", width=-1, callback=lambda s, a: gui_utils.cnls_functions.save_cnls(s, a, config))
+                        dpg.add_button(tag="Button_Save_CNLS", label="Save CNLS", width=-1, callback=lambda s, a: gui_utils.cnls_functions.save_cnls(s, a, config, CNLS))
                         dpg.bind_item_theme("Button_Save_CNLS", blue_button_theme)
 
                     with dpg.group(horizontal=True, tag="group_cnls_display_file"):
