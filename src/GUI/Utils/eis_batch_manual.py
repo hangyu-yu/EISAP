@@ -268,9 +268,10 @@ def close_manual_cut_window():
         dpg.delete_item("manual_cut_batch_window")
 
 def process_manually_cut_data(config, n_points_preview):
-    EIS = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=12.56, n_cell=1, file_folder=config.folder_path, filename=None)
+    EIS_new = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=12.56, n_cell=1, file_folder=config.folder_path, filename=None)
     file_key = os.path.splitext(config.display_file)[0]
     EIS_tmp = config.store[file_key]["EIS"]
+    gui_utils.eis_functions.load_parameters(None, None, config, EIS_new)
 
     selected0 = []
     for i in range(n_points_preview):
@@ -288,7 +289,7 @@ def process_manually_cut_data(config, n_points_preview):
             # If the file isn't loaded yet, nothing meaningful to process here
             # (data_import should create the store entry + raw data).
             config.store[file_name_no_ext] = {}
-            config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
+            config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS_new)
 
         EIS_tmp = config.store[file_name_no_ext]['EIS']
 

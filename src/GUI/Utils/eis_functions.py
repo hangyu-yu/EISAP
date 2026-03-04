@@ -130,7 +130,7 @@ def load_parameters(sender, app_data, config, EIS):
             EIS_tmp.parameter["KK"]["kk_threshold"] = float(dpg.get_value("kk_threshold"))
             EIS_tmp.parameter["KK"]["mu_threshold"] = float(dpg.get_value("mu_threshold"))
             EIS_tmp.parameter["KK"]["KK_test"] = dpg.get_value("KK_test")
-            EIS_tmp.parameter["KK"]["KK_type"] = EIS.parameter["KK"]["KK_type"]
+            EIS_tmp.parameter["KK"]["KK_type"] = 'Mu_criterion' if dpg.get_value("KK_type") else 'standard'
             EIS_tmp.parameter["KK"]["RmNonKK"] = dpg.get_value("RmNonKK")
 
             # Load the EIS parameters
@@ -142,6 +142,9 @@ def load_parameters(sender, app_data, config, EIS):
             # Store the cell area
             EIS_tmp.store['cell_area_old'] = EIS_tmp.parameter["Sample"]["CellArea"]
             EIS_tmp.store['n_cell_old'] = EIS_tmp.parameter["Sample"]["n_cell"]
+
+            # Manual removal settings
+            EIS_tmp.parameter["ManualRemoval"]["enable"] = dpg.get_value("checkbox_manual_remove_batch_points")
             print(f"---- EIS parameters have been loaded successfully for {file_name_no_ext}.")
 
 def process_data(sender, app_data, config, EIS):

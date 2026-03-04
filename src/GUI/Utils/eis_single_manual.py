@@ -2,6 +2,7 @@ import os
 import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
+from src.Methods.DRT.DRT import DRT
 
 def _get_manualcut_preview_data(config):
     """
@@ -234,8 +235,11 @@ def close_manual_cut_window():
         dpg.delete_item("manual_cut_single_window")
 
 def process_manually_cut_data(config, n_points_preview):
+    EIS_new = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=12.56, n_cell=1, file_folder=config.folder_path, filename=None)
     file_key = os.path.splitext(config.display_file)[0]
     EIS_tmp = config.store[file_key]["EIS"]
+
+    gui_utils.eis_functions.load_parameters(None, None, config, EIS_new)
 
     indices = []
     for i in range(n_points_preview):

@@ -180,6 +180,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_checkbox(
                                         tag="rm_significance",
                                         label="Remove low sig. data",
+                                        default_value=EIS.parameter["RM_significance"]["rm_significance"],
                                         enabled=not EIS.parameter["ManualRemoval"]["enable"],
                                         callback=lambda sender, app_data: rm_significance_callback(sender, app_data, EIS))
                                 with dpg.table_row():
@@ -270,7 +271,9 @@ def gui_tab_eis(config, EIS, CNLS):
                                 # Table content
                                 with dpg.table_row():
                                     dpg.add_text("Max. RCs")
-                                    dpg.add_input_text(tag="nRCmax", default_value=EIS.parameter["KK"]["nRCmax"])
+                                    dpg.add_input_text(
+                                        tag="nRCmax", 
+                                        default_value=EIS.parameter["KK"]["nRCmax"])
                                     dpg.add_checkbox(
                                         tag="KK_test",
                                         label="KK_test",
@@ -278,7 +281,9 @@ def gui_tab_eis(config, EIS, CNLS):
                                         callback=lambda sender, app_data: KK_test_callback(sender, app_data, EIS))
                                 with dpg.table_row():
                                     dpg.add_text("No. RC")
-                                    dpg.add_input_text(tag="nRC", default_value=EIS.parameter["KK"]["nRC"])
+                                    dpg.add_input_text(
+                                        tag="nRC", 
+                                        default_value=EIS.parameter["KK"]["nRC"])
                                     dpg.add_checkbox(
                                         tag="KK_type",
                                         label="Mu criterion",
@@ -286,7 +291,9 @@ def gui_tab_eis(config, EIS, CNLS):
                                         callback=lambda sender, app_data: KK_type_callback(sender, app_data, EIS))
                                 with dpg.table_row():
                                     dpg.add_text("MU threshold")
-                                    dpg.add_input_text(tag="mu_threshold", default_value=EIS.parameter["KK"]["mu_threshold"])    
+                                    dpg.add_input_text(
+                                        tag="mu_threshold", 
+                                        default_value=EIS.parameter["KK"]["mu_threshold"])    
                         
                         # Manual Point Removal parameters
                         with dpg.tab(label="Manual Removal", tag="tab_eis_parameter_manual"):

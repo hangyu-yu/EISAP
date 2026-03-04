@@ -190,6 +190,8 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
     dpg.set_value("selected_directory", config.folder_path)
 
     gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
+    config.display_file = config.selected_files[0] if config.selected_files else None
+    gui_utils.file_list.display_file(config.display_file, None, config)
 
     if 'folder_path_old' in config.store.keys():
         if config.folder_path_old != config.folder_path:

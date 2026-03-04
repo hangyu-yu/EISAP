@@ -95,6 +95,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
     config.file_extensions = dpg.get_value("file_extension_selector")
     select_files(config, tag)
     dpg.delete_item(tag, children_only=True)
+    first_selected_file = os.path.basename(config.selected_files[0]) if config.selected_files else None
 
     with dpg.menu_bar(parent=tag):
         with dpg.menu(label="File list"):
@@ -124,6 +125,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
         # Import all the data if there is historical data
             for idx, file in enumerate(config.file_list):
                 file_name_no_ext = os.path.splitext(os.path.basename(file))[0]
+                is_first_selected_file = first_selected_file is not None and os.path.basename(file) == first_selected_file
                 if os.path.isdir(os.path.join(config.folder_path, "EIS")) and "[Error]" not in file and os.path.exists(os.path.join(os.path.join(config.folder_path, "EIS"), file_name_no_ext+".xlsx")):
                     if file_name_no_ext not in config.store.keys() or "EIS" not in config.store[file_name_no_ext].keys() or config.store[file_name_no_ext]['EIS'].raw['Re'] is None:
                         config.store[file_name_no_ext] = {}
@@ -133,7 +135,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                         EIS_tmp.filename = os.path.basename(file)
                         EIS_tmp.import_data_EIS()
                     
-                        if idx == len(config.file_list) - 1:
+                        if is_first_selected_file or (config.selected_files is None and idx == 0):
                             EIS.filename = os.path.basename(file)
                             EIS.import_data_EIS()
                             print(f"---- EIS data imported from {file} successfully.")
@@ -147,7 +149,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                         EIS_tmp.filename = os.path.basename(file)
                         EIS_tmp.import_data_DRT()
 
-                        if idx == len(config.file_list) - 1:
+                        if is_first_selected_file or (config.selected_files is None and idx == 0):
                             EIS.filename = os.path.basename(file)
                             EIS.import_data_DRT()
                             print(f"---- DRT data imported from {file} successfully.")
@@ -157,7 +159,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                         EIS_tmp.filename = os.path.basename(file)
                         EIS_tmp.import_data_DRT()
 
-                        if idx == len(config.file_list) - 1:
+                        if is_first_selected_file or (config.selected_files is None and idx == 0):
                             EIS.file_folder = config.folder_path
                             EIS.filename = os.path.basename(file)
                             EIS.import_data_DRT()
@@ -175,7 +177,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
                             else:
                                 continue
                         
-                            if idx == len(config.file_list) - 1:
+                            if is_first_selected_file or (config.selected_files is None and idx == 0):
                                 CNLS.file_folder = config.folder_path
                                 CNLS.filename = os.path.basename(file)
                                 CNLS.ImportCircuit()
@@ -193,11 +195,73 @@ def display_file(sender, app_data, config):
     Callback function to display the selected file in the combo box.
     """
     # Update the displayed file name in the GUI
-    config.display_file = dpg.get_value(sender)
+    if sender is not None:
+        config.display_file = dpg.get_value(sender)
+    else:
+        config.display_file = sender
+
+    EIS_tmp = config.store[os.path.splitext(config.display_file)[0]]['EIS'] if config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]].keys() else None
+    
+    CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS'] if config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys() and 'CNLS' in config.store[os.path.splitext(config.display_file)[0]].keys() else None
+
+    # Update EIS data
+    try:
+        # General parameters
+        dpg.set_value("CellArea", f"{float(EIS_tmp.parameter["Sample"]["CellArea"]):.2f}")
+        dpg.set_value("n_cell", f"{float(EIS_tmp.parameter['Sample']['n_cell']):.0f}")
+        dpg.set_value("instrument_type", EIS_tmp.parameter['Sample']['instrument_type'])
+        dpg.set_value("num_cut_upper", f"{float(EIS_tmp.parameter['Preprocessing']['num_cut_upper']):.0f}")
+        dpg.set_value("num_cut_lower", f"{float(EIS_tmp.parameter['Preprocessing']['num_cut_lower']):.0f}")
+        dpg.set_value("sig_threshold", f"{float(EIS_tmp.parameter['RM_significance']['sig_threshold']):.3f}")
+        dpg.set_value("kk_threshold", f"{float(EIS_tmp.parameter['KK']['kk_threshold']):.1f}")
+        dpg.set_value("rm_significance", EIS_tmp.parameter["RM_significance"]["rm_significance"])
+        dpg.set_value("rm_outliers", EIS_tmp.parameter["Rmoutliers"]["Rmoutliers"])
+        dpg.set_value("RmNonKK", EIS_tmp.parameter["KK"]["RmNonKK"])
+
+        # KK parameters
+        dpg.set_value("nRCmax", f"{float(EIS_tmp.parameter['KK']['nRCmax']):.0f}")
+        dpg.set_value("nRC", f"{float(EIS_tmp.parameter['KK']['nRC']):.0f}")
+        dpg.set_value("mu_threshold", f"{float(EIS_tmp.parameter['KK']['mu_threshold']):.2f}")
+        dpg.set_value("KK_test", EIS_tmp.parameter["KK"]["KK_test"])
+        dpg.set_value("KK_type", True if EIS_tmp.parameter["KK"]["KK_type"] == "Mu_criterion" else False)
+
+        # Manual removal parameters
+        dpg.set_value("checkbox_manual_remove_batch_points", EIS_tmp.parameter["ManualRemoval"]["enable"])
+        dpg.set_value("input_manual_remove_batch_indices", gui_utils.eis_batch_manual.compress_indices([i+1 for i in EIS_tmp.parameter["ManualRemoval"]["indices"]]))
+
+        # EIS parameters
+        dpg.set_value("Smooth_PointsPerDecade", f"{float(EIS_tmp.parameter['Smoothing']['PointsPerDecade']):.0f}")
+        dpg.set_value("extrapolation_fmin", f"{float(EIS_tmp.parameter['Extrapolation']['fmin']):.0e}")
+        dpg.set_value("extrapolation_fmax", f"{float(EIS_tmp.parameter['Extrapolation']['fmax']):.0e}")
+        dpg.set_value("Extrapolation_PointsPerDecade", f"{float(EIS_tmp.parameter['Extrapolation']['PointsPerDecade']):.0f}")
+
+        # Enable stuff
+        dpg.configure_item("num_cut_upper", enabled=not EIS_tmp.parameter['ManualRemoval']['enable'])
+        dpg.configure_item("num_cut_lower", enabled=not EIS_tmp.parameter['ManualRemoval']['enable'])
+        dpg.configure_item("sig_threshold", enabled=not EIS_tmp.parameter['ManualRemoval']['enable'])
+        dpg.configure_item("kk_threshold", enabled=not EIS_tmp.parameter['ManualRemoval']['enable'])
+        dpg.configure_item("rm_significance", enabled=not EIS_tmp.parameter['ManualRemoval']['enable'])
+        dpg.configure_item("rm_outliers", enabled=not EIS_tmp.parameter['ManualRemoval']['enable'])
+        dpg.configure_item("RmNonKK", enabled=not EIS_tmp.parameter['ManualRemoval']['enable'])
+        dpg.configure_item("button_manual_cut_single", enabled=not EIS_tmp.parameter['ManualRemoval']['enable'])
+
+        dpg.configure_item("input_manual_remove_batch_indices", enabled=EIS_tmp.parameter['ManualRemoval']['enable'])
+        dpg.configure_item("button_manual_cut_batch", enabled=EIS_tmp.parameter['ManualRemoval']['enable'])
+        dpg.configure_item("button_manual_cut_batch_reset", enabled=EIS_tmp.parameter['ManualRemoval']['enable'])
+
+    except Exception as e:
+        print(f"[Error] setting EIS parameters: {e} for displayed file.")
 
     # Update optimal lambda value in the DRT tab
     try:
+        dpg.set_value('check_box_tknv_pos', EIS_tmp.parameter["DRT"]["tknv_pos"])
+        dpg.set_value('input_text_lambda', EIS_tmp.parameter["DRT"]["lambda"])
+        dpg.set_value('input_text_min_lambda', EIS_tmp.parameter["LambdaOpt"]["lambda_min"])
+        dpg.set_value('input_text_max_lambda', EIS_tmp.parameter["LambdaOpt"]["lambda_max"])
+        dpg.set_value('input_text_lambda_points', EIS_tmp.parameter["LambdaOpt"]["n"])
         if dpg.does_item_exist("text_optimal_lambda") and config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt:
+            dpg.set_value('check_box_tknv_pos', True if EIS_tmp.parameter["DRT"]["Lambda_selection"] == "Optimal" else False)
+            dpg.configure_item("input_text_lambda", enabled=False if EIS_tmp.parameter["DRT"]["Lambda_selection"] == "Optimal" else True)
             dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
     except:
         if dpg.does_item_exist("text_optimal_lambda"):
