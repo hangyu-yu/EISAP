@@ -369,31 +369,31 @@ def separate_multichannel_fcd(config, EIS, CNLS):
                 columns['freq'] = i
                 print(f"Detected frequency column: {col_name} at index {i}")
             
-            # 检测电堆阻抗列 (无数字后缀)
-            elif col_name.startswith('Z_Real') and not re.match(r'Z_Real\d+', col_name):
-                columns['real_stack'] = i
-                print(f"Detected stack real impedance: {col_name} at index {i}")
-            
-            elif col_name.startswith('Z_Imag') and not re.match(r'Z_Imag\d+', col_name):
-                columns['imag_stack'] = i
-                print(f"Detected stack imaginary impedance: {col_name} at index {i}")
-            
-            # 检测电池阻抗列 (数字后缀格式)
-            elif re.match(r'Z_Real\d+', col_name):
+            # 检测电池阻抗列 (数字后缀格式: Z_Real\d+ 或 Z_Real_Ref\d+)
+            elif re.match(r'Z_Real(_Ref)?\d+', col_name):
                 if 'real_cells' not in columns:
                     columns['real_cells'] = {}
-                # 提取数字后缀
-                cell_num = re.search(r'Z_Real(\d+)', col_name).group(1)
+                # 提取数字后缀 (支持 Z_Real01 和 Z_Real_Ref01 两种格式)
+                cell_num = re.search(r'Z_Real(?:_Ref)?(\d+)', col_name).group(1)
                 columns['real_cells'][cell_num] = i
                 print(f"Detected cell {cell_num} real impedance: {col_name} at index {i}")
             
-            elif re.match(r'Z_Imag\d+', col_name):
+            elif re.match(r'Z_Imag(?:_ref)?\d+', col_name, re.IGNORECASE):
                 if 'imag_cells' not in columns:
                     columns['imag_cells'] = {}
-                # 提取数字后缀
-                cell_num = re.search(r'Z_Imag(\d+)', col_name).group(1)
+                # 提取数字后缀 (支持 Z_Imag01 和 Z_Imag_ref01 两种格式，不区分大小写)
+                cell_num = re.search(r'Z_Imag(?:_ref)?(\d+)', col_name, re.IGNORECASE).group(1)
                 columns['imag_cells'][cell_num] = i
                 print(f"Detected cell {cell_num} imaginary impedance: {col_name} at index {i}")
+            
+            # 检测电堆阻抗列 (无数字后缀)
+            elif col_name.startswith('Z_Real') and not re.match(r'Z_Real(?:_Ref)?\d+', col_name):
+                columns['real_stack'] = i
+                print(f"Detected stack real impedance: {col_name} at index {i}")
+            
+            elif col_name.startswith('Z_Imag') and not re.match(r'Z_Imag(?:_ref)?\d+', col_name, re.IGNORECASE):
+                columns['imag_stack'] = i
+                print(f"Detected stack imaginary impedance: {col_name} at index {i}")
         
         return columns
 
