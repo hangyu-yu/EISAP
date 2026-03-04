@@ -724,9 +724,20 @@ class Circuit:
         temp_folder = os.path.join(base_folder, 'temp')
         os.makedirs(temp_folder, exist_ok=True)
         
+        # Delete old backup files with the same prefix
+        name_without_ext, ext = os.path.splitext(zip_name)
+        pattern = f"{name_without_ext}_*{ext}"
+        old_backups = [f for f in os.listdir(temp_folder) if f.startswith(f"{name_without_ext}_") and f.endswith(ext)]
+        for old_backup in old_backups:
+            old_backup_path = os.path.join(temp_folder, old_backup)
+            try:
+                os.remove(old_backup_path)
+                print(f"---- Deleted old backup: {old_backup}")
+            except Exception as e:
+                print(f"[Warning] Failed to delete {old_backup}: {e}")
+        
         # Add timestamp to zip filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        name_without_ext, ext = os.path.splitext(zip_name)
         zip_name_with_timestamp = f"{name_without_ext}_{timestamp}{ext}"
         zip_path = os.path.join(temp_folder, zip_name_with_timestamp)
 
