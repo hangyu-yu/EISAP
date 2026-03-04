@@ -287,7 +287,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_checkbox(
                                         tag="KK_type",
                                         label="Mu criterion",
-                                        default_value= True,
+                                        default_value= False if EIS.parameter["KK"]["KK_type"] == "standard" else True,
                                         callback=lambda sender, app_data: KK_type_callback(sender, app_data, EIS))
                                 with dpg.table_row():
                                     dpg.add_text("MU threshold")
