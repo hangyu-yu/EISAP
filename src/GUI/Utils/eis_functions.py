@@ -250,6 +250,7 @@ def process_data(sender, app_data, config, EIS):
 
 def save_eis(sender, app_data, config):
     print("-- Saving EIS data...")
+    config.store[file_name_no_ext]['EIS'].backup_folder_to_temp_zip('EIS', 'EIS_backup.zip')
     if config.selected_files != [] and config.selected_files is not None:
         for file_name in config.selected_files:
             try:

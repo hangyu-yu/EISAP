@@ -14,8 +14,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import os
+import zipfile
 import pandas as pd
 import traceback
+from datetime import datetime
 
 class DRT:
     def __init__(self, Re_raw=None, Im_raw=None, f_raw=None, CellArea=None, n_cell=None, file_folder=None, filename=None):
@@ -119,7 +121,7 @@ class DRT:
             # Remove points with low significance only for Zahner data
             'RM_significance': {
                 'sig_threshold': 0.995,  # Significance threshold for EIS data
-                'rm_significance': True # Remove points with low significance
+                'rm_significance': False # Remove points with low significance
             },
             # Remove outliers
             'Rmoutliers': {
@@ -170,7 +172,7 @@ class DRT:
                 'lambda_min': 1e-7,     # Minimal lambda value for Tikhonov regularization
                 'lambda_max': 0.2,      # Maximal lambda value for Tikhonov regularization
                 'n': 100,               # Number of lambda values to be tested
-                'lampda_opt': True,     # Perform optimal lambda selection or not
+                'lampda_opt': False,     # Perform optimal lambda selection or not
                 'PlotFig': False,        # Plot the L-curve or not
             },
             # Tikonov regularization
@@ -667,10 +669,45 @@ class DRT:
                 plt.gcf().canvas.draw()  # Ensure the plot updates when called in a loop
 
     # Functions for saving data
+    def backup_folder_to_temp_zip(self, folder_name, zip_name):
+        """
+        Backup one target folder as a zip file into temp folder.
+        """
+        if self.file_folder is None:
+            print("[Warning] file_folder is None, skip folder backup.")
+            return None
+
+        base_folder = os.path.abspath(self.file_folder)
+        folder_path = os.path.join(base_folder, folder_name)
+        if not os.path.isdir(folder_path):
+            print(f"---- {folder_name} folder not found, skip backup.")
+            return None
+
+        temp_folder = os.path.join(base_folder, 'temp')
+        os.makedirs(temp_folder, exist_ok=True)
+        
+        # Add timestamp to zip filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        name_without_ext, ext = os.path.splitext(zip_name)
+        zip_name_with_timestamp = f"{name_without_ext}_{timestamp}{ext}"
+        zip_path = os.path.join(temp_folder, zip_name_with_timestamp)
+
+        with zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(folder_path):
+                for file_name in files:
+                    file_path = os.path.join(root, file_name)
+                    rel_path = os.path.relpath(file_path, start=folder_path)
+                    arcname = os.path.join(folder_name, rel_path)
+                    zipf.write(file_path, arcname=arcname)
+
+        print(f"---- Backup created: {zip_path}")
+        return zip_path
+
     def save_data_EIS(self):
         """
         Save EIS data to an Excel file.
         """
+
         # Define file path
         ext_save = '.xlsx'
         folder_eis = os.path.join(self.file_folder, 'EIS')
@@ -791,6 +828,8 @@ class DRT:
         """
         Save DRT data to an Excel file.
         """
+        self.backup_folder_to_temp_zip('DRT', 'DRT_old.zip')
+
         # Define file path
         ext_save = '.xlsx'
         folder_drt = os.path.join(self.file_folder, 'DRT')

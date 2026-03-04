@@ -67,7 +67,13 @@ def update_selected_files(config, tag=None):
         update_file_list(config, "child_window_file_list_soceis", None, None)
     except:
         print("[Warning] EIS/DRT/CNLS ALL-plots update failed. Please check the EIS/DRT/CNLS data, or come to file_list.update_seleted_files and check.")
-
+    
+    try:
+        if dpg.does_item_exist("tab_eis") or dpg.does_item_exist("tab_drt") or dpg.does_item_exist("tab_cnls"):
+            gui_utils.file_list.display_file(None, config.display_file, config)
+    except:
+        print("---- Tab not open.")
+    
 def select_all_files(config, tag=None):
     """
     Select all files in the file list.
@@ -198,11 +204,11 @@ def display_file(sender, app_data, config):
     if sender is not None:
         config.display_file = dpg.get_value(sender)
     else:
-        config.display_file = sender
+        config.display_file = app_data if app_data is not None else None
 
-    EIS_tmp = config.store[os.path.splitext(config.display_file)[0]]['EIS'] if config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]].keys() else None
+    EIS_tmp = config.store[os.path.splitext(config.display_file)[0]]['EIS'] if config.display_file and os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]].keys() else None
     
-    CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS'] if config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys() and 'CNLS' in config.store[os.path.splitext(config.display_file)[0]].keys() else None
+    CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS'] if config.display_file and os.path.splitext(config.display_file)[0] in config.store.keys() and 'CNLS' in config.store[os.path.splitext(config.display_file)[0]].keys() else None
 
     # Update EIS data
     try:
@@ -250,9 +256,9 @@ def display_file(sender, app_data, config):
         dpg.configure_item("button_manual_cut_batch_reset", enabled=EIS_tmp.parameter['ManualRemoval']['enable'])
 
     except Exception as e:
-        print(f"[Error] setting EIS parameters: {e} for displayed file.")
+        print(f"[Warning] setting EIS parameters: {e} for displayed file.")
 
-    # Update optimal lambda value in the DRT tab
+    # Update DRT parameters
     try:
         dpg.set_value('check_box_tknv_pos', EIS_tmp.parameter["DRT"]["tknv_pos"])
         dpg.set_value('input_text_lambda', EIS_tmp.parameter["DRT"]["lambda"])

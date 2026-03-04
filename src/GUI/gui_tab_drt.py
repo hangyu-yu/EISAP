@@ -356,5 +356,6 @@ def gui_tab_drt(config, EIS, CNLS):
     # (tab_bar value is selected-tab tag; set_value is fine as long as tab_bar_main exists)
     if dpg.does_item_exist("tab_bar_main"):
         dpg.set_value("tab_bar_main", "tab_drt")
+    gui_utils.file_list.display_file(None, config.display_file, config)
 
     dpg.set_viewport_resize_callback(update_child_window_size)

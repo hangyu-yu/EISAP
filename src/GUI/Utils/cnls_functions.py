@@ -357,6 +357,7 @@ def save_cnls(sender, appdata, config):
         config: Configuration object.
     """
     print(f"-- Saving CNLS fitting results...")
+    config.store[file_name_no_ext]['CNLS'].backup_folder_to_temp_zip('CNLS', 'CNLS_backup.zip')
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
         if file_name_no_ext not in config.store.keys():
