@@ -23,6 +23,9 @@ def ReadIV_Zahner(filepath):
     # Flags to track when we're in the data section
     in_data_section = False
     data_started = False
+    potential_idx = None
+    current_idx = None
+    delimiter = None
     
     try:
         with open(filepath, 'r', encoding='utf-8') as file:
@@ -33,6 +36,20 @@ def ReadIV_Zahner(filepath):
                 if "Potential" in line and "Current" in line:
                     in_data_section = True
                     data_started = False
+
+                    if ',' in line:
+                        delimiter = ','
+                        header_parts = [part.strip() for part in line.split(',')]
+                    else:
+                        delimiter = None
+                        header_parts = line.split()
+
+                    for idx, header in enumerate(header_parts):
+                        header_lower = header.lower()
+                        if 'potential' in header_lower and potential_idx is None:
+                            potential_idx = idx
+                        if 'current' in header_lower and current_idx is None:
+                            current_idx = idx
                     continue
                 
                 # Skip empty lines
@@ -41,15 +58,19 @@ def ReadIV_Zahner(filepath):
                 
                 # If we're in data section, parse the data lines
                 if in_data_section:
-                    # Split line by whitespace
-                    parts = line.split()
+                    if delimiter == ',':
+                        parts = [part.strip() for part in line.split(',')]
+                    else:
+                        parts = line.split()
+
+                    if potential_idx is None or current_idx is None:
+                        continue
                     
-                    # Check if this is a data line (should have at least 4 parts)
-                    if len(parts) >= 4:
+                    required_len = max(potential_idx, current_idx) + 1
+                    if len(parts) >= required_len:
                         try:
-                            # Extract potential (3rd column) and current (4th column)
-                            potential = float(parts[2])
-                            current = float(parts[3])
+                            potential = float(parts[potential_idx])
+                            current = float(parts[current_idx])
                             
                             potential_list.append(potential)
                             current_list.append(current)
@@ -73,6 +94,10 @@ def ReadIV_Zahner(filepath):
     # Convert lists to numpy arrays
     potential_array = np.array(potential_list)
     current_array = np.array(current_list)
+
+    if len(potential_array) == 0 or len(current_array) == 0:
+        print(f"No IV data parsed from: {filepath}")
+        return potential_array, current_array
     
     print(f"Successfully read {len(potential_array)} data points")
     print(f"Potential range: {potential_array.min():.6f} V to {potential_array.max():.6f} V")
