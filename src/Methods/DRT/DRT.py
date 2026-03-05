@@ -683,12 +683,16 @@ class DRT:
             print(f"---- {folder_name} folder not found, skip backup.")
             return None
 
+        has_files = any(len(files) > 0 for _, _, files in os.walk(folder_path))
+        if not has_files:
+            print(f"---- {folder_name} folder is empty, skip backup and keep existing backups.")
+            return None
+
         temp_folder = os.path.join(base_folder, 'temp')
         os.makedirs(temp_folder, exist_ok=True)
         
         # Delete old backup files with the same prefix
         name_without_ext, ext = os.path.splitext(zip_name)
-        pattern = f"{name_without_ext}_*{ext}"
         old_backups = [f for f in os.listdir(temp_folder) if f.startswith(f"{name_without_ext}_") and f.endswith(ext)]
         for old_backup in old_backups:
             old_backup_path = os.path.join(temp_folder, old_backup)
