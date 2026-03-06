@@ -335,43 +335,41 @@ def file_alignment(config):
     """
     # Iterate through the file list and check for alignment
     print("-- File alignment check:")
-    # Check files in EIS folder for alignment with config.file_list
-    eis_folder = os.path.join(config.folder_path, "EIS")
-    if os.path.isdir(eis_folder):
-        for existing_file in glob.glob(os.path.join(eis_folder, "*.xlsx")):
-            file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
-            if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
-                os.remove(existing_file)
-                print(f"[Warning] Removed unaligned file in EIS: {existing_file}")
+    if '[Error]' not in config.file_list[0]:
+        # Check files in EIS folder for alignment with config.file_list
+        eis_folder = os.path.join(config.folder_path, "EIS")
+        if os.path.isdir(eis_folder):
+            for existing_file in glob.glob(os.path.join(eis_folder, "*.xlsx")):
+                file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
+                if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
+                    print(f"[Warning] unaligned file in EIS: {existing_file}")
 
-    # Check files in DRT folder for alignment with config.file_list
-    drt_folder = os.path.join(config.folder_path, "DRT")
-    if os.path.isdir(drt_folder):
-        for existing_file in glob.glob(os.path.join(drt_folder, "*.xlsx")):
-            file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
-            if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
-                os.remove(existing_file)
-                print(f"[Warning] Removed unaligned file in DRT: {existing_file}")
+        # Check files in DRT folder for alignment with config.file_list
+        drt_folder = os.path.join(config.folder_path, "DRT")
+        if os.path.isdir(drt_folder):
+            for existing_file in glob.glob(os.path.join(drt_folder, "*.xlsx")):
+                file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
+                if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
+                    print(f"[Warning] unaligned file in DRT: {existing_file}")
 
-    # Check files in CNLS folder for alignment with config.file_list
-    cnls_folder = os.path.join(config.folder_path, "CNLS")
-    if os.path.isdir(cnls_folder):
-        for existing_file in glob.glob(os.path.join(cnls_folder, "*.xlsx")):
-            file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
-            if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
-                os.remove(existing_file)
-                print(f"[Warning] Removed unaligned file in CNLS: {existing_file}")
+        # Check files in CNLS folder for alignment with config.file_list
+        cnls_folder = os.path.join(config.folder_path, "CNLS")
+        if os.path.isdir(cnls_folder):
+            for existing_file in glob.glob(os.path.join(cnls_folder, "*.xlsx")):
+                file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
+                if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
+                    print(f"[Warning] unaligned file in CNLS: {existing_file}")
 
-    # Ensure all files in config.selected_files exist in the target folders
-    aligned_selected_files = []
-    file_list_base_names = [os.path.basename(file) for file in config.file_list]
+        # Ensure all files in config.selected_files exist in the target folders
+        aligned_selected_files = []
+        file_list_base_names = [os.path.basename(file) for file in config.file_list]
 
-    for file_name in config.selected_files:
-        if file_name in file_list_base_names:
-            aligned_selected_files.append(file_name)
-        else:
-            print(f"[Warning] Removed unaligned file in selected_files: {file_name}")
+        for file_name in config.selected_files:
+            if file_name in file_list_base_names:
+                aligned_selected_files.append(file_name)
+            else:
+                print(f"[Warning] unaligned file in selected_files: {file_name}")
 
-    # Update config.selected_files with the aligned list
-    config.selected_files = aligned_selected_files
+        # Update config.selected_files with the aligned list
+        config.selected_files = aligned_selected_files
     print("---- File alignment finished.")
