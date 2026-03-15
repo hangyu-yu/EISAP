@@ -65,8 +65,11 @@ def constraint_percentage(CNLS_tmp):
         TauIndex = [i for i, name in enumerate(CNLS_tmp.ElementsParamNames) if 'tau' in name]
         Tau_percentage = dpg.get_value("input_constraints_Tau_percentage")
         tau = np.array(CNLS_tmp.ElementsParamValues)[TauIndex]
-        CNLS_tmp.UpperBound[TauIndex] = np.exp(np.log(tau) * (1 - Tau_percentage / 100))
-        CNLS_tmp.LowerBound[TauIndex] = np.exp(np.log(tau) * (1 + Tau_percentage / 100))
+        tau_bound1 = np.exp(np.log(tau) * (1 - Tau_percentage / 100))
+        tau_bound2 = np.exp(np.log(tau) * (1 + Tau_percentage / 100))
+        CNLS_tmp.UpperBound[TauIndex] = np.maximum(tau_bound1, tau_bound2)
+        CNLS_tmp.LowerBound[TauIndex] = np.minimum(tau_bound1, tau_bound2)
+
         print("---- Tau constraint set to percentage mode.")
 
     for idx, element in enumerate(CNLS_tmp.Elements):
@@ -323,7 +326,7 @@ def load_parameters(sender, appdata, config):
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
             CNLS_tmp.ElementsNames = []
-            CNLS_tmp.Elements = config.store['Elements']
+            # CNLS_tmp.Elements = config.store['Elements']
             CNLS_tmp.data_type = dpg.get_value('combo_cnls_data_type')
             CNLS_tmp.initialize_elements(change_UBLB = False)
             print(f"---- CNLS parameters loaded for {file_name}.")
