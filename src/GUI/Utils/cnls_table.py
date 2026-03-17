@@ -76,9 +76,17 @@ def table_update(config):
                     for idx, variable in enumerate(CNLS_tmp.ElementsParamNames):
                         with dpg.table_row():
                             dpg.add_text(variable)
-                            dpg.add_text(_smart_format(CNLS_tmp.ElementsParamValues[idx]) % CNLS_tmp.ElementsParamValues[idx])
-                            dpg.add_text(_smart_format(CNLS_tmp.UpperBound[idx]) % CNLS_tmp.UpperBound[idx])
-                            dpg.add_text(_smart_format(CNLS_tmp.LowerBound[idx]) % CNLS_tmp.LowerBound[idx])
+                            # Convert tau to frequency if x_tau is enabled
+                            param_value = CNLS_tmp.ElementsParamValues[idx]
+                            ub_value = CNLS_tmp.UpperBound[idx]
+                            lb_value = CNLS_tmp.LowerBound[idx]
+                            if 'tau' in variable.lower() and dpg.get_value("check_box_cnls_tau"):
+                                param_value = 1 / (2 * np.pi * param_value) if param_value != 0 else param_value
+                                ub_value = 1 / (2 * np.pi * lb_value) if lb_value != 0 else lb_value
+                                lb_value = 1 / (2 * np.pi * CNLS_tmp.UpperBound[idx]) if CNLS_tmp.UpperBound[idx] != 0 else CNLS_tmp.UpperBound[idx]
+                            dpg.add_text(_smart_format(param_value) % param_value)
+                            dpg.add_text(_smart_format(ub_value) % ub_value)
+                            dpg.add_text(_smart_format(lb_value) % lb_value)
                             dpg.add_text(_smart_format(CNLS_tmp.ElementsParamVariance[idx]) % CNLS_tmp.ElementsParamVariance[idx])
                             dpg.add_text(_smart_format(CNLS_tmp.ElementsParamStandardErrors[idx]) % CNLS_tmp.ElementsParamStandardErrors[idx])
                             dpg.add_text(_smart_format(CNLS_tmp.ElementsParamPValues[idx]) % CNLS_tmp.ElementsParamPValues[idx])

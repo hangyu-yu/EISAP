@@ -45,9 +45,25 @@ def plot_cnls_tau_callback(sender, app_data, config):
             dpg.configure_item(f"input_peak_{i}", default_value=gui_utils.cnls_functions._peak_value_set(config, num_peaks, i), format="%.3e")
         else:
             dpg.configure_item(f"input_peak_{i}", default_value=gui_utils.cnls_functions._peak_value_set(config, num_peaks, i), format="%.3f")
-    dpg.configure_item(f"cnls_text_peak_{num_peaks[0]}", default_value="High f [Hz]" if not config.cnls_plot_tau else "Low tau [s]")
-    dpg.configure_item(f"cnls_text_peak_{num_peaks[-1]}", default_value="Low f [Hz]" if not config.cnls_plot_tau else "High tau [s]")
+    dpg.configure_item(f"cnls_text_peak_{num_peaks[0]}", default_value="High f [Hz]" if not dpg.get_value('check_box_cnls_tau') else "Low tau [s]")
+    dpg.configure_item(f"cnls_text_peak_{num_peaks[-1]}", default_value="Low f [Hz]" if not dpg.get_value('check_box_cnls_tau') else "High tau [s]")
     gui_utils.cnls_plots.update_single_plots(config)
+
+def RC_initialization_callback(sender, app_data, config):
+    # Check if there are Randle elements
+    has_randle = any('Randle' in element.get('type', '') for element in config.store.get('Elements', []))
+    
+    if has_randle:
+        # Disable RC initialization if Randle elements exist
+        dpg.configure_item("check_box_cnls_rc_initialization", value=False)
+        print("[Warning] RC initialization is disabled because Randle elements are present in the circuit.")
+        config.store['RC_fit_switch'] = False
+    else:
+        # Allow RC initialization only without Randle elements
+        if dpg.get_value("check_box_cnls_rc_initialization"):
+            config.store['RC_fit_switch'] = True
+        else:
+            config.store['RC_fit_switch'] = False
 
 # Main tab function for EIS
 def gui_tab_cnls(config, EIS, CNLS):
@@ -85,6 +101,12 @@ def gui_tab_cnls(config, EIS, CNLS):
                                 label="x-tau",
                                 default_value = False,
                                 callback=lambda sender, app_data: plot_cnls_tau_callback(sender, app_data, config),
+                            )
+                            dpg.add_checkbox(
+                                tag="check_box_cnls_rc_initialization",
+                                label="RC initilization",
+                                default_value = CNLS.RC_fit_switch,
+                                callback=lambda sender, app_data: RC_initialization_callback(sender, app_data, config),
                             )
                         with dpg.menu(label="Add elements"):
                             for header, element in config.store['element_list'].items():

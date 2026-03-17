@@ -12,6 +12,7 @@ import os
 import zipfile
 import tkinter.font as tkFont
 from datetime import datetime
+import ast
 
 class Circuit:
     def __init__(self,file_folder=None, filename=None, Elements = None, EIS = None, data_type = None):
@@ -101,6 +102,7 @@ class Circuit:
         self.ElementsParamStandardErrors = [] # List to store standard errors of parameters
         self.ElementsParamPValues = [] # List to store p-values for parameters (for statistical significance)
         self.FitSummary = None # DataFrame to store the fit summary
+        self.RC_fit_switch = False # Flag to indicate if RC initialization is used for fitting
 
     # Function to initialize the circuit elements
     def initialize_elements(self, change_UBLB=True):
@@ -786,6 +788,7 @@ class Circuit:
                 "ElementsEndIndex": [self.ElementsEndIndex],
                 "ElementsStartIndex": [self.ElementsStartIndex],
                 "ElementsNparam": [self.ElementsNparam],
+                "RC_fit_switch": [self.RC_fit_switch]
             }
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name="Summary", index=False)
@@ -864,49 +867,92 @@ class Circuit:
         else:
             print(f"-- Importing CNLS data from {import_file}")
 
+        # Helper function aligned with DRT.py import behavior.
+        def safe_get(df, column_name, default_value, dtype_func):
+            try:
+                value = df[column_name].values[0]
+                if pd.isna(value) or value is None or value == '':
+                    return default_value
+                return dtype_func(value)
+            except (KeyError, IndexError, TypeError, ValueError, SyntaxError):
+                return default_value
+
+        def safe_list_get(df, column_name, default_value=None):
+            if default_value is None:
+                default_value = []
+            if column_name not in df.columns:
+                return default_value
+            return df[column_name].dropna().tolist()
+
+        def safe_literal(value, default_value):
+            if value is None:
+                return default_value
+            if isinstance(value, float) and pd.isna(value):
+                return default_value
+            if isinstance(value, str) and value.strip() == '':
+                return default_value
+            if isinstance(value, str):
+                try:
+                    return ast.literal_eval(value)
+                except (ValueError, SyntaxError):
+                    return default_value
+            return value
+
         # Read the Excel file
         with pd.ExcelFile(import_file) as xls:
             for sheet_name in xls.sheet_names:
                 df = pd.read_excel(xls, sheet_name)
                 if sheet_name == "Summary":
                     # Convert the Summary sheet to a dictionary
-                    self.data_type = df["data_type"].iloc[0]
-                    self.constraint_type = df["constraint_type"].iloc[0]
-                    self.f_mode = df["f_mode"].iloc[0]
-                    self.SumNormResiduals = df["SumNormResiduals"].iloc[0]
-                    self.dof = df["dof"].iloc[0]
-                    self.ElementsNames = eval(df["ElementsNames"].iloc[0])
-                    self.ElementsType = eval(df["ElementsType"].iloc[0])
-                    self.f_fixed = eval(df["fixed_frequencies"].iloc[0])
-                    self.ElementsEndIndex = eval(df["ElementsEndIndex"].iloc[0])
-                    self.ElementsStartIndex = eval(df["ElementsStartIndex"].iloc[0])
-                    self.ElementsNparam = eval(df["ElementsNparam"].iloc[0])
+                    self.data_type = safe_get(df, "data_type", self.data_type, str)
+                    self.constraint_type = safe_get(df, "constraint_type", self.constraint_type, str)
+                    self.f_mode = safe_get(df, "f_mode", self.f_mode, str)
+                    self.SumNormResiduals = safe_get(df, "SumNormResiduals", None, float)
+                    self.dof = safe_get(df, "dof", None, int)
+                    self.ElementsNames = safe_literal(safe_get(df, "ElementsNames", self.ElementsNames, str), self.ElementsNames)
+                    self.ElementsType = safe_literal(safe_get(df, "ElementsType", self.ElementsType, str), self.ElementsType)
+                    self.f_fixed = safe_literal(safe_get(df, "fixed_frequencies", None, str), None)
+                    self.ElementsEndIndex = safe_literal(safe_get(df, "ElementsEndIndex", self.ElementsEndIndex, str), self.ElementsEndIndex)
+                    self.ElementsStartIndex = safe_literal(safe_get(df, "ElementsStartIndex", self.ElementsStartIndex, str), self.ElementsStartIndex)
+                    self.ElementsNparam = safe_literal(safe_get(df, "ElementsNparam", self.ElementsNparam, str), self.ElementsNparam)
+                    self.RC_fit_switch = safe_get(df, "RC_fit_switch", self.RC_fit_switch, bool)
                 elif sheet_name == "Elements":
                     # Extract elements-related data
-                    self.ElementsParamNames = df["ElementsParamNames"].tolist()
-                    self.ElementsParamValues = df["ElementsParamValues"].tolist()
-                    self.UpperBound = df["UpperBound"].tolist()
-                    self.LowerBound = df["LowerBound"].tolist()
-                    self.ElementsParamVariance = df["ElementsParamVariance"].tolist()
-                    self.ElementsParamStandardErrors = df["ElementsParamStandardErrors"].tolist()
-                    self.ElementsParamPValues = df["ElementsParamPValues"].tolist()
+                    self.ElementsParamNames = safe_list_get(df, "ElementsParamNames")
+                    self.ElementsParamValues = safe_list_get(df, "ElementsParamValues")
+                    self.UpperBound = safe_list_get(df, "UpperBound")
+                    self.LowerBound = safe_list_get(df, "LowerBound")
+                    self.ElementsParamVariance = safe_list_get(df, "ElementsParamVariance")
+                    self.ElementsParamStandardErrors = safe_list_get(df, "ElementsParamStandardErrors")
+                    self.ElementsParamPValues = safe_list_get(df, "ElementsParamPValues")
                 elif sheet_name == "Z":
                     # Extract impedance-related data
-                    self.f = df["Frequency/Hz"].to_numpy()
-                    self.Zmes = df["Zmes_Re/ohm·cm2"].to_numpy() + 1j * df["Zmes_Im/ohm·cm2"].to_numpy()
-                    self.Ztot = df["Ztot_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot_Im/ohm·cm2"].to_numpy()
-                    self.Ztot0 = df["Ztot0_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot0_Im/ohm·cm2"].to_numpy()
-                    self.ResidualsReal = df["Residuals_Re"].to_numpy()
-                    self.ResidualsImag = df["Residuals_Im"].to_numpy()
+                    self.f = df["Frequency/Hz"].to_numpy() if "Frequency/Hz" in df.columns else None
+                    if "Zmes_Re/ohm·cm2" in df.columns and "Zmes_Im/ohm·cm2" in df.columns:
+                        self.Zmes = df["Zmes_Re/ohm·cm2"].to_numpy() + 1j * df["Zmes_Im/ohm·cm2"].to_numpy()
+                    else:
+                        self.Zmes = None
+                    if "Ztot_Re/ohm·cm2" in df.columns and "Ztot_Im/ohm·cm2" in df.columns:
+                        self.Ztot = df["Ztot_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot_Im/ohm·cm2"].to_numpy()
+                    else:
+                        self.Ztot = None
+                    if "Ztot0_Re/ohm·cm2" in df.columns and "Ztot0_Im/ohm·cm2" in df.columns:
+                        self.Ztot0 = df["Ztot0_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot0_Im/ohm·cm2"].to_numpy()
+                    else:
+                        self.Ztot0 = None
+                    self.ResidualsReal = df["Residuals_Re"].to_numpy() if "Residuals_Re" in df.columns else None
+                    self.ResidualsImag = df["Residuals_Im"].to_numpy() if "Residuals_Im" in df.columns else None
                     # Extract individual element impedances
                     self.Z = pd.DataFrame()
                     for col in df.columns:
                         if "_Re/ohm·cm2" in col:
                             element_name = col.split("_Re")[0]
-                            self.Z[element_name] = df[col].to_numpy() + 1j * df[element_name + "_Im/ohm·cm2"].to_numpy()
+                            imag_col = element_name + "_Im/ohm·cm2"
+                            if imag_col in df.columns:
+                                self.Z[element_name] = df[col].to_numpy() + 1j * df[imag_col].to_numpy()
                 elif sheet_name == "DRT":
                     # Extract DRT-related data
-                    self.DRTmes = df["DRTmes/ohm·s·cm2"].to_numpy()
+                    self.DRTmes = df["DRTmes/ohm·s·cm2"].to_numpy() if "DRTmes/ohm·s·cm2" in df.columns else None
                     if "DRT" in df.columns:
                         self.DRT = {"ReIm": {"g": df["DRT"].to_numpy()}}
                     # Extract individual element DRTs

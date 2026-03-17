@@ -28,13 +28,21 @@ def _update_peak_fixed(sender, app_data, config):
         config.store["peak_fixed_frequencies"] = []
         for j in range(dpg.get_value("input_nbr_peaks")):
             if _file_existence_check(config) and j <= len(config.store[file_name_no_ext]['CNLS'].f_fixed)-1:
-                config.store["peak_fixed_frequencies"].append(config.store[file_name_no_ext]['CNLS'].f_fixed[j] if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*config.store[file_name_no_ext]['CNLS'].f_fixed[j]))
+                # Always store frequency, never tau conversion here
+                config.store["peak_fixed_frequencies"].append(config.store[file_name_no_ext]['CNLS'].f_fixed[j])
             else:
                 config.store["peak_fixed_frequencies"].append(10**(dpg.get_value("input_nbr_peaks")-j-2))
         print("---- Peak fixed frequencies updated.")
     else:
-        config.store["peak_fixed_frequencies"][int(sender[-1])] = app_data if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*app_data)
-        print(f"---- Peak fixed frequency {int(sender[-1])+1} updated to {app_data if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*app_data)}.")
+        # Convert user input to frequency if x_tau is enabled
+        if dpg.get_value("check_box_cnls_tau"):
+            # User entered tau, convert back to frequency for storage
+            freq_value = 1 / (2 * np.pi * app_data) if app_data != 0 else app_data
+        else:
+            # User entered frequency directly
+            freq_value = app_data
+        config.store["peak_fixed_frequencies"][int(sender[-1])] = freq_value
+        print(f"---- Peak fixed frequency {int(sender[-1])+1} updated.")
 
     try:
         config.store[file_name_no_ext]['CNLS'].f_fixed = config.store["peak_fixed_frequencies"]
@@ -47,14 +55,19 @@ def _peak_value_set(config, nbr_peaks, i):
     Args:
         config: Configuration object.
         nbr_peaks: Number of peaks to set.
+        i: Index of the peak.
         
     Returns:
-        list: List of default peak frequency values.
+        float: Display value (frequency or tau depending on check_box_cnls_tau state).
     """
-    if not dpg.get_value("check_box_cnls_tau"):
-        return_value = config.store["peak_fixed_frequencies"][i] if i <= len(config.store["peak_fixed_frequencies"])-1 else 10**(i-2)
+    # Always get stored frequency value
+    freq_value = config.store["peak_fixed_frequencies"][i] if i <= len(config.store["peak_fixed_frequencies"])-1 else 10**(nbr_peaks-i-2)
+    
+    # Convert to tau for display if x_tau is enabled
+    if dpg.get_value("check_box_cnls_tau"):
+        return_value = 1 / (2 * np.pi * freq_value) if freq_value != 0 else freq_value
     else:
-        return_value = 1/(2*np.pi*config.store["peak_fixed_frequencies"][i]) if i <= len(config.store["peak_fixed_frequencies"])-1 else 1/(2*np.pi*10**(nbr_peaks-i-2))
+        return_value = freq_value
     return return_value
     
 def constraint_percentage(CNLS_tmp):
@@ -117,9 +130,9 @@ def dynamic_peak_ids(sender, appdata, config):
                 dpg.delete_item(f"table_row_peak_{j}")
         # Set column headers
         if i == 0:
-            label = "High f [Hz]"
+            label = "High f [Hz]" if not dpg.get_value("check_box_cnls_tau") else "Low tau [s]"
         elif i == nbr_peaks-1:
-            label = "Low f [Hz]"
+            label = "Low f [Hz]" if not dpg.get_value("check_box_cnls_tau") else "High tau [s]"
         else:
             label = ""
         
@@ -129,7 +142,7 @@ def dynamic_peak_ids(sender, appdata, config):
             dpg.add_text(tag=f"cnls_text_peak_{i}", default_value=label)
             dpg.add_input_float(
                 tag=f"input_peak_{i}",
-                format="%.3f",
+                format="%.3f" if not dpg.get_value("check_box_cnls_tau") else "%.3e",
                 enabled=enable_state,
                 default_value= _peak_value_set(config, nbr_peaks, i),
                 width=-1,
@@ -218,6 +231,53 @@ def initialize_elements(config):
         print(f"---- CNLS elements initialization finished.")
     except:
         print("[Warning] No previous CNLS elements found.")
+
+def _apply_rc_fit_initialization(CNLS_tmp):
+    rc_cnls = copy.deepcopy(CNLS_tmp)
+    rc_counter = 3
+
+    for element in rc_cnls.Elements:
+        if element.get('name') in ['L1', 'R2']:
+            continue
+
+        element['name'] = f"RC{rc_counter}"
+        element['type'] = 'RC'
+
+        if isinstance(element.get('Param'), list) and len(element['Param']) > 2:
+            del element['Param'][2]
+        if isinstance(element.get('Ub'), list) and len(element['Ub']) > 2:
+            del element['Ub'][2]
+        if isinstance(element.get('Lb'), list) and len(element['Lb']) > 2:
+            del element['Lb'][2]
+        rc_counter += 1
+
+    # Run one RC-equivalent fit and print residual metrics.
+    for i in range(0, CNLS_tmp.iteration):
+        print(f'---- RC fit iteration {i+1}/{CNLS_tmp.iteration}...')
+        rc_cnls.FitCircuit()
+
+    # Write fitted RC values back using extracted parameter arrays.
+    for idx in range(len(CNLS_tmp.Elements)):
+        src_start = rc_cnls.ElementsStartIndex[idx]
+        src_end = rc_cnls.ElementsEndIndex[idx] + 1
+
+        src_param = [float(v) for v in rc_cnls.ElementsParamValues[src_start:src_end]]
+        src_ub = [float(v) for v in rc_cnls.UpperBound[src_start:src_end]]
+        src_lb = [float(v) for v in rc_cnls.LowerBound[src_start:src_end]]
+
+        if CNLS_tmp.Elements[idx]['name'] in ['L1', 'R2']:
+            CNLS_tmp.Elements[idx]['Param'] = src_param
+            CNLS_tmp.Elements[idx]['Ub'] = src_ub
+            CNLS_tmp.Elements[idx]['Lb'] = src_lb
+        else:
+            CNLS_tmp.Elements[idx]['Param'][:2] = src_param[:2]
+            CNLS_tmp.Elements[idx]['Ub'][:2] = src_ub[:2]
+            CNLS_tmp.Elements[idx]['Lb'][:2] = src_lb[:2]
+
+    CNLS_tmp.ElementsNames = []
+    CNLS_tmp.initialize_elements(change_UBLB=True)
+
+    return CNLS_tmp
     
 # Initialize the CNLS element parameters
 def initialize_parameters(sender, appdata, config):
@@ -268,6 +328,12 @@ def initialize_parameters(sender, appdata, config):
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
+            # Disable RC_fit_switch if Randle elements exist
+            has_randle = any('Randle' in element.get('type', '') for element in CNLS_tmp.Elements)
+            if has_randle:
+                CNLS_tmp.RC_fit_switch = False
+            else:
+                CNLS_tmp.RC_fit_switch = config.store.get("RC_fit_switch", False)
             
             R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_tmp.PeakDerivative(CNLS_tmp.f_mode, f_fixed=CNLS_tmp.f_fixed, nbr_peaks_fixed=len(CNLS_tmp.f_fixed))
             R_est = R_est*EIS_tmp['tknv_' + CNLS_tmp.data_type.replace('_KK', '').replace('_DRT', '')]['RL']['Rp_ReIm']/np.sum(R_est)
@@ -315,8 +381,14 @@ def initialize_parameters(sender, appdata, config):
                 raise ValueError("The number of initial guess is more than the number of elements.")
             
             CNLS_tmp.initialize_elements()
+            if CNLS_tmp.RC_fit_switch:
+                print(f"---- RC pre-fit initialization started for {file_name_no_ext}...")
+                CNLS_tmp = _apply_rc_fit_initialization(CNLS_tmp)
+                config.store["elements"] = CNLS_tmp.Elements
+                print(f"---- RC pre-fit initialization applied for {file_name_no_ext}.")
+
             constraint_percentage(CNLS_tmp)
-            # CNLS_tmp.initialize_elements(change_UBLB = False)
+            CNLS_tmp.initialize_elements(change_UBLB = True)
             print(f"---- CNLS parameters initialized for {file_name}.")
     config.store["Elements"] = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements
     gui_utils.cnls_elements.update_elements(config)

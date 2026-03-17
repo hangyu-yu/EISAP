@@ -60,9 +60,16 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
     if any('Randle' in s for s in type_list):
         dpg.configure_item("checkbox_cnls_segement_constraints", enabled = False, default_value = False)
         config.store["segment_constraints"] = 'free'
+        # Disable RC initialization when Randle elements are present
+        if dpg.does_item_exist("check_box_cnls_rc_initialization"):
+            dpg.configure_item("check_box_cnls_rc_initialization", value=False, enabled=False)
+            config.store['RC_fit_switch'] = False
     else:
         dpg.configure_item("checkbox_cnls_segement_constraints", enabled = True, default_value = True)
         config.store["segment_constraints"] = 'segment'
+        # Enable RC initialization when no Randle elements
+        if dpg.does_item_exist("check_box_cnls_rc_initialization"):
+            dpg.configure_item("check_box_cnls_rc_initialization", enabled=True)
         
     build_element_table(config, element, int(element_nbr)-1)
     menu_remove_elements(config)
@@ -266,6 +273,13 @@ def add_element(sender, appdata, config):
     config.store["Elements"].append(new_element)
     build_element_table(config, new_element, element_nbr-1)
     menu_remove_elements(config)
+    
+    # Check if Randle element was added and update RC initialization checkbox
+    type_list = [element['type'] for element in config.store["Elements"]]
+    if any('Randle' in s for s in type_list):
+        if dpg.does_item_exist("check_box_cnls_rc_initialization"):
+            dpg.configure_item("check_box_cnls_rc_initialization", value=False, enabled=False)
+            config.store['RC_fit_switch'] = False
 
 def menu_remove_elements(config):
     """Create a menu for removing elements from the CNLS fitting table.
@@ -298,3 +312,14 @@ def remove_element(sender, appdata, config):
     for i in range(len(config.store["Elements"])):
         config.store["Elements"][i]['name'] = f"{config.store['element_list'][config.store['Elements'][i]['type']]}{i+1}"
     update_elements(config)
+    
+    # Check if Randle elements still exist and update RC initialization checkbox
+    type_list = [element['type'] for element in config.store["Elements"]]
+    if any('Randle' in s for s in type_list):
+        if dpg.does_item_exist("check_box_cnls_rc_initialization"):
+            dpg.configure_item("check_box_cnls_rc_initialization", value=False, enabled=False)
+            config.store['RC_fit_switch'] = False
+    else:
+        # Re-enable RC initialization if no Randle elements remain
+        if dpg.does_item_exist("check_box_cnls_rc_initialization"):
+            dpg.configure_item("check_box_cnls_rc_initialization", enabled=True)

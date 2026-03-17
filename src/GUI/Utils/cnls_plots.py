@@ -179,6 +179,8 @@ def update_single_plots(config):
                             dpg.add_scatter_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), np.asarray(data.DRTmes, dtype=np.float32), parent=y_axis, label="Measure")
                             y_max_value = np.max(np.asarray(data.DRTmes, dtype=np.float32))
                             for element in data.ElementDRTs:
+                                if element == 'mes':
+                                    continue
                                 if 'L' in element or ('R' in element and not any(excluded in element for excluded in ['RQ', 'RC', 'Randle'])):
                                     continue
                                 dpg.add_line_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), np.asarray(data.ElementDRTs[element]['ReIm']['g'], dtype=np.float32), parent=y_axis, label=f"{element}")
