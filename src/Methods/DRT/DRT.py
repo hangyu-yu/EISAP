@@ -706,15 +706,17 @@ class DRT:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_name_with_timestamp = f"{name_without_ext}_{timestamp}{ext}"
         zip_path = os.path.join(temp_folder, zip_name_with_timestamp)
-
-        with zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(folder_path):
-                for file_name in files:
-                    file_path = os.path.join(root, file_name)
-                    rel_path = os.path.relpath(file_path, start=folder_path)
-                    arcname = os.path.join(folder_name, rel_path)
-                    zipf.write(file_path, arcname=arcname)
-
+        try:
+            with zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
+                for root, _, files in os.walk(folder_path):
+                    for file_name in files:
+                        file_path = os.path.join(root, file_name)
+                        rel_path = os.path.relpath(file_path, start=folder_path)
+                        arcname = os.path.join(folder_name, rel_path)
+                        zipf.write(file_path, arcname=arcname)
+        except Exception as e:
+            print(f"[Error] Failed to create backup zip: {e}. Normally due to the file being open or locked. Please close any open files in the {folder_name} folder and try again.")
+            return None
         print(f"---- Backup created: {zip_path}")
         return zip_path
 

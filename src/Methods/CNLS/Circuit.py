@@ -103,6 +103,8 @@ class Circuit:
         self.ElementsParamPValues = [] # List to store p-values for parameters (for statistical significance)
         self.FitSummary = None # DataFrame to store the fit summary
         self.RC_fit_switch = False # Flag to indicate if RC initialization is used for fitting
+        self.R_cons = None 
+        self.Tau_cons = None
 
     # Function to initialize the circuit elements
     def initialize_elements(self, change_UBLB=True):
@@ -746,14 +748,17 @@ class Circuit:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         zip_name_with_timestamp = f"{name_without_ext}_{timestamp}{ext}"
         zip_path = os.path.join(temp_folder, zip_name_with_timestamp)
-
-        with zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(folder_path):
-                for file_name in files:
-                    file_path = os.path.join(root, file_name)
-                    rel_path = os.path.relpath(file_path, start=folder_path)
-                    arcname = os.path.join(folder_name, rel_path)
-                    zipf.write(file_path, arcname=arcname)
+        try:
+            with zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
+                for root, _, files in os.walk(folder_path):
+                    for file_name in files:
+                        file_path = os.path.join(root, file_name)
+                        rel_path = os.path.relpath(file_path, start=folder_path)
+                        arcname = os.path.join(folder_name, rel_path)
+                        zipf.write(file_path, arcname=arcname)
+        except Exception as e:
+            print(f"[Error] Failed to create backup zip: {e}. Normally due to the file being open or locked. Please close any open files in the {folder_name} folder and try again.")
+            return None
 
         print(f"---- Backup created: {zip_path}")
         return zip_path
@@ -788,7 +793,9 @@ class Circuit:
                 "ElementsEndIndex": [self.ElementsEndIndex],
                 "ElementsStartIndex": [self.ElementsStartIndex],
                 "ElementsNparam": [self.ElementsNparam],
-                "RC_fit_switch": [self.RC_fit_switch]
+                "RC_fit_switch": [self.RC_fit_switch],
+                "R_cons": [self.R_cons],
+                "Tau_cons": [self.Tau_cons]
             }
             summary_df = pd.DataFrame(summary_data)
             summary_df.to_excel(writer, sheet_name="Summary", index=False)
@@ -916,6 +923,9 @@ class Circuit:
                     self.ElementsStartIndex = safe_literal(safe_get(df, "ElementsStartIndex", self.ElementsStartIndex, str), self.ElementsStartIndex)
                     self.ElementsNparam = safe_literal(safe_get(df, "ElementsNparam", self.ElementsNparam, str), self.ElementsNparam)
                     self.RC_fit_switch = safe_get(df, "RC_fit_switch", self.RC_fit_switch, bool)
+                    self.R_cons= safe_get(df, "R_cons", self.R_cons, float)
+                    self.Tau_cons= safe_get(df, "Tau_cons", self.Tau_cons, float)
+
                 elif sheet_name == "Elements":
                     # Extract elements-related data
                     self.ElementsParamNames = safe_list_get(df, "ElementsParamNames")

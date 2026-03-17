@@ -147,13 +147,13 @@ def gui_tab_cnls(config, EIS, CNLS):
                                     dpg.add_checkbox(
                                     tag="checkbox_cnls_R_percentage",
                                     label="R Cons %",
-                                    default_value = False
+                                    default_value = False if config.store[os.path.splitext(config.display_file)[0]]['CNLS'].R_cons is None else True
                                     )
                                     dpg.add_input_float(
                                         tag=f"input_constraints_R_percentage",
                                         format="%.1f",
                                         enabled=True if config.store['segment_constraints'] == 'segment' else False,
-                                        default_value=10,
+                                        default_value=10 if config.store[os.path.splitext(config.display_file)[0]]['CNLS'].R_cons is None else config.store[os.path.splitext(config.display_file)[0]]['CNLS'].R_cons,
                                         width=-1,
                                         step=0,
                                         step_fast=0,
@@ -164,13 +164,13 @@ def gui_tab_cnls(config, EIS, CNLS):
                                     dpg.add_checkbox(
                                     tag="checkbox_cnls_Tau_percentage",
                                     label="Tau Cons %",
-                                    default_value = False
+                                    default_value = False if config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Tau_cons is None else True
                                     )
                                     dpg.add_input_float(
                                         tag=f"input_constraints_Tau_percentage",
                                         format="%.1f",
                                         enabled=True if config.store['segment_constraints'] == 'segment' else False,
-                                        default_value=10,
+                                        default_value=10 if config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Tau_cons is None else config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Tau_cons,
                                         width=-1,
                                         step=0,
                                         step_fast=0,

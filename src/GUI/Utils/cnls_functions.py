@@ -208,12 +208,12 @@ def segment_constraints(sender, appdata, config):
     """
     if appdata:
         config.store["segment_constraints"] = 'segment'
-        dpg.configure_item("checkbox_cnls_R_percentage", enable=True)
-        dpg.configure_item("checkbox_cnls_Tau_percentage", enable=True)
+        dpg.configure_item("checkbox_cnls_R_percentage", enabled=True)
+        dpg.configure_item("checkbox_cnls_Tau_percentage", enabled=True)
     else:
         config.store["segment_constraints"] = 'free'
-        dpg.configure_item("checkbox_cnls_R_percentage", enable=False)
-        dpg.configure_item("checkbox_cnls_Tau_percentage", enable=False)
+        dpg.configure_item("checkbox_cnls_R_percentage", enabled=False)
+        dpg.configure_item("checkbox_cnls_Tau_percentage", enabled=False)
     print(f"---- Segment constraints updated to {config.store['segment_constraints']}.")
 
 # Update the element tables
@@ -388,7 +388,7 @@ def initialize_parameters(sender, appdata, config):
                 print(f"---- RC pre-fit initialization applied for {file_name_no_ext}.")
 
             constraint_percentage(CNLS_tmp)
-            CNLS_tmp.initialize_elements(change_UBLB = True)
+            # CNLS_tmp.initialize_elements(change_UBLB = True)
             print(f"---- CNLS parameters initialized for {file_name}.")
     config.store["Elements"] = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements
     gui_utils.cnls_elements.update_elements(config)
@@ -412,6 +412,9 @@ def load_parameters(sender, appdata, config):
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
+            CNLS_tmp.RC_fit_switch = dpg.get_value("check_box_cnls_rc_initialization")
+            CNLS_tmp.R_cons = None if not dpg.get_value("checkbox_cnls_R_percentage") else dpg.get_value("input_constraints_R_percentage")
+            CNLS_tmp.Tau_cons = None if not dpg.get_value("checkbox_cnls_Tau_percentage") else dpg.get_value("input_constraints_Tau_percentage")
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
             CNLS_tmp.ElementsNames = []
             # CNLS_tmp.Elements = config.store['Elements']

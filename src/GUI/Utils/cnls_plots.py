@@ -142,12 +142,13 @@ def update_single_plots(config):
                 if data.Zmes is not None and data.w is not None:
                     dpg.add_scatter_series(np.asarray(data.Zmes.real, dtype=np.float32), -np.asarray(data.Zmes.imag, dtype=np.float32), parent=y_axis, label="Measure")
                     _, Z = data.EvaluateCircuit()
+                    element_type_map = {elem['name']: elem['type'] for elem in data.Elements}
                     for idx, element in enumerate(Z.columns):
                         cumulative_real = sum(np.real(Z[element].iloc[-1]) for element in Z.columns[:idx])
-                        if 'L' in element:
+                        if element_type_map.get(element) == 'Inductor':
                             cumulative_real = sum(
                                 np.real(Z[col][0]) for col in Z.columns
-                                if 'R' in col and not any(excluded in col for excluded in ['RQ', 'RC', 'Randle'])
+                                if element_type_map.get(col) in ['Resistor', 'Gerisher', 'fFLW', 'FLW']
                             )
                         dpg.add_line_series(np.asarray(np.real(Z[element])+cumulative_real, dtype=np.float32), -np.asarray(np.imag(Z[element]), dtype=np.float32), parent=y_axis, label=f"{element}")
                     dpg.add_plot_legend()
@@ -181,7 +182,7 @@ def update_single_plots(config):
                             for element in data.ElementDRTs:
                                 if element == 'mes':
                                     continue
-                                if 'L' in element or ('R' in element and not any(excluded in element for excluded in ['RQ', 'RC', 'Randle'])):
+                                if (element.startswith('L') and 'Randle' not in element) or (element.startswith('R') and not any(excluded in element for excluded in ['RQ', 'RC', 'Randle'])):
                                     continue
                                 dpg.add_line_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), np.asarray(data.ElementDRTs[element]['ReIm']['g'], dtype=np.float32), parent=y_axis, label=f"{element}")
                                 y_max_value = np.max([y_max_value, np.max(np.asarray(data.ElementDRTs[element]['ReIm']['g'], dtype=np.float32))]) 
