@@ -21,6 +21,8 @@ def _add_series_to_plot(plot_data, y_axis, label, is_line=True):
     """Add a line or scatter series to the plot."""
     x_data = _ensure_contiguous(plot_data['f'])
     y_data = _ensure_contiguous(plot_data['y'])
+    if dpg.get_value('check_box_drt_tau'):
+        x_data = 1/(2*np.pi*x_data)  # Convert frequency to tau if the button is active
     if is_line:
         dpg.add_line_series(x_data, y_data, parent=y_axis, label=label)
     else:
@@ -31,7 +33,7 @@ def _update_bode_plots(data, parent_tag, data_category):
     # Real part (Z')
     y_axis_re = _create_plot_with_axes(
         f"{parent_tag}_Re", -1, int(dpg.get_viewport_height() * 0.25),
-        "Frequency [Hz]", "Z' [Ohm·cm2]", log_x=True
+        "Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", "Z' [Ohm·cm2]", log_x=True
     )
     _add_series_to_plot({'f': data.truncated['f'], 'y': data.truncated['Re']}, y_axis_re, f"{data_category}_truncated", False)
     _add_series_to_plot({'f': data.smooth['f'], 'y': data.smooth['Re']}, y_axis_re, f"{data_category}_KK_smooth")
@@ -41,7 +43,7 @@ def _update_bode_plots(data, parent_tag, data_category):
     # Imaginary part (-Z'')
     y_axis_im = _create_plot_with_axes(
         f"{parent_tag}_Im", -1, int(dpg.get_viewport_height() * 0.25),
-        "Frequency [Hz]", "-Z'' [Ohm·cm2]", log_x=True
+        "Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", "-Z'' [Ohm·cm2]", log_x=True
     )
     _add_series_to_plot({'f': data.truncated['f'], 'y': -data.truncated['Im']}, y_axis_im, f"{data_category}_truncated", False)
     _add_series_to_plot({'f': data.smooth['f'], 'y': -data.smooth['Im']}, y_axis_im, f"{data_category}_KK_smooth")
@@ -54,9 +56,9 @@ def _update_nyquist_plot(data, parent_tag, data_category):
         f"{parent_tag}_ReIm", -1, -1,
         "Z' [Ohm·cm2]", "-Z'' [Ohm·cm2]"
     )
-    _add_series_to_plot({'f': data.truncated['Re'], 'y': -data.truncated['Im']}, y_axis, f"{data_category}_truncated", False)
-    _add_series_to_plot({'f': data.smooth['Re'], 'y': -data.smooth['Im']}, y_axis, f"{data_category}_KK_smooth")
-    _add_series_to_plot({'f': data.tknv_truncated[data_category]['Re'], 'y': -data.tknv_truncated[data_category]['Im']}, y_axis, f"{data_category}_DRT_smooth")
+    _add_series_to_plot({'f': data.truncated['Re'] if not dpg.get_value('check_box_drt_tau') else 1/(2*np.pi*data.truncated['Re']), 'y': -data.truncated['Im']}, y_axis, f"{data_category}_truncated", False)
+    _add_series_to_plot({'f': data.smooth['Re'] if not dpg.get_value('check_box_drt_tau') else 1/(2*np.pi*data.smooth['Re']), 'y': -data.smooth['Im']}, y_axis, f"{data_category}_KK_smooth")
+    _add_series_to_plot({'f': data.tknv_truncated[data_category]['Re'] if not dpg.get_value('check_box_drt_tau') else 1/(2*np.pi*data.tknv_truncated[data_category]['Re']), 'y': -data.tknv_truncated[data_category]['Im']}, y_axis, f"{data_category}_DRT_smooth")
     dpg.add_plot_legend(parent=f"{parent_tag}_ReIm")
 
 def _update_residual_plots(data, parent_tag):
@@ -64,7 +66,7 @@ def _update_residual_plots(data, parent_tag):
     # Real part (Z')
     y_axis_re = _create_plot_with_axes(
         f"{parent_tag}_ReIm_residual", -1, int(dpg.get_viewport_height() * 0.4),
-        "Frequency [Hz]", "Residual [%]", log_x=True
+        "Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", "Residual [%]", log_x=True
     )
     if len(data.truncated['f']) != len(data.tknv_truncated['ReIm']['f']):
         print(f"-- Warning: Frequency arrays have different lengths (truncated: {len(data.truncated['f'])}, tknv_truncated: {len(data.tknv_truncated['ReIm']['f'])}).")
@@ -76,7 +78,7 @@ def _update_residual_plots(data, parent_tag):
     # Imaginary part (-Z'')
     y_axis_im = _create_plot_with_axes(
         f"{parent_tag}_Re_residual", -1, int(dpg.get_viewport_height() * 0.4),
-        "Frequency [Hz]", "Residual [%]", log_x=True
+        "Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", "Residual [%]", log_x=True
     )
     if len(data.truncated['f']) != len(data.tknv_truncated['Re']['f']):
         print(f"-- Warning: Frequency arrays have different lengths (truncated: {len(data.truncated['f'])}, tknv_truncated: {len(data.tknv_truncated['Re']['f'])}).")
@@ -106,7 +108,7 @@ def update_single_plots(config):
                 if data[f"tknv_{data_type}"]:
                     dpg.delete_item(f"tab_drt_{data_type}_data_plot_single")
                     with dpg.plot(tag=f"tab_drt_{data_type}_data_plot_single", width=-1, height=-1, no_menus=False):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
                         y_max_value = 0
                         y_min_value = 0
@@ -172,7 +174,7 @@ def update_all_plots(config):
                             no_menus=False
                         ):
                             # X-axis (log scale)
-                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", log_scale=True)
                             
                             # Y-axis
                             y_axis = dpg.add_plot_axis(

@@ -29,7 +29,6 @@ def update_child_window_size():
     safe_configure("Button_drt_Process_data", width=int(viewport_width * 0.075))
     safe_configure("Button_Save_DRT", width=-1)
 
-
 def lambda_mode_callback(sender, app_data, EIS, config):
     """
     Callback function for the lambda mode checkbox.
@@ -58,7 +57,6 @@ def lambda_mode_callback(sender, app_data, EIS, config):
             EIS_tmp.parameter["DRT"]["Lambda_selection"] = mode
 
     print(f"-- Lambda mode set to {mode}")
-
 
 def tknv_pos_callback(sender, app_data, EIS, config):
     """
@@ -99,14 +97,12 @@ def tknv_pos_callback(sender, app_data, EIS, config):
 
     print(f"-- Tikhonov positive mode set to {mode}")
 
-
 def lambda_opt_callback(sender, app_data, EIS):
     """
     Callback function for the lambda optimal checkbox.
     """
     EIS.parameter["LambdaOpt"]["lampda_opt"] = bool(app_data)
     print(f"Lambda optimal set to {app_data}")
-
 
 def _ensure_plot_tab_bars_exist():
     """
@@ -141,7 +137,6 @@ def _ensure_plot_tab_bars_exist():
 
     return True
 
-
 def callback_process_data(sender, app_data, config):
     """
     Callback function to process and update EIS data in the GUI.
@@ -160,6 +155,13 @@ def callback_process_data(sender, app_data, config):
         dpg.delete_item("tab_bar_drt_plot_all", children_only=True)
         gui_utils.drt_plots.update_all_plots(config)
     # -----------------------------------
+
+def plot_drt_tau_callback(sender, app_data, config):
+    """
+    Callback function to update the DRT plot with tau values.
+    """
+    gui_utils.drt_plots.update_single_plots(config)
+    gui_utils.drt_plots.update_all_plots(config)
 
 def gui_tab_drt(config, EIS, CNLS):
     config.save_config()
@@ -200,7 +202,12 @@ def gui_tab_drt(config, EIS, CNLS):
                 ):
                     with dpg.menu_bar(parent="child_window_parameter_drt"):
                         with dpg.menu(label="Parameters"):
-                            dpg.add_menu_item(label="")
+                            dpg.add_checkbox(
+                                tag="check_box_drt_tau",
+                                label="x-tau",
+                                default_value = False,
+                                callback=lambda sender, app_data: plot_drt_tau_callback(sender, app_data, config),
+                            )
 
                     with dpg.table(
                         header_row=False,

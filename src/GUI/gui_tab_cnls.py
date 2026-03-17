@@ -38,6 +38,17 @@ def _initialization_cnls(config, CNLS):
             CNLS_tmp.filename = os.path.basename(file_name)
             print(f"---- CNLS data initialized from {file_name} successfully.")
 
+def plot_cnls_tau_callback(sender, app_data, config):
+    num_peaks = range(dpg.get_value("input_nbr_peaks"))
+    for i in num_peaks:
+        if dpg.get_value('check_box_cnls_tau'):
+            dpg.configure_item(f"input_peak_{i}", default_value=gui_utils.cnls_functions._peak_value_set(config, num_peaks, i), format="%.3e")
+        else:
+            dpg.configure_item(f"input_peak_{i}", default_value=gui_utils.cnls_functions._peak_value_set(config, num_peaks, i), format="%.3f")
+    dpg.configure_item(f"cnls_text_peak_{num_peaks[0]}", default_value="High f [Hz]" if not config.cnls_plot_tau else "Low tau [s]")
+    dpg.configure_item(f"cnls_text_peak_{num_peaks[-1]}", default_value="Low f [Hz]" if not config.cnls_plot_tau else "High tau [s]")
+    gui_utils.cnls_plots.update_single_plots(config)
+
 # Main tab function for EIS
 def gui_tab_cnls(config, EIS, CNLS):
     config.save_config()
@@ -68,6 +79,12 @@ def gui_tab_cnls(config, EIS, CNLS):
                             dpg.add_checkbox(
                                 label="Fix all plots",
                                 callback=lambda s, a: setattr(config, 'fix_all_plots_CNLS', a),
+                            )
+                            dpg.add_checkbox(
+                                tag="check_box_cnls_tau",
+                                label="x-tau",
+                                default_value = False,
+                                callback=lambda sender, app_data: plot_cnls_tau_callback(sender, app_data, config),
                             )
                         with dpg.menu(label="Add elements"):
                             for header, element in config.store['element_list'].items():

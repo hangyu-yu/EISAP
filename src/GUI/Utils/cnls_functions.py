@@ -28,18 +28,34 @@ def _update_peak_fixed(sender, app_data, config):
         config.store["peak_fixed_frequencies"] = []
         for j in range(dpg.get_value("input_nbr_peaks")):
             if _file_existence_check(config) and j <= len(config.store[file_name_no_ext]['CNLS'].f_fixed)-1:
-                config.store["peak_fixed_frequencies"].append(config.store[file_name_no_ext]['CNLS'].f_fixed[j])
+                config.store["peak_fixed_frequencies"].append(config.store[file_name_no_ext]['CNLS'].f_fixed[j] if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*config.store[file_name_no_ext]['CNLS'].f_fixed[j]))
             else:
                 config.store["peak_fixed_frequencies"].append(10**(dpg.get_value("input_nbr_peaks")-j-2))
         print("---- Peak fixed frequencies updated.")
     else:
-        config.store["peak_fixed_frequencies"][int(sender[-1])] = app_data
-        print(f"---- Peak fixed frequency {int(sender[-1])+1} updated to {app_data}.")
+        config.store["peak_fixed_frequencies"][int(sender[-1])] = app_data if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*app_data)
+        print(f"---- Peak fixed frequency {int(sender[-1])+1} updated to {app_data if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*app_data)}.")
 
     try:
         config.store[file_name_no_ext]['CNLS'].f_fixed = config.store["peak_fixed_frequencies"]
     except:
         raise ValueError("File does not exist or CNLS data is invalid.")
+    
+def _peak_value_set(config, nbr_peaks, i):
+    """Set the default peak frequency values with exponential spacing.
+    
+    Args:
+        config: Configuration object.
+        nbr_peaks: Number of peaks to set.
+        
+    Returns:
+        list: List of default peak frequency values.
+    """
+    if not dpg.get_value("check_box_cnls_tau"):
+        return_value = config.store["peak_fixed_frequencies"][i] if i <= len(config.store["peak_fixed_frequencies"])-1 else 10**(i-2)
+    else:
+        return_value = 1/(2*np.pi*config.store["peak_fixed_frequencies"][i]) if i <= len(config.store["peak_fixed_frequencies"])-1 else 1/(2*np.pi*10**(nbr_peaks-i-2))
+    return return_value
     
 def constraint_percentage(CNLS_tmp):
     """Set the constraint percentage for R and Tau.
@@ -110,12 +126,12 @@ def dynamic_peak_ids(sender, appdata, config):
         # Set default values (default values with exponential spacing)
         
         with dpg.table_row(parent="Table_cnls_parameters", tag=f"table_row_peak_{i}"):
-            dpg.add_text(label)
+            dpg.add_text(tag=f"cnls_text_peak_{i}", default_value=label)
             dpg.add_input_float(
                 tag=f"input_peak_{i}",
                 format="%.3f",
                 enabled=enable_state,
-                default_value=config.store["peak_fixed_frequencies"][i] if i <= len(config.store["peak_fixed_frequencies"])-1 else 10**(nbr_peaks-i-2),
+                default_value= _peak_value_set(config, nbr_peaks, i),
                 width=-1,
                 step=0,
                 step_fast=0,

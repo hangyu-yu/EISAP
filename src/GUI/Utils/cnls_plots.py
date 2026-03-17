@@ -37,7 +37,7 @@ def update_single_plots(config):
         dpg.delete_item("tab_cnls_drt_plot_single")
         with dpg.tab(label="DRT", tag="tab_cnls_drt_plot_single", parent="tab_bar_cnls_plot_single"):
             with dpg.plot(tag="plot_cnls_drt_single", width=-1, height=-1, no_menus=False, crosshairs=True):
-                dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                 y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
                 file_name_no_ext = os.path.splitext(config.display_file)[0]
                 data_type_DRT = dpg.get_value('combo_cnls_data_type')
@@ -48,7 +48,7 @@ def update_single_plots(config):
                     data_type_DRT = 'LCcorrect'
                 elif data_type_DRT == 'smooth_DRT':
                     data_type_DRT = 'truncated'
-                frequency_DRT_show = EIS_tmp['tknv_'+data_type_DRT]['ReIm']['f']
+                frequency_DRT_show = EIS_tmp['tknv_'+data_type_DRT]['ReIm']['f'] if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*EIS_tmp['tknv_'+data_type_DRT]['ReIm']['f'])
                 DRT_DRT_show = EIS_tmp['tknv_'+data_type_DRT]['ReIm']['g']
                 dpg.add_line_series(frequency_DRT_show, DRT_DRT_show, parent=y_axis)
                 y_max_value = np.max(np.max(EIS_tmp.tknv_truncated['ReIm']['g']))
@@ -59,11 +59,11 @@ def update_single_plots(config):
         dpg.delete_item("tab_cnls_residual_plot_single")
         with dpg.tab(label="Residual", tag="tab_cnls_residual_plot_single", parent="tab_bar_cnls_plot_single"):
             with dpg.plot(tag="plot_cnls_residual_single", width=-1, height=int(0.4*viewport_height), no_menus=False):
-                dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                 y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Residual [%]")
                 if data.ResidualsReal is not None and data.ResidualsImag is not None:
-                    dpg.add_scatter_series(data.f, 100 * data.ResidualsReal / np.abs(data.Ztot), parent=y_axis, label="Re")
-                    dpg.add_scatter_series(data.f, 100 * data.ResidualsImag / np.abs(data.Ztot), parent=y_axis, label="Im")
+                    dpg.add_scatter_series(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), 100 * data.ResidualsReal / np.abs(data.Ztot), parent=y_axis, label="Re")
+                    dpg.add_scatter_series(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), 100 * data.ResidualsImag / np.abs(data.Ztot), parent=y_axis, label="Im")
                     dpg.add_plot_legend()
             with dpg.table(
                 tag=f"table_cnls_plot_residuals",
@@ -77,18 +77,18 @@ def update_single_plots(config):
                 dpg.add_table_column(width_stretch=True)
                 with dpg.table_row():
                     with dpg.plot(tag="plot_module_single", width=-1, height=-1, no_menus=False):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="|Z| [ohm·cm2]")
                         if data.f is not None:
-                            dpg.add_scatter_series(data.f, np.abs(data.Zmes), parent=y_axis, label="Measure")
-                            dpg.add_line_series(data.f, np.abs(data.Ztot), parent=y_axis, label="Fit")
+                            dpg.add_scatter_series(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), np.abs(data.Zmes), parent=y_axis, label="Measure")
+                            dpg.add_line_series(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), np.abs(data.Ztot), parent=y_axis, label="Fit")
                             dpg.add_plot_legend()
                     with dpg.plot(tag="plot_phase_single", width=-1, height=-1, no_menus=False):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Phase [deg]")
                         if data.f is not None:
-                            dpg.add_scatter_series(data.f, -np.angle(data.Zmes, deg=True), parent=y_axis, label="Measure")
-                            dpg.add_line_series(data.f, -np.angle(data.Ztot, deg=True), parent=y_axis, label="Fit")
+                            dpg.add_scatter_series(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), -np.angle(data.Zmes, deg=True), parent=y_axis, label="Measure")
+                            dpg.add_line_series(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), -np.angle(data.Ztot, deg=True), parent=y_axis, label="Fit")
                             dpg.add_plot_legend()
         
         dpg.delete_item("tab_cnls_fit_plot_single")
@@ -106,16 +106,16 @@ def update_single_plots(config):
                 if data.f is not None:
                     with dpg.table_row():
                         with dpg.plot(tag="plot_Re_single", width=-1, height=int(0.4*viewport_height), no_menus=False):
-                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                             y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Z' [ohm·cm2]")
-                            dpg.add_scatter_series(np.asarray(data.f, dtype=np.float32), np.asarray(data.Zmes.real, dtype=np.float32), parent=y_axis, label="Measure")
-                            dpg.add_line_series(np.asarray(data.f, dtype=np.float32), np.asarray(data.Ztot.real, dtype=np.float32), parent=y_axis, label="Fit")
+                            dpg.add_scatter_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), np.asarray(data.Zmes.real, dtype=np.float32), parent=y_axis, label="Measure")
+                            dpg.add_line_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), np.asarray(data.Ztot.real, dtype=np.float32), parent=y_axis, label="Fit")
                             dpg.add_plot_legend()
                         with dpg.plot(tag="plot_Im_single", width=-1, height=int(0.4*viewport_height), no_menus=False):
-                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                             y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [ohm·cm2]")
-                            dpg.add_scatter_series(np.asarray(data.f, dtype=np.float32), -np.asarray(data.Zmes.imag, dtype=np.float32), parent=y_axis, label="Measure")
-                            dpg.add_line_series(np.asarray(data.f, dtype=np.float32), -np.asarray(data.Ztot.imag, dtype=np.float32), parent=y_axis, label="Fit")
+                            dpg.add_scatter_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), -np.asarray(data.Zmes.imag, dtype=np.float32), parent=y_axis, label="Measure")
+                            dpg.add_line_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), -np.asarray(data.Ztot.imag, dtype=np.float32), parent=y_axis, label="Fit")
                             dpg.add_plot_legend()
                     with dpg.table_row():
                         with dpg.plot(tag="plot_ReIm_single", width=-1, height=-1, no_menus=False, equal_aspects = True):
@@ -125,10 +125,10 @@ def update_single_plots(config):
                             dpg.add_line_series(np.asarray(data.Ztot.real, dtype=np.float32), -np.asarray(data.Ztot.imag, dtype=np.float32), parent=y_axis, label="Fit")
                             dpg.add_plot_legend()
                         with dpg.plot(tag="plot_DRT_single", width=-1, height=-1, no_menus=False):
-                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                             y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
-                            dpg.add_scatter_series(np.asarray(data.f, dtype=np.float32), np.asarray(data.DRTmes, dtype=np.float32), parent=y_axis, label="Measure")
-                            dpg.add_line_series(np.asarray(data.f, dtype=np.float32), np.asarray(data.DRT['ReIm']['g'], dtype=np.float32), parent=y_axis, label="Fit")
+                            dpg.add_scatter_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), np.asarray(data.DRTmes, dtype=np.float32), parent=y_axis, label="Measure")
+                            dpg.add_line_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), np.asarray(data.DRT['ReIm']['g'], dtype=np.float32), parent=y_axis, label="Fit")
                             y_max_value = np.max([np.max(np.asarray(data.DRT['ReIm']['g'], dtype=np.float32)), np.max(np.asarray(data.DRTmes, dtype=np.float32))])
                             dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
                             dpg.add_plot_legend()
@@ -164,24 +164,24 @@ def update_single_plots(config):
                 dpg.add_table_column(width_stretch=True)
                 with dpg.table_row():
                     with dpg.plot(tag="plot_cnls_elements_Im_single", width=-1, height=-1, no_menus=False):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [ohm·cm2]")
                         if data.f is not None and data.Zmes is not None and data.w is not None:
-                            dpg.add_scatter_series(np.asarray(data.f, dtype=np.float32), -np.asarray(np.imag(data.Zmes), dtype=np.float32), parent=y_axis, label="Measure")
+                            dpg.add_scatter_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), -np.asarray(np.imag(data.Zmes), dtype=np.float32), parent=y_axis, label="Measure")
                             for element in Z.columns:
-                                dpg.add_line_series(np.asarray(data.f, dtype=np.float32), -np.asarray(np.imag(Z[element]), dtype=np.float32), parent=y_axis, label=f"{element}")
+                                dpg.add_line_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), -np.asarray(np.imag(Z[element]), dtype=np.float32), parent=y_axis, label=f"{element}")
                             dpg.add_plot_legend()
 
                     with dpg.plot(tag="plot_cnls_elements_DRT_single", width=-1, height=-1, no_menus=False):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
                         if data.f is not None and data.Zmes is not None and data.w is not None:
-                            dpg.add_scatter_series(np.asarray(data.f, dtype=np.float32), np.asarray(data.DRTmes, dtype=np.float32), parent=y_axis, label="Measure")
+                            dpg.add_scatter_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), np.asarray(data.DRTmes, dtype=np.float32), parent=y_axis, label="Measure")
                             y_max_value = np.max(np.asarray(data.DRTmes, dtype=np.float32))
                             for element in data.ElementDRTs:
                                 if 'L' in element or ('R' in element and not any(excluded in element for excluded in ['RQ', 'RC', 'Randle'])):
                                     continue
-                                dpg.add_line_series(np.asarray(data.f, dtype=np.float32), np.asarray(data.ElementDRTs[element]['ReIm']['g'], dtype=np.float32), parent=y_axis, label=f"{element}")
+                                dpg.add_line_series(np.asarray(data.f if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*data.f), dtype=np.float32), np.asarray(data.ElementDRTs[element]['ReIm']['g'], dtype=np.float32), parent=y_axis, label=f"{element}")
                                 y_max_value = np.max([y_max_value, np.max(np.asarray(data.ElementDRTs[element]['ReIm']['g'], dtype=np.float32))]) 
                             dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
                             dpg.add_plot_legend()
