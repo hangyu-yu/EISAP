@@ -14,101 +14,112 @@ def update_single_plots(config):
     - data_type: Type of data to be displayed in the table.
     """
     print("-- EIS data single plots updating...")
+    if not dpg.does_item_exist("tab_bar_eis_plot_single"):
+        print("---- Skipped: tab_bar_eis_plot_single not found.")
+        return
+
+    has_valid_data = (
+        config.display_file not in ([], None)
+        and os.path.splitext(config.display_file)[0] in config.store
+        and 'EIS' in config.store[os.path.splitext(config.display_file)[0]]
+        and config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['f'] is not None
+    )
+
     for idx, data_category in enumerate(["KK_data", "truncated", "LCcorrect", "smooth",  "extrapolation"]):
-        dpg.delete_item(f"tab_eis_{data_category}_plot_single")
-        with dpg.tab(label=data_category, tag=f"tab_eis_{data_category}_plot_single", parent="tab_bar_eis_plot_single"):
-            if config.display_file != [] and config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]] and config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['f'] is not None:
-                # Clear existing plots
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_single_KK")
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_single_Z_Phase")
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_single_Re")
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_single_Im")
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_single_ReIM")
-
-                data = config.store[os.path.splitext(config.display_file)[0]]['EIS']
-
-                # Reconstruct the table with new data
-                if data_category == "KK_data":
-                    # Plot KK results
-                    with dpg.plot(
-                        # label="Karmar-Kronig results",
-                        tag=f"tab_eis_{data_category}_data_plot_single_KK",
-                        width = -1,
-                        height=int(dpg.get_viewport_height() * 0.3),
-                        no_menus=False,
-                    ):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
-                        y_axis = dpg.add_plot_axis(dpg.mvYAxis, 
-                        label="KK Residual [%]")
-                        dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Re_kk'], parent=y_axis, label="Re")
-                        dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Im_kk'], parent=y_axis, label="Im")
-                        dpg.add_plot_legend()
-
-                    # Plot impedance module
-                    with dpg.plot(
-                        # label="Raw impedance and phase",
-                        tag=f"tab_eis_{data_category}_data_plot_single_Z_Phase",
-                        width = -1,
-                        height= -1,
-                        no_menus=False,
-                    ):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
-                        y_axis1 = dpg.add_plot_axis(dpg.mvYAxis, label="Z [Ohm·cm2]")
-                        # dpg.set_axis_limits(y_axis1, 0, 1.1 * np.max(abs(data['raw']['Z'])))
-                        dpg.add_scatter_series(data['raw']['f'], abs(data['raw']['Z']), parent=y_axis1, label="Z")
-                        y_axis2 = dpg.add_plot_axis(dpg.mvYAxis2, label="Phase [deg]", opposite=True)
-                        # dpg.set_axis_limits(y_axis2, 0, 1.1 * np.max(-np.degrees(np.angle(data['raw']['Z']))))
-                        dpg.add_scatter_series(data['raw']['f'], -np.degrees(np.angle(data['raw']['Z'])), parent=y_axis2, label="Phase")
-                        dpg.add_plot_legend()
-                else:
-                    if data_category == "truncated":
-                        compare_data = "raw"
-                    else:
-                        compare_data = "truncated"
-
-                    # Bode plots
-                    with dpg.plot(
-                        # label = f"Real Bode - {data_category[0].upper() + data_category[1:]}",
-                        tag=f"tab_eis_{data_category}_data_plot_single_Re",
-                        width = -1,
-                        height=int(dpg.get_viewport_height() * 0.25),
-                        no_menus=False,
-                    ):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
-                        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Z' [Ohm·cm2]")
-                        dpg.add_scatter_series(data[compare_data]['f'], data[compare_data]['Re'], parent=y_axis, label=compare_data.capitalize())
-                        dpg.add_line_series(data[data_category]['f'], data[data_category]['Re'], parent=y_axis, label=data_category[0].upper() + data_category[1:])
-                        dpg.add_plot_legend()
-
-                    with dpg.plot(
-                        # label = f"Imaginary Bode - {data_category[0].upper() + data_category[1:]}",
-                        tag=f"tab_eis_{data_category}_data_plot_single_Im",
-                        width = -1,
-                        height=int(dpg.get_viewport_height() * 0.25),
-                        no_menus=False,
-                    ):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
-                        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [Ohm·cm2]")
-                        dpg.add_scatter_series(data[compare_data]['f'], -data[compare_data]['Im'], parent=y_axis, label=compare_data.capitalize())
-                        dpg.add_line_series(data[data_category]['f'], -data[data_category]['Im'], parent=y_axis, label=data_category[0].upper() + data_category[1:])
-                        dpg.add_plot_legend()
-                    
-                    # Nyquist plot
-                    with dpg.plot(
-                        # label = f"Nyquist - {data_category[0].upper() + data_category[1:]}",
-                        tag=f"tab_eis_{data_category}_data_plot_single_ReIM",
-                        width = -1,
-                        height= -1,
-                        no_menus=False,
-                        equal_aspects = True
-                    ):
-                        x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Z' [Ohm·cm2]")
-                        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [Ohm·cm2]")
-                        dpg.add_scatter_series(data[compare_data]['Re'], -data[compare_data]['Im'], parent=y_axis, label=compare_data.capitalize())
-                        dpg.add_line_series(data[data_category]['Re'], -data[data_category]['Im'], parent=y_axis, label=data_category[0].upper() + data_category[1:])
-                        dpg.add_plot_legend()
-            else:
+        tab_tag = f"tab_eis_{data_category}_plot_single"
+        if dpg.does_item_exist(tab_tag):
+            # Keep the tab itself so the current tab selection is preserved.
+            dpg.delete_item(tab_tag, children_only=True)
+        else:
+            with dpg.tab(label=data_category, tag=tab_tag, parent="tab_bar_eis_plot_single"):
                 pass
+
+        if not has_valid_data:
+            continue
+
+        data = config.store[os.path.splitext(config.display_file)[0]]['EIS']
+
+        with dpg.group(parent=tab_tag):
+            # Reconstruct the table with new data
+            if data_category == "KK_data":
+                # Plot KK results
+                with dpg.plot(
+                    # label="Karmar-Kronig results",
+                    tag=f"tab_eis_{data_category}_data_plot_single_KK",
+                    width = -1,
+                    height=int(dpg.get_viewport_height() * 0.3),
+                    no_menus=False,
+                ):
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                    y_axis = dpg.add_plot_axis(dpg.mvYAxis, 
+                    label="KK Residual [%]")
+                    dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Re_kk'], parent=y_axis, label="Re")
+                    dpg.add_scatter_series(data['KK_data']['f'], data['KK_data']['delta_Im_kk'], parent=y_axis, label="Im")
+                    dpg.add_plot_legend()
+
+                # Plot impedance module
+                with dpg.plot(
+                    # label="Raw impedance and phase",
+                    tag=f"tab_eis_{data_category}_data_plot_single_Z_Phase",
+                    width = -1,
+                    height= -1,
+                    no_menus=False,
+                ):
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                    y_axis1 = dpg.add_plot_axis(dpg.mvYAxis, label="Z [Ohm·cm2]")
+                    # dpg.set_axis_limits(y_axis1, 0, 1.1 * np.max(abs(data['raw']['Z'])))
+                    dpg.add_scatter_series(data['raw']['f'], abs(data['raw']['Z']), parent=y_axis1, label="Z")
+                    y_axis2 = dpg.add_plot_axis(dpg.mvYAxis2, label="Phase [deg]", opposite=True)
+                    # dpg.set_axis_limits(y_axis2, 0, 1.1 * np.max(-np.degrees(np.angle(data['raw']['Z']))))
+                    dpg.add_scatter_series(data['raw']['f'], -np.degrees(np.angle(data['raw']['Z'])), parent=y_axis2, label="Phase")
+                    dpg.add_plot_legend()
+            else:
+                if data_category == "truncated":
+                    compare_data = "raw"
+                else:
+                    compare_data = "truncated"
+
+                # Bode plots
+                with dpg.plot(
+                    # label = f"Real Bode - {data_category[0].upper() + data_category[1:]}",
+                    tag=f"tab_eis_{data_category}_data_plot_single_Re",
+                    width = -1,
+                    height=int(dpg.get_viewport_height() * 0.25),
+                    no_menus=False,
+                ):
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                    y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Z' [Ohm·cm2]")
+                    dpg.add_scatter_series(data[compare_data]['f'], data[compare_data]['Re'], parent=y_axis, label=compare_data.capitalize())
+                    dpg.add_line_series(data[data_category]['f'], data[data_category]['Re'], parent=y_axis, label=data_category[0].upper() + data_category[1:])
+                    dpg.add_plot_legend()
+
+                with dpg.plot(
+                    # label = f"Imaginary Bode - {data_category[0].upper() + data_category[1:]}",
+                    tag=f"tab_eis_{data_category}_data_plot_single_Im",
+                    width = -1,
+                    height=int(dpg.get_viewport_height() * 0.25),
+                    no_menus=False,
+                ):
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]", log_scale=True)
+                    y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [Ohm·cm2]")
+                    dpg.add_scatter_series(data[compare_data]['f'], -data[compare_data]['Im'], parent=y_axis, label=compare_data.capitalize())
+                    dpg.add_line_series(data[data_category]['f'], -data[data_category]['Im'], parent=y_axis, label=data_category[0].upper() + data_category[1:])
+                    dpg.add_plot_legend()
+                
+                # Nyquist plot
+                with dpg.plot(
+                    # label = f"Nyquist - {data_category[0].upper() + data_category[1:]}",
+                    tag=f"tab_eis_{data_category}_data_plot_single_ReIM",
+                    width = -1,
+                    height= -1,
+                    no_menus=False,
+                    equal_aspects = True
+                ):
+                    x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Z' [Ohm·cm2]")
+                    y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="-Z'' [Ohm·cm2]")
+                    dpg.add_scatter_series(data[compare_data]['Re'], -data[compare_data]['Im'], parent=y_axis, label=compare_data.capitalize())
+                    dpg.add_line_series(data[data_category]['Re'], -data[data_category]['Im'], parent=y_axis, label=data_category[0].upper() + data_category[1:])
+                    dpg.add_plot_legend()
 
     if config.display_file != [] and config.display_file is not None:
         print(f"---- EIS data single plots updated successfully.")

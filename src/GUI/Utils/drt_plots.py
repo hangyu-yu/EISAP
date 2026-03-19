@@ -98,45 +98,77 @@ def update_single_plots(config):
         print("---- Skipped: No valid file selected.")
         return
 
+    if not dpg.does_item_exist("tab_bar_drt_plot_single"):
+        print("---- Skipped: tab_bar_drt_plot_single not found.")
+        return
+
     file_key = os.path.splitext(config.display_file)[0]
     data = config.store[file_key]['EIS']
 
     for data_type in ["truncated", "smooth", "LCcorrect", "extrapolation", "EIS_truncated"]:
-        dpg.delete_item(f"tab_drt_{data_type}_plot_single")
-        with dpg.tab(label=data_type.capitalize(), tag=f"tab_drt_{data_type}_plot_single", parent="tab_bar_drt_plot_single"):
+        tab_tag = f"tab_drt_{data_type}_plot_single"
+        if dpg.does_item_exist(tab_tag):
             if data_type != "EIS_truncated":
-                if data[f"tknv_{data_type}"]:
-                    dpg.delete_item(f"tab_drt_{data_type}_data_plot_single")
-                    with dpg.plot(tag=f"tab_drt_{data_type}_data_plot_single", width=-1, height=-1, no_menus=False):
-                        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", log_scale=True)
-                        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
-                        y_max_value = 0
-                        y_min_value = 0
-                        for category in ["ReIm", "Re", "Im"]:
-                            if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
-                                y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
-                            if np.min(data[f"tknv_{data_type}"][category]['g']) < y_min_value:
-                                y_min_value = np.min(data[f"tknv_{data_type}"][category]['g'])
+                dpg.delete_item(tab_tag, children_only=True)
+        else:
+            with dpg.tab(label=data_type.capitalize(), tag=tab_tag, parent="tab_bar_drt_plot_single"):
+                pass
 
-                            dpg.set_axis_limits(y_axis, y_min_value, y_max_value * 1.1)
-                            _add_series_to_plot(
-                                {'f': data[f"tknv_{data_type}"][category]['f'], 'y': data[f"tknv_{data_type}"][category]['g']},
-                                y_axis, category
-                            )
-                        dpg.add_plot_legend()
-            else:
-                dpg.delete_item(f"tab_bar_drt_{data_type}_plot_single")
-                with dpg.tab_bar(tag=f"tab_bar_drt_{data_type}_plot_single", parent=f"tab_drt_{data_type}_plot_single"):
+        if data_type != "EIS_truncated":
+            if data[f"tknv_{data_type}"]:
+                with dpg.plot(tag=f"tab_drt_{data_type}_data_plot_single", width=-1, height=-1, no_menus=False, parent=tab_tag):
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", log_scale=True)
+                    y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
+                    y_max_value = 0
+                    y_min_value = 0
                     for category in ["ReIm", "Re", "Im"]:
-                        dpg.delete_item(f"tab_drt_{data_type}_{category}_plot_single")
-                        with dpg.tab(label=category, tag=f"tab_drt_{data_type}_{category}_plot_single"):
-                            _update_bode_plots(data, f"tab_drt_{data_type}_{category}", category)
-                            _update_nyquist_plot(data, f"tab_drt_{data_type}_{category}", category)
-                    
-                    # Residuals
-                    dpg.delete_item(f"tab_drt_{data_type}_residual_plot_single")
-                    with dpg.tab(label=f"Residuals", tag=f"tab_drt_{data_type}_residuals_plot_single"):
-                        _update_residual_plots(data, f"tab_drt_{data_type}_residuals")
+                        if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
+                            y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
+                        if np.min(data[f"tknv_{data_type}"][category]['g']) < y_min_value:
+                            y_min_value = np.min(data[f"tknv_{data_type}"][category]['g'])
+
+                        dpg.set_axis_limits(y_axis, y_min_value, y_max_value * 1.1)
+                        _add_series_to_plot(
+                            {'f': data[f"tknv_{data_type}"][category]['f'], 'y': data[f"tknv_{data_type}"][category]['g']},
+                            y_axis, category
+                        )
+                    dpg.add_plot_legend()
+        else:
+            tab_bar_tag = f"tab_bar_drt_{data_type}_plot_single"
+            if not dpg.does_item_exist(tab_bar_tag):
+                with dpg.tab_bar(tag=tab_bar_tag, parent=tab_tag):
+                    pass
+
+            valid_tabs = set()
+            for category in ["ReIm", "Re", "Im"]:
+                category_tab_tag = f"tab_drt_{data_type}_{category}_plot_single"
+                valid_tabs.add(category_tab_tag)
+                if not dpg.does_item_exist(category_tab_tag):
+                    with dpg.tab(label=category, tag=category_tab_tag, parent=tab_bar_tag):
+                        pass
+                else:
+                    dpg.delete_item(category_tab_tag, children_only=True)
+
+                with dpg.group(parent=category_tab_tag):
+                    _update_bode_plots(data, f"tab_drt_{data_type}_{category}", category)
+                    _update_nyquist_plot(data, f"tab_drt_{data_type}_{category}", category)
+
+            residual_tab_tag = f"tab_drt_{data_type}_residuals_plot_single"
+            valid_tabs.add(residual_tab_tag)
+            if not dpg.does_item_exist(residual_tab_tag):
+                with dpg.tab(label="Residuals", tag=residual_tab_tag, parent=tab_bar_tag):
+                    pass
+            else:
+                dpg.delete_item(residual_tab_tag, children_only=True)
+
+            with dpg.group(parent=residual_tab_tag):
+                _update_residual_plots(data, f"tab_drt_{data_type}_residuals")
+
+            # Cleanup stale tabs while preserving existing valid tab objects.
+            children = dpg.get_item_children(tab_bar_tag)
+            for child in children[1]:
+                if isinstance(child, str) and child.startswith(f"tab_drt_{data_type}_") and child.endswith("_plot_single") and child not in valid_tabs:
+                    dpg.delete_item(child)
 
     print("---- DRT single plots updated successfully.")
 
