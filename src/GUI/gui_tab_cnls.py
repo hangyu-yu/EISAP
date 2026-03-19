@@ -65,6 +65,15 @@ def RC_initialization_callback(sender, app_data, config):
         else:
             config.store['RC_fit_switch'] = False
 
+
+def fix_all_plots_callback(sender, app_data, config):
+    """Update fixed-plot mode and refresh CNLS plots immediately."""
+    config.fix_all_plots_CNLS = app_data
+    try:
+        gui_utils.cnls_plots.update_all_plots(config)
+    except Exception as e:
+        print(f"[Warning] CNLS plot refresh failed after toggling Fix all plots: {e}")
+
 # Main tab function for EIS
 def gui_tab_cnls(config, EIS, CNLS):
     config.save_config()
@@ -94,7 +103,7 @@ def gui_tab_cnls(config, EIS, CNLS):
                         with dpg.menu(label="Parameters"):
                             dpg.add_checkbox(
                                 label="Fix all plots",
-                                callback=lambda s, a: setattr(config, 'fix_all_plots_CNLS', a),
+                                callback=lambda s, a: fix_all_plots_callback(s, a, config),
                             )
                             dpg.add_checkbox(
                                 tag="check_box_cnls_tau",

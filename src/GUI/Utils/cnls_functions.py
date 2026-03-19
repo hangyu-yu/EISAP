@@ -303,27 +303,29 @@ def initialize_parameters(sender, appdata, config):
             raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
-            config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(
-                file_folder=config.folder_path, 
-                filename=file_name, 
-                Elements = config.store['Elements'], 
-                EIS = EIS_tmp, 
-                data_type = dpg.get_value('combo_cnls_data_type')))
+            if 'CNLS' not in config.store[file_name_no_ext] or config.store[file_name_no_ext]['CNLS'].DRTmes is None:
+                config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(
+                    file_folder=config.folder_path,
+                    filename=file_name,
+                    Elements=config.store['Elements'],
+                    EIS=EIS_tmp,
+                    data_type=dpg.get_value('combo_cnls_data_type')
+                ))
             
-            config.store[file_name_no_ext]['CNLS'].DRTmes = config.store[file_name_no_ext]['EIS']['tknv_' + config.store[file_name_no_ext]['CNLS'].data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['g']
-            config.store[file_name_no_ext]['CNLS'].f = config.store[file_name_no_ext]['EIS']['tknv_' + config.store[file_name_no_ext]['CNLS'].data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['f']
-            if config.store[file_name_no_ext]['CNLS'].data_type == 'smooth_KK':
-                config.store[file_name_no_ext]['CNLS'].Zmes = config.store[file_name_no_ext]['EIS']['smooth']['Z']
-            elif config.store[file_name_no_ext]['CNLS'].data_type == 'smooth_DRT':
-                config.store[file_name_no_ext]['CNLS'].DRTmes = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['g']
-                config.store[file_name_no_ext]['CNLS'].f = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['f']
-                config.store[file_name_no_ext]['CNLS'].Zmes = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['Re']+1j*config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['Im']
-            else:
-                config.store[file_name_no_ext]['CNLS'].Zmes = config.store[file_name_no_ext]['EIS'][config.store[file_name_no_ext]['CNLS'].data_type]['Z']
-            if config.store[file_name_no_ext]['CNLS'].f is not None:
-                config.store[file_name_no_ext]['CNLS'].w = config.store[file_name_no_ext]['CNLS'].f * 2 * np.pi
-
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+            CNLS_tmp.DRTmes = config.store[file_name_no_ext]['EIS']['tknv_' + CNLS_tmp.data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['g']
+            CNLS_tmp.f = config.store[file_name_no_ext]['EIS']['tknv_' + CNLS_tmp.data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['f']
+            if CNLS_tmp.data_type == 'smooth_KK':
+                CNLS_tmp.Zmes = config.store[file_name_no_ext]['EIS']['smooth']['Z']
+            elif CNLS_tmp.data_type == 'smooth_DRT':
+                CNLS_tmp.DRTmes = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['g']
+                CNLS_tmp.f = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['f']
+                CNLS_tmp.Zmes = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['Re']+1j*config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['Im']
+            else:
+                CNLS_tmp.Zmes = config.store[file_name_no_ext]['EIS'][CNLS_tmp.data_type]['Z']
+            if CNLS_tmp.f is not None:
+                CNLS_tmp.w = CNLS_tmp.f * 2 * np.pi
+
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
@@ -333,6 +335,7 @@ def initialize_parameters(sender, appdata, config):
             if has_randle:
                 CNLS_tmp.RC_fit_switch = False
             else:
+                config.store["RC_fit_switch"] = dpg.get_value("check_box_cnls_rc_initialization")
                 CNLS_tmp.RC_fit_switch = config.store.get("RC_fit_switch", False)
             
             R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_tmp.PeakDerivative(CNLS_tmp.f_mode, f_fixed=CNLS_tmp.f_fixed, nbr_peaks_fixed=len(CNLS_tmp.f_fixed))
@@ -382,16 +385,17 @@ def initialize_parameters(sender, appdata, config):
             
             CNLS_tmp.initialize_elements()
             if CNLS_tmp.RC_fit_switch:
-                print(f"---- RC pre-fit initialization started for {file_name_no_ext}...")
+                print(f"[LOG] RC pre-fit initialization started for {file_name_no_ext}...")
                 CNLS_tmp = _apply_rc_fit_initialization(CNLS_tmp)
                 config.store["elements"] = CNLS_tmp.Elements
-                print(f"---- RC pre-fit initialization applied for {file_name_no_ext}.")
+                print(f"[LOG] RC pre-fit initialization applied for {file_name_no_ext}.")
 
             constraint_percentage(CNLS_tmp)
             # CNLS_tmp.initialize_elements(change_UBLB = True)
             print(f"---- CNLS parameters initialized for {file_name}.")
     config.store["Elements"] = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements
     gui_utils.cnls_elements.update_elements(config)
+    print("[LOG] CNLS parameters initialization completed for all selected files.")
 
 # Load the parameters for the CNLS fitting
 def load_parameters(sender, appdata, config):
@@ -403,6 +407,7 @@ def load_parameters(sender, appdata, config):
         config: Configuration object.
     """
     print("-- Loading CNLS parameters...")
+
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
         if file_name_no_ext not in config.store.keys():
@@ -432,6 +437,7 @@ def cnls_fit(sender, appdata, config):
         else:
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
             for i in range(0, CNLS_tmp.iteration):
+                print(f"---- CNLS fitting iteration {i+1}/{CNLS_tmp.iteration} for {file_name}...")
                 CNLS_tmp.FitCircuit()
             CNLS_tmp.EvaluateCircuitDRT()
     try:

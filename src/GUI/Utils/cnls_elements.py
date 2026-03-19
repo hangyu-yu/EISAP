@@ -3,6 +3,13 @@ import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
 
+
+def _sync_element_field_to_selected_files(config, element_index, field_name, param_index, new_value):
+    """Propagate one edited value to all selected files using direct assignment."""
+    for file_name in config.selected_files:
+        file_name_no_ext = os.path.splitext(file_name)[0]
+        config.store[file_name_no_ext]['CNLS'].Elements[element_index][field_name][param_index] = new_value
+
 # In-module functions
 def _table_setup(element):
     if not dpg.does_item_exist(f"table_cnls_elements_{element['name'][-1]}"):
@@ -85,7 +92,9 @@ def _update_param_callback(sender, app_data, config, element, i):
     """
     # Update the parameter value
     element['Param'][i] = app_data
-    config.store["Elements"][int(element['name'][-1])-1]['Param'][i] = app_data
+    element_idx = int(element['name'][-1])-1
+    config.store["Elements"][element_idx]['Param'][i] = app_data
+    _sync_element_field_to_selected_files(config, element_idx, 'Param', i, app_data)
 
 def _update_ub_callback(sender, app_data, config, element, i):
     """Callback function for updating the parameter in the table.
@@ -98,7 +107,9 @@ def _update_ub_callback(sender, app_data, config, element, i):
     """
     # Update the parameter value
     element['Ub'][i] = app_data
-    config.store["Elements"][int(element['name'][-1])-1]['Ub'][i] = app_data
+    element_idx = int(element['name'][-1])-1
+    config.store["Elements"][element_idx]['Ub'][i] = app_data
+    _sync_element_field_to_selected_files(config, element_idx, 'Ub', i, app_data)
 
 def _update_lb_callback(sender, app_data, config, element, i):
     """Callback function for updating the parameter in the table.
@@ -111,7 +122,9 @@ def _update_lb_callback(sender, app_data, config, element, i):
     """
     # Update the parameter value
     element['Lb'][i] = app_data
-    config.store["Elements"][int(element['name'][-1])-1]['Lb'][i] = app_data
+    element_idx = int(element['name'][-1])-1
+    config.store["Elements"][element_idx]['Lb'][i] = app_data
+    _sync_element_field_to_selected_files(config, element_idx, 'Lb', i, app_data)
 
 def _smart_format(value):
     """Smartly choose format: use scientific notation for values less than 0.001, otherwise use standard floating-point format."""
