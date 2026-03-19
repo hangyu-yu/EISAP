@@ -114,7 +114,7 @@ def gui_tab_cnls(config, EIS, CNLS):
                             dpg.add_checkbox(
                                 tag="check_box_cnls_rc_initialization",
                                 label="RC initilization",
-                                default_value = CNLS.RC_fit_switch,
+                                default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].RC_fit_switch if gui_utils.cnls_functions._file_existence_check(config) and config.store[os.path.splitext(config.display_file)[0]]['CNLS'].RC_fit_switch is not None else False,
                                 callback=lambda sender, app_data: RC_initialization_callback(sender, app_data, config),
                             )
                         with dpg.menu(label="Add elements"):
