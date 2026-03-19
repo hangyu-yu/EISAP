@@ -25,6 +25,20 @@ def select_files(config, tag):
     else:
         config.file_list = ['[Error] Folder path not found! Recheck the folder path or report the issue.']
 
+def sync_file_list_checkboxes(config, tag):
+    """
+    Synchronize checkbox states for an existing file list widget without rebuilding it.
+    """
+    if not tag or not dpg.does_item_exist(tag):
+        return
+
+    selected_set = set(config.selected_files or [])
+    for file in config.file_list:
+        filename = os.path.basename(file)
+        checkbox_tag = f"checkbox_{tag}_{filename}"
+        if dpg.does_item_exist(checkbox_tag):
+            dpg.set_value(checkbox_tag, filename in selected_set)
+
 def update_selected_files(config, tag=None):
     """
     Update the list of selected files in config.selected_files.
@@ -32,11 +46,6 @@ def update_selected_files(config, tag=None):
     config.selected_files = [os.path.basename(file) for file in config.file_list
                             if dpg.get_value(f"checkbox_{tag}_{os.path.basename(file)}")
                             ]
-    for file in config.file_list:
-        checkbox_tag = f"checkbox_{tag}_{os.path.basename(file)}"
-        is_selected = os.path.basename(file) in config.selected_files
-    if dpg.does_item_exist(checkbox_tag):
-        dpg.set_value(checkbox_tag, is_selected)
         
     config.display_file = config.selected_files[0] if config.selected_files else None
     if dpg.does_item_exist("combo_eis_plot_file"):
@@ -57,14 +66,14 @@ def update_selected_files(config, tag=None):
     try:
         if dpg.does_item_exist("tab_bar_eis_plot_all"):
             gui_utils.eis_plots.update_all_plots(config)
-            update_file_list(config, "child_window_file_list_eis", None, None)
+            sync_file_list_checkboxes(config, "child_window_file_list_eis")
         if dpg.does_item_exist("tab_bar_drt_plot_all"):
             gui_utils.drt_plots.update_all_plots(config)
-            update_file_list(config, "child_window_file_list_drt", None, None)
+            sync_file_list_checkboxes(config, "child_window_file_list_drt")
         if dpg.does_item_exist("tab_bar_cnls_plot_all"):
             gui_utils.cnls_plots.update_all_plots(config)
-            update_file_list(config, "child_window_file_list_cnls", None, None)
-        update_file_list(config, "child_window_file_list_soceis", None, None)
+            sync_file_list_checkboxes(config, "child_window_file_list_cnls")
+        sync_file_list_checkboxes(config, "child_window_file_list_soceis")
     except:
         print("[Warning] EIS/DRT/CNLS ALL-plots update failed. Please check the EIS/DRT/CNLS data, or come to file_list.update_seleted_files and check.")
     
