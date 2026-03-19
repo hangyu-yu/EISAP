@@ -40,6 +40,8 @@ from typing import List, Dict, Tuple, Optional
 from io import BytesIO
 import zipfile
 import re
+import subprocess
+import sys
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -224,6 +226,7 @@ def cnls_line_plotly(df_cnls: pd.DataFrame, param: str):
 
     x = np.arange(1, len(df_cnls) + 1)
     y = df_cnls[param].values
+    x_labels = [str(idx) for idx in df_cnls.index.tolist()]
 
     mean_val = np.nanmean(y)
     std_val = np.nanstd(y)
@@ -267,6 +270,13 @@ def cnls_line_plotly(df_cnls: pd.DataFrame, param: str):
         legend=dict(
             orientation="v",
             font=dict(size=11)
+        ),
+        xaxis=dict(
+            tickmode="array",
+            tickvals=x.tolist(),
+            ticktext=x_labels,
+            tickangle=30,
+            automargin=True,
         )
     )
 
@@ -391,15 +401,65 @@ def latex_label(text: str) -> str:
     return text
 
 
-def pick_folder_dialog() -> Optional[str]:
+def _resolve_initial_dir(current_dir: Optional[str], fallback_dir: Optional[Path]) -> Optional[Path]:
+    """Resolve initial dialog directory: current path first, then fallback path."""
+    if current_dir:
+        try:
+            p = Path(current_dir).expanduser()
+            if p.exists() and p.is_dir():
+                return p
+        except Exception:
+            pass
+
+    if fallback_dir is not None:
+        try:
+            fb = Path(fallback_dir).expanduser()
+            if fb.exists() and fb.is_dir():
+                return fb
+        except Exception:
+            pass
+
+    return None
+
+
+def pick_folder_dialog(current_dir: Optional[str] = None,
+                       fallback_dir: Optional[Path] = None) -> Optional[str]:
     """Open a native folder picker and return selected path or None."""
+    initial_dir = _resolve_initial_dir(current_dir, fallback_dir)
+
+    # On macOS, Finder chooser via AppleScript is usually more reliable
+    # than tkinter inside Streamlit's runtime.
+    if sys.platform == "darwin":
+        try:
+            choose_expr = "choose folder with prompt \"Select project folder\""
+            if initial_dir is not None:
+                posix_dir = initial_dir.as_posix().replace('"', '\\"')
+                choose_expr += f' default location (POSIX file "{posix_dir}")'
+
+            cmd = ["osascript", "-e", "try",
+                   "-e", f"POSIX path of ({choose_expr})",
+                   "-e", "on error number -128",
+                   "-e", "return \"\"",
+                   "-e", "end try"]
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            folder = (result.stdout or "").strip()
+            # On macOS, canceling the Finder dialog should simply return None.
+            # Do not fall back to tkinter in this case, as it can terminate the
+            # Streamlit process in some runtime environments.
+            return folder if folder else None
+        except Exception:
+            return None
+
     if not TK_AVAILABLE:
         return None
 
     root = tk.Tk()
     root.withdraw()
     root.attributes("-topmost", True)  # bring dialog to front
-    folder = filedialog.askdirectory()
+    ask_kwargs = {}
+    if initial_dir is not None:
+        ask_kwargs["initialdir"] = str(initial_dir)
+    folder = filedialog.askdirectory(**ask_kwargs)
     root.destroy()
 
     return folder if folder else None
@@ -2386,6 +2446,7 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
 
     x = np.arange(1, len(df_cnls) + 1)
     y = df_cnls[param].values
+    x_labels = [str(idx) for idx in df_cnls.index.tolist()]
 
     mean_val = np.nanmean(y)
     std_val = np.nanstd(y)
@@ -2431,6 +2492,8 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
 
     ax.set_xlabel("File index")
     ax.set_ylabel("R [Ω·cm²]")
+    ax.set_xticks(x)
+    ax.set_xticklabels(x_labels, rotation=30, ha="right")
 
     ax.set_title(
         f"Mean value: {mean_val:.3g} | Std value: {std_val:.3g}"
@@ -2821,13 +2884,16 @@ with st.sidebar:
         browse = st.button("📁", width='stretch')
 
     if browse:
-        selected_folder = pick_folder_dialog()
+        selected_folder = pick_folder_dialog(
+            current_dir=st.session_state.root_input,
+            fallback_dir=DEFAULT_ROOT_FOLDER,
+        )
         if selected_folder:
             st.session_state.root_input = selected_folder
             st.rerun()
         else:
             if not TK_AVAILABLE:
-                st.warning("Folder picker unavailable (tkinter not available). Please type the path.")
+                st.warning("Folder picker unavailable. On macOS, please allow Terminal/Python automation access to Finder, or type the path manually.")
             # If user canceled dialog, do nothing.
 
     root_path = Path(st.session_state.root_input)
@@ -3048,7 +3114,10 @@ with st.sidebar:
         browse_export = st.button("📁", key="browse_export", width='stretch')
 
     if browse_export:
-        selected_folder = pick_folder_dialog()
+        selected_folder = pick_folder_dialog(
+            current_dir=st.session_state.export_input,
+            fallback_dir=DEFAULT_EXPORT_FOLDER,
+        )
         if selected_folder:
             st.session_state.export_input = selected_folder
             st.rerun()
