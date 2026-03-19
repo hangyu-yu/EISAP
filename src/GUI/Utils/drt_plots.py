@@ -153,64 +153,77 @@ def update_all_plots(config):
     data_categories = ["ReIm", "Re", "Im"]
 
     for data_type in data_types:
-        # Delete old tabs and create new tabs
-        dpg.delete_item(f"tab_drt_{data_type}_plot_all")
-        with dpg.tab(label=data_type.capitalize(), tag=f"tab_drt_{data_type}_plot_all", parent="tab_bar_drt_plot_all"):
-            
-            # Create category tabs under data_type
-            dpg.delete_item(f"tab_bar_{data_type}_categories_all")
-            with dpg.tab_bar(tag=f"tab_bar_{data_type}_categories_all", parent=f"tab_drt_{data_type}_plot_all"):
-                
-                for category in data_categories:
-                    # Delete old category tabs and create new tabs
-                    dpg.delete_item(f"tab_drt_{data_type}_{category}_all")
-                    with dpg.tab(label=category, tag=f"tab_drt_{data_type}_{category}_all"):
-                        
-                        # Create gamma distribution plot
-                        with dpg.plot(
-                            tag=f"plot_gamma_{data_type}_{category}_all",
-                            width=-1,
-                            height=-1,  # Adaptive height
-                            no_menus=False
-                        ):
-                            # X-axis (log scale)
-                            dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", log_scale=True)
-                            
-                            # Y-axis
-                            y_axis = dpg.add_plot_axis(
-                                dpg.mvYAxis, 
-                                label="gamma [ohm·s·cm2]",
-                                tag=f"y_axis_{data_type}_{category}_all"
-                            )
-                            
-                            # Iterate through all files and add data
-                            y_max_value = 0
-                            y_min_value = 0
-                            for file_name in config.selected_files:
-                                file_key = os.path.splitext(file_name)[0]
-                                if file_key in config.store and 'EIS' in config.store[file_key]:
-                                    data = config.store[file_key]['EIS']
-                                    if data[f"tknv_{data_type}"] is not None:
-                                        _add_series_to_plot(
-                                            {
-                                                'f': data[f"tknv_{data_type}"][category]['f'],
-                                                'y': data[f"tknv_{data_type}"][category]['g']
-                                            },
-                                            y_axis,
-                                            label=gui_utils.small_functions.string_abbreviation(file_key, 12, 12),
-                                            is_line=True
-                                        )
-                                        if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
-                                            y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
-                                        if np.min(data[f"tknv_{data_type}"][category]['g']) < y_min_value:
-                                            y_min_value = np.min(data[f"tknv_{data_type}"][category]['g'])
+        data_type_tab = f"tab_drt_{data_type}_plot_all"
+        if not dpg.does_item_exist(data_type_tab):
+            with dpg.tab(label=data_type.capitalize(), tag=data_type_tab, parent="tab_bar_drt_plot_all"):
+                pass
 
-                            dpg.set_axis_limits(y_axis, y_min_value, y_max_value * 1.1)
-                            
-                            # Add legend
-                            dpg.add_plot_legend(
-                                parent=f"plot_gamma_{data_type}_{category}_all",
-                                location=dpg.mvPlot_Location_NorthEast  # Legend position at top-right
-                            )
+        category_tab_bar = f"tab_bar_{data_type}_categories_all"
+        if not dpg.does_item_exist(category_tab_bar):
+            with dpg.tab_bar(tag=category_tab_bar, parent=data_type_tab):
+                pass
+
+        valid_category_tabs = set()
+        for category in data_categories:
+            category_tab = f"tab_drt_{data_type}_{category}_all"
+            valid_category_tabs.add(category_tab)
+            if not dpg.does_item_exist(category_tab):
+                with dpg.tab(label=category, tag=category_tab, parent=category_tab_bar):
+                    pass
+
+            dpg.delete_item(category_tab, children_only=True)
+            with dpg.group(parent=category_tab):
+                # Create gamma distribution plot
+                with dpg.plot(
+                    tag=f"plot_gamma_{data_type}_{category}_all",
+                    width=-1,
+                    height=-1,
+                    no_menus=False
+                ):
+                    # X-axis (log scale)
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", log_scale=True)
+
+                    # Y-axis
+                    y_axis = dpg.add_plot_axis(
+                        dpg.mvYAxis,
+                        label="gamma [ohm·s·cm2]",
+                        tag=f"y_axis_{data_type}_{category}_all"
+                    )
+
+                    # Iterate through selected files and add data
+                    y_max_value = 0
+                    y_min_value = 0
+                    for file_name in config.selected_files:
+                        file_key = os.path.splitext(file_name)[0]
+                        if file_key in config.store and 'EIS' in config.store[file_key]:
+                            data = config.store[file_key]['EIS']
+                            if data[f"tknv_{data_type}"] is not None:
+                                _add_series_to_plot(
+                                    {
+                                        'f': data[f"tknv_{data_type}"][category]['f'],
+                                        'y': data[f"tknv_{data_type}"][category]['g']
+                                    },
+                                    y_axis,
+                                    label=gui_utils.small_functions.string_abbreviation(file_key, 12, 12),
+                                    is_line=True
+                                )
+                                if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
+                                    y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
+                                if np.min(data[f"tknv_{data_type}"][category]['g']) < y_min_value:
+                                    y_min_value = np.min(data[f"tknv_{data_type}"][category]['g'])
+
+                    dpg.set_axis_limits(y_axis, y_min_value, y_max_value * 1.1)
+
+                    # Add legend
+                    dpg.add_plot_legend(
+                        parent=f"plot_gamma_{data_type}_{category}_all",
+                        location=dpg.mvPlot_Location_NorthEast
+                    )
+
+        # Remove stale category tabs if any legacy tabs remain.
+        children = dpg.get_item_children(category_tab_bar)
+        for child in children[1]:
+            if isinstance(child, str) and child.startswith(f"tab_drt_{data_type}_") and child.endswith("_all") and child not in valid_category_tabs:
+                dpg.delete_item(child)
 
     print("---- DRT gamma distribution plots updated successfully.")

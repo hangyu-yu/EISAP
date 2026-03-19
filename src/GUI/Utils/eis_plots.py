@@ -127,16 +127,16 @@ def update_all_plots(config):
     """
     print("-- EIS data all plots updating...")
     for idx, data_category in enumerate(["KK_data", "truncated", "LCcorrect", "smooth",  "extrapolation"]):
-        dpg.delete_item(f"tab_eis_{data_category}_plot_all")
-        with dpg.tab(label=data_category, tag=f"tab_eis_{data_category}_plot_all", parent="tab_bar_eis_plot_all"):
-            if config.display_file != [] and config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]] and config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['f'] is not None:
-                # Clear existing table rows
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_all_KK")
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_all_Z_Phase")
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_all_Re")
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_all_Im")
-                dpg.delete_item(f"tab_eis_{data_category}_data_plot_all_ReIM")
+        tab_tag = f"tab_eis_{data_category}_plot_all"
+        if dpg.does_item_exist(tab_tag):
+            # Keep the tab itself to preserve current selection in tab_bar_eis_plot_all.
+            dpg.delete_item(tab_tag, children_only=True)
+        else:
+            with dpg.tab(label=data_category, tag=tab_tag, parent="tab_bar_eis_plot_all"):
+                pass
 
+        with dpg.group(parent=tab_tag):
+            if config.display_file != [] and config.display_file is not None and os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]] and config.store[os.path.splitext(config.display_file)[0]]['EIS'].KK_data['f'] is not None:
                 # Reconstruct the table with new data
                 if data_category == "KK_data":
                     # Plot KK results

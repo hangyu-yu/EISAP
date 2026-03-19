@@ -195,111 +195,101 @@ def update_single_plots(config):
 
 def update_all_plots(config):
     """Update all CNLS plots."""
-    if config.fix_all_plots_CNLS:
-        print("-- CNLS data all plots updating...")
-        try:
-            CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS']
-            if CNLS_tmp.Elements is not None:
-                name_list = [element['name'] for element in CNLS_tmp.Elements]
-                children = dpg.get_item_children("tab_bar_cnls_plot_all")
-                for child in children[1]:
-                    dpg.delete_item(child)
-                for idx, param_name in enumerate(name_list):
-                    with dpg.tab(label=param_name, tag=f"tab_cnls_all_{param_name}", parent="tab_bar_cnls_plot_all"):
-                        with dpg.tab_bar(tag=f"tab_bar_cnls_all_{param_name}", parent = f"tab_cnls_all_{param_name}"):
-                            start_idx = CNLS_tmp.ElementsStartIndex[idx]
-                            end_idx = CNLS_tmp.ElementsEndIndex[idx]
-                            for para_idx in range(start_idx, end_idx + 1):
-                                file_name_list = []
-                                data_list = []
-                                y_min_value = 0.00
-                                y_max_value = 0.00
-                                param = CNLS_tmp.ElementsParamNames[para_idx]
-                                if 'tau' in param.split('_')[1]:
-                                    y_label = "tau [s]"
-                                elif 'R' in param.split('_')[1]:
-                                    y_label = "Resistance [ohm·cm2]"
-                                elif 'alpha' in param.split('_')[1]:
-                                    y_label = "Dispersion factor"
-                                elif 'L' in param.split('_')[1]:
-                                    y_label = "Inductance [H·cm2]"
-                                else:
-                                    y_label = "Unit"
-                                with dpg.tab(label=param, tag=f"tab_cnls_all_{param}", parent=f"tab_bar_cnls_all_{param_name}"):
-                                    with dpg.plot(tag=f"plot_cnls_all_{param}", width=-1, height=-1, no_menus=False):
-                                        x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Measurements", log_scale=False)
-                                        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
-                                        for file_name in config.file_list:
-                                            file_name = os.path.basename(file_name)
-                                            file_name_list.append(gui_utils.small_functions.string_abbreviation(os.path.splitext(file_name)[0], 3, 5))
-                                            file_key = os.path.splitext(file_name)[0]
-                                            if file_key not in config.store:
-                                                print(f"[Warning] File {file_key} not found in config store. Skipping...")
-                                                continue
-                                            CNLS_tmp = config.store[file_key]['CNLS']
-                                            data_list.append(CNLS_tmp.ElementsParamValues[para_idx])
-                                            y_min_value = np.min([y_min_value, CNLS_tmp.ElementsParamValues[para_idx]])
-                                            y_max_value = np.max([y_max_value, CNLS_tmp.ElementsParamValues[para_idx]])
-                                        x_data = list(range(1, len(file_name_list) + 1))
-                                        label_pairs = tuple(zip(file_name_list, x_data))
-                                        dpg.add_line_series(x_data, data_list, parent=y_axis)
-                                        dpg.add_scatter_series(x_data, data_list, parent=y_axis)
-                                        dpg.set_axis_limits(y_axis, y_min_value*0.5, y_max_value * 1.1)
-                                        dpg.set_axis_limits(x_axis, 0, len(file_name_list) + 1)
-                                        dpg.set_axis_ticks(x_axis, label_pairs)
+    print("-- CNLS data all plots updating...")
+    try:
+        CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS']
+        if CNLS_tmp.Elements is None:
+            print("---- CNLS all plots skipped: no elements found.")
+            return
 
-            print("---- DRT gamma distribution plots updated successfully.")
-        except:
-            print("[Warning] CNLS data not updated for all the files, which could be due to the unconsistent elements used in different files, or check cnls_plots.py_update_all_plots function.")
-    else:
-        print("-- CNLS data all plots updating...")
-        try:
-            CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS']
-            if CNLS_tmp.Elements is not None:
-                name_list = [element['name'] for element in CNLS_tmp.Elements]
-                children = dpg.get_item_children("tab_bar_cnls_plot_all")
-                for child in children[1]:
-                    dpg.delete_item(child)
-                for idx, param_name in enumerate(name_list):
-                    with dpg.tab(label=param_name, tag=f"tab_cnls_all_{param_name}", parent="tab_bar_cnls_plot_all"):
-                        with dpg.tab_bar(tag=f"tab_bar_cnls_all_{param_name}", parent = f"tab_cnls_all_{param_name}"):
-                            start_idx = CNLS_tmp.ElementsStartIndex[idx]
-                            end_idx = CNLS_tmp.ElementsEndIndex[idx]
-                            for para_idx in range(start_idx, end_idx + 1):
-                                file_name_list = []
-                                data_list = []
-                                y_min_value = 0.00
-                                y_max_value = 0.00
-                                param = CNLS_tmp.ElementsParamNames[para_idx]
-                                if 'tau' in param.split('_')[1]:
-                                    y_label = "tau [s]"
-                                elif 'R' in param.split('_')[1]:
-                                    y_label = "Resistance [ohm·cm2]"
-                                elif 'alpha' in param.split('_')[1]:
-                                    y_label = "Dispersion factor"
-                                elif 'L' in param.split('_')[1]:
-                                    y_label = "Inductance [H·cm2]"
-                                else:
-                                    y_label = "Unit"
-                                with dpg.tab(label=param, tag=f"tab_cnls_all_{param}", parent=f"tab_bar_cnls_all_{param_name}"):
-                                    with dpg.plot(tag=f"plot_cnls_all_{param}", width=-1, height=-1, no_menus=False):
-                                        x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Measurements", log_scale=False)
-                                        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
-                                        for file_name in config.selected_files:
-                                            file_name_list.append(gui_utils.small_functions.string_abbreviation(os.path.splitext(file_name)[0], 3, 5))
-                                            file_key = os.path.splitext(file_name)[0]
-                                            CNLS_tmp = config.store[file_key]['CNLS']
-                                            data_list.append(CNLS_tmp.ElementsParamValues[para_idx])
-                                            y_min_value = np.min([y_min_value, CNLS_tmp.ElementsParamValues[para_idx]])
-                                            y_max_value = np.max([y_max_value, CNLS_tmp.ElementsParamValues[para_idx]])
-                                        x_data = list(range(1, len(file_name_list) + 1))
-                                        label_pairs = tuple(zip(file_name_list, x_data))
-                                        dpg.add_line_series(x_data, data_list, parent=y_axis)
-                                        dpg.add_scatter_series(x_data, data_list, parent=y_axis)
-                                        dpg.set_axis_limits(y_axis, y_min_value*0.5, y_max_value * 1.1)
-                                        dpg.set_axis_limits(x_axis, 0, len(file_name_list) + 1)
-                                        dpg.set_axis_ticks(x_axis, label_pairs)
+        name_list = [element['name'] for element in CNLS_tmp.Elements]
+        valid_element_tabs = set()
 
-            print("---- DRT gamma distribution plots updated successfully.")
-        except:
-            print("[Warning] CNLS data not updated for all the files, which could be due to the unconsistent elements used in different files, or check cnls_plots.py_update_all_plots function.")
+        if config.fix_all_plots_CNLS:
+            source_files = [os.path.basename(file_name) for file_name in config.file_list]
+        else:
+            source_files = list(config.selected_files)
+
+        for idx, param_name in enumerate(name_list):
+            element_tab = f"tab_cnls_all_{param_name}"
+            valid_element_tabs.add(element_tab)
+
+            if not dpg.does_item_exist(element_tab):
+                with dpg.tab(label=param_name, tag=element_tab, parent="tab_bar_cnls_plot_all"):
+                    pass
+
+            param_tab_bar = f"tab_bar_cnls_all_{param_name}"
+            if not dpg.does_item_exist(param_tab_bar):
+                with dpg.tab_bar(tag=param_tab_bar, parent=element_tab):
+                    pass
+
+            start_idx = CNLS_tmp.ElementsStartIndex[idx]
+            end_idx = CNLS_tmp.ElementsEndIndex[idx]
+            valid_param_tabs = set()
+
+            for para_idx in range(start_idx, end_idx + 1):
+                file_name_list = []
+                data_list = []
+                y_min_value = 0.00
+                y_max_value = 0.00
+                param = CNLS_tmp.ElementsParamNames[para_idx]
+
+                if 'tau' in param.split('_')[1]:
+                    y_label = "tau [s]"
+                elif 'R' in param.split('_')[1]:
+                    y_label = "Resistance [ohm·cm2]"
+                elif 'alpha' in param.split('_')[1]:
+                    y_label = "Dispersion factor"
+                elif 'L' in param.split('_')[1]:
+                    y_label = "Inductance [H·cm2]"
+                else:
+                    y_label = "Unit"
+
+                param_tab = f"tab_cnls_all_{param}"
+                valid_param_tabs.add(param_tab)
+                if not dpg.does_item_exist(param_tab):
+                    with dpg.tab(label=param, tag=param_tab, parent=param_tab_bar):
+                        pass
+
+                dpg.delete_item(param_tab, children_only=True)
+                with dpg.group(parent=param_tab):
+                    with dpg.plot(tag=f"plot_cnls_all_{param}", width=-1, height=-1, no_menus=False):
+                        x_axis = dpg.add_plot_axis(dpg.mvXAxis, label="Measurements", log_scale=False)
+                        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label=y_label)
+
+                        for file_name in source_files:
+                            file_key = os.path.splitext(file_name)[0]
+                            file_name_list.append(gui_utils.small_functions.string_abbreviation(file_key, 3, 5))
+                            if file_key not in config.store:
+                                print(f"[Warning] File {file_key} not found in config store. Skipping...")
+                                continue
+                            cnls_file = config.store[file_key]['CNLS']
+                            value = cnls_file.ElementsParamValues[para_idx]
+                            data_list.append(value)
+                            y_min_value = np.min([y_min_value, value])
+                            y_max_value = np.max([y_max_value, value])
+
+                        x_data = list(range(1, len(file_name_list) + 1))
+                        label_pairs = tuple(zip(file_name_list, x_data))
+                        dpg.add_line_series(x_data, data_list, parent=y_axis)
+                        dpg.add_scatter_series(x_data, data_list, parent=y_axis)
+                        dpg.set_axis_limits(y_axis, y_min_value * 0.5, y_max_value * 1.1)
+                        dpg.set_axis_limits(x_axis, 0, len(file_name_list) + 1)
+                        dpg.set_axis_ticks(x_axis, label_pairs)
+
+            # Remove stale parameter tabs if definitions changed.
+            tab_children = dpg.get_item_children(param_tab_bar)
+            for child in tab_children[1]:
+                if isinstance(child, str) and child.startswith("tab_cnls_all_") and child not in valid_param_tabs:
+                    dpg.delete_item(child)
+
+        # Remove tabs that are no longer needed.
+        if dpg.does_item_exist("tab_bar_cnls_plot_all"):
+            children = dpg.get_item_children("tab_bar_cnls_plot_all")
+            for child in children[1]:
+                if isinstance(child, str) and child.startswith("tab_cnls_all_") and child not in valid_element_tabs:
+                    dpg.delete_item(child)
+
+        print("---- CNLS all plots updated successfully.")
+    except:
+        print("[Warning] CNLS data not updated for all the files, which could be due to the unconsistent elements used in different files, or check cnls_plots.py_update_all_plots function.")
