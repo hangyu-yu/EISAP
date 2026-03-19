@@ -13,17 +13,21 @@ def update_child_window_size():
     """
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
+
+    def safe_configure(tag, **kwargs):
+        if dpg.does_item_exist(tag):
+            dpg.configure_item(tag, **kwargs)
     
     # Set the width and height of the child window
-    dpg.configure_item("child_window_file_list_eis", width=int(viewport_width * 0.33), height=int(viewport_height * 0.2))
-    dpg.configure_item("child_window_parameter_eis", width=int(viewport_width * 0.33), height=int(viewport_height * 0.285))
-    dpg.configure_item("child_window_eis_buttons", width=int(viewport_width * 0.33), height=int(viewport_height * 0.082))
-    dpg.configure_item("child_window_eis_data", width=int(viewport_width * 0.33), height=-1)
-    dpg.configure_item("child_window_eis_plot", width=-1, height=-1)
-    dpg.configure_item("Button_data_import", width=int(viewport_width*0.075))
-    dpg.configure_item("Button_drt_Process_dataters", width=int(viewport_width*0.075))
-    dpg.configure_item("Button_Process_data", width=int(viewport_width*0.075))
-    dpg.configure_item("Button_Save_EIS", width=-1)
+    safe_configure("child_window_file_list_eis", width=int(viewport_width * 0.33), height=int(viewport_height * 0.2))
+    safe_configure("child_window_parameter_eis", width=int(viewport_width * 0.33), height=int(viewport_height * 0.285))
+    safe_configure("child_window_eis_buttons", width=int(viewport_width * 0.33), height=int(viewport_height * 0.082))
+    safe_configure("child_window_eis_data", width=int(viewport_width * 0.33), height=-1)
+    safe_configure("child_window_eis_plot", width=-1, height=-1)
+    safe_configure("Button_data_import", width=int(viewport_width*0.075))
+    safe_configure("Button_drt_Process_dataters", width=int(viewport_width*0.075))
+    safe_configure("Button_Process_data", width=int(viewport_width*0.075))
+    safe_configure("Button_Save_EIS", width=-1)
 
 def rm_significance_callback(sender, app_data, EIS):
     # Get the current value of the checkbox
@@ -417,6 +421,6 @@ def gui_tab_eis(config, EIS, CNLS):
     # Update the child window size when the viewport is resized
     gui_utils.file_list.display_file(None, config.display_file, config)
     dpg.set_value("tab_bar_main", 'tab_eis')
-    dpg.set_viewport_resize_callback(update_child_window_size)
+    update_child_window_size()
 
                             

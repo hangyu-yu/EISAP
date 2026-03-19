@@ -72,20 +72,26 @@ def configure_spacers(viewport_width, spacers):
     """
     Configure spacers based on viewport width.
     """
+    def safe_configure(tag, **kwargs):
+        if dpg.does_item_exist(tag):
+            dpg.configure_item(tag, **kwargs)
+
     for tag, ratio in spacers.items():
-        dpg.configure_item(tag, width=int(viewport_width * ratio))
+        safe_configure(tag, width=int(viewport_width * ratio))
 
 def configure_images(images, viewport_width, viewport_height):
     """
     Configure image sizes based on viewport dimensions.
     """
     logo_height = int(viewport_height * 0.05)
-    dpg.configure_item("app_icon", width=int(viewport_width * 0.1), height=int(viewport_width * 0.1))
+    if dpg.does_item_exist("app_icon"):
+        dpg.configure_item("app_icon", width=int(viewport_width * 0.1), height=int(viewport_width * 0.1))
     for tag in ["epfl_icon", "gem_icon", "hq_icon"]:
-        width = images[tag]["width"]
-        height = images[tag]["height"]
-        scaled_width = int(width * logo_height / height)
-        dpg.configure_item(tag, width=scaled_width, height=logo_height)
+        if tag in images and dpg.does_item_exist(tag):
+            width = images[tag]["width"]
+            height = images[tag]["height"]
+            scaled_width = int(width * logo_height / height)
+            dpg.configure_item(tag, width=scaled_width, height=logo_height)
 
 def update_image_sizes():
     """
@@ -93,18 +99,25 @@ def update_image_sizes():
     """
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
+
+    def safe_configure(tag, **kwargs):
+        if dpg.does_item_exist(tag):
+            dpg.configure_item(tag, **kwargs)
     
     # Update main app icon
-    dpg.configure_item("app_icon", width=int(viewport_width * 0.1), height=int(viewport_width * 0.1))
+    safe_configure("app_icon", width=int(viewport_width * 0.1), height=int(viewport_width * 0.1))
     
     # Update partner logos dynamically
     logo_height = int(viewport_height * 0.05)
     total_logos_width = 0
     for tag in ["epfl_icon", "gem_icon", "hq_icon"]:
-        width = dpg.get_item_width(f"{tag}_texture")
-        height = dpg.get_item_height(f"{tag}_texture")
+        texture_tag = f"{tag}_texture"
+        if not dpg.does_item_exist(texture_tag):
+            continue
+        width = dpg.get_item_width(texture_tag)
+        height = dpg.get_item_height(texture_tag)
         scaled_width = int(width * logo_height / height)
-        dpg.configure_item(tag, width=scaled_width, height=logo_height)
+        safe_configure(tag, width=scaled_width, height=logo_height)
         total_logos_width += scaled_width
     
     # Update spacers dynamically
@@ -121,19 +134,19 @@ def update_image_sizes():
         "command_buttons_spacer": 0.25,
     }
     configure_spacers(viewport_width, spacers)
-    dpg.configure_item("logos_spacer", width=int(viewport_width*(0.97-total_logos_width/viewport_width)/2))
-    dpg.configure_item("EPFL_HQ_spacer", width=int(viewport_width*(0.97-total_logos_width/viewport_width)/2 / 50))
-    dpg.configure_item("logos_spacer_above", height=int(viewport_height * 0.02))
-    dpg.configure_item("logos_spacer_below", height=int(viewport_height * 0.02))
+    safe_configure("logos_spacer", width=int(viewport_width*(0.97-total_logos_width/viewport_width)/2))
+    safe_configure("EPFL_HQ_spacer", width=int(viewport_width*(0.97-total_logos_width/viewport_width)/2 / 50))
+    safe_configure("logos_spacer_above", height=int(viewport_height * 0.02))
+    safe_configure("logos_spacer_below", height=int(viewport_height * 0.02))
     
     # Update child window sizes
-    dpg.configure_item("child_window_folder_directory", width=int(viewport_width * 0.5), height=80)
-    dpg.configure_item("child_window_file_list_soceis", width=int(viewport_width * 0.5), height=int(viewport_height * 0.2))
-    dpg.configure_item("child_window_tool_box_soceis", width=int(viewport_width * 0.5), height=int(viewport_height*0.1))
+    safe_configure("child_window_folder_directory", width=int(viewport_width * 0.5), height=80)
+    safe_configure("child_window_file_list_soceis", width=int(viewport_width * 0.5), height=int(viewport_height * 0.2))
+    safe_configure("child_window_tool_box_soceis", width=int(viewport_width * 0.5), height=int(viewport_height*0.1))
     
     # Update text wrapping
-    dpg.configure_item("welcome_text_1", wrap=int(viewport_width * 0.5))
-    dpg.configure_item("welcome_text_2", wrap=int(viewport_width * 0.5))
+    safe_configure("welcome_text_1", wrap=int(viewport_width * 0.5))
+    safe_configure("welcome_text_2", wrap=int(viewport_width * 0.5))
 
 def initialize_eis_cnls(EIS, CNLS, folder_path):
     """
@@ -402,5 +415,5 @@ def gui_tab_soceis(config, EIS, CNLS):
                     dpg.add_button(label="CNLS fitting", callback=lambda: gui.gui_tab_cnls(config, EIS, CNLS))
                     dpg.add_button(label="Data viewer", callback=lambda: launch_data_viewer(config))
 
-    # Set up viewport resize callback using correct API
-    dpg.set_viewport_resize_callback(update_image_sizes)
+    # Apply one-time size adjustment; global callback is set in gui_main.
+    update_image_sizes()

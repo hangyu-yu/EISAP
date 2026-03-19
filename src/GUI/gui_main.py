@@ -5,12 +5,23 @@ import shutil
 import ctypes
 import platform
 import src.GUI as gui
+import src.GUI.gui_tab_soceis as gui_tab_soceis_module
+import src.GUI.gui_tab_eis as gui_tab_eis_module
+import src.GUI.gui_tab_drt as gui_tab_drt_module
+import src.GUI.gui_tab_cnls as gui_tab_cnls_module
 from pathlib import Path
 import src.GUI.Utils as gui_utils
 import dearpygui.dearpygui as dpg
 from src.GUI.config import Config
 from src.Methods.DRT.DRT import DRT
 from src.Methods.CNLS.Circuit import Circuit
+
+# Importing submodules sets package attributes to module objects.
+# Restore callable GUI entry points expected by the rest of the codebase.
+gui.gui_tab_soceis = gui_tab_soceis_module.gui_tab_soceis
+gui.gui_tab_eis = gui_tab_eis_module.gui_tab_eis
+gui.gui_tab_drt = gui_tab_drt_module.gui_tab_drt
+gui.gui_tab_cnls = gui_tab_cnls_module.gui_tab_cnls
 
 # 00 - Function Definitions
 # Utility function to print the sender of the callback
@@ -52,6 +63,9 @@ CNLS = Circuit(file_folder=config.folder_path, filename=None, Elements = None, E
 dpg.create_context()
 dpg.create_viewport(title='SOCEIS', width=window_width, height=window_height)
 
+base_viewport_width = window_width
+base_viewport_height = window_height
+
 # Setup the icon and fonts
 root_dir = Path(__file__).resolve().parent.parent.parent
 # Function to check if path contains special characters
@@ -63,42 +77,52 @@ def has_special_chars(path_str):
         return True
 # Font handling with temporary directory only if needed
 try:
-    if platform.system() in ('Darwin', 'Linux'):
-        # Direct loading for macOS/Linux
-        font_path_medium = root_dir / "assets" / "fonts" / "MiSans-Medium.otf"
-        font_path_light = root_dir / "assets" / "fonts" / "MiSans-Light.otf"
-        icon_path = root_dir / "assets" / "icons" / "app_icon.ico"
-    else:
-        # Windows - check if we need temp directory
-        original_path = str(root_dir)
-        if has_special_chars(original_path):
-            # Create temp directory only if original path has special chars
+    font_path_medium = root_dir / "assets" / "fonts" / "MiSans-Medium.otf"
+    font_path_light = root_dir / "assets" / "fonts" / "MiSans-Light.otf"
+
+    icons_dir = root_dir / "assets" / "icons"
+    icon_ico = icons_dir / "app_icon.ico"
+    icon_png = icons_dir / "app_icon.png"
+
+    system_name = platform.system()
+    icon_path = None
+
+    if system_name == "Windows":
+        # Windows prefers .ico and can fail on some non-ASCII paths.
+        if has_special_chars(str(root_dir)):
             temp_dir = Path("C:/Temp/SOCEIS_Assets")
             temp_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Set paths to temp directory
+            shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Medium.otf", temp_dir / "MiSans-Medium.otf")
+            shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Light.otf", temp_dir / "MiSans-Light.otf")
             font_path_medium = temp_dir / "MiSans-Medium.otf"
             font_path_light = temp_dir / "MiSans-Light.otf"
-            icon_path = temp_dir / "app_icon.ico"
-            
-            # Copy files to temp directory if not already there
-            if not font_path_medium.exists():
-                shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Medium.otf", font_path_medium)
-            if not font_path_light.exists():
-                shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Light.otf", font_path_light)
-            if not icon_path.exists():
-                icons_src_dir = root_dir / "assets" / "icons"
-                for icon_file in icons_src_dir.glob('*'):
-                    if icon_file.is_file():
-                        shutil.copy2(icon_file, temp_dir / icon_file.name)
+
+            # Always refresh icon file in temp to avoid stale/cached wrong icon.
+            if icon_ico.exists():
+                shutil.copy2(icon_ico, temp_dir / "app_icon.ico")
+                icon_path = temp_dir / "app_icon.ico"
+            elif icon_png.exists():
+                shutil.copy2(icon_png, temp_dir / "app_icon.png")
+                icon_path = temp_dir / "app_icon.png"
         else:
-            # Use original paths if no special characters
-            font_path_medium = root_dir / "assets" / "fonts" / "MiSans-Medium.otf"
-            font_path_light = root_dir / "assets" / "fonts" / "MiSans-Light.otf"
-            icon_path = root_dir / "assets" / "icons" / "app_icon.ico"
-    # Set viewport icons
-    dpg.set_viewport_small_icon(str(icon_path))
-    dpg.set_viewport_large_icon(str(icon_path))
+            icon_path = icon_ico if icon_ico.exists() else (icon_png if icon_png.exists() else None)
+    elif system_name == "Linux":
+        # Linux commonly works better with PNG icon.
+        icon_path = icon_png if icon_png.exists() else (icon_ico if icon_ico.exists() else None)
+    else:  # Darwin/macOS
+        # macOS may ignore runtime viewport icon depending on backend/window manager.
+        icon_path = icon_png if icon_png.exists() else (icon_ico if icon_ico.exists() else None)
+
+    # Set viewport icons (best effort).
+    if icon_path is not None:
+        try:
+            dpg.set_viewport_small_icon(str(icon_path))
+            dpg.set_viewport_large_icon(str(icon_path))
+        except Exception as icon_err:
+            print(f"[WARNING] Failed to set viewport icon from {icon_path}: {icon_err}")
+    else:
+        print("[WARNING] No app icon file found (expected app_icon.ico or app_icon.png).")
+
     # Load fonts
     with dpg.font_registry():
         default_font = dpg.add_font(str(font_path_medium), int(config.font_size))
@@ -134,8 +158,42 @@ with dpg.window(label="Main Window", tag='fullscreen'):
     with dpg.tab_bar(tag="tab_bar_main", reorderable=True):
         gui.gui_tab_soceis(config, EIS, CNLS)
 
+def global_viewport_resize_callback(sender=None, app_data=None):
+    """
+    Single resize callback for the whole app.
+    Avoids callback overrides between tabs and keeps font/layout scaling consistent.
+    """
+    viewport_width = max(1, dpg.get_viewport_width())
+    viewport_height = max(1, dpg.get_viewport_height())
+
+    # Adaptive global font scale around the configured base size.
+    scale_w = viewport_width / max(1, base_viewport_width)
+    scale_h = viewport_height / max(1, base_viewport_height)
+    font_scale = min(scale_w, scale_h)
+    dpg.set_global_font_scale(max(0.85, min(1.35, font_scale)))
+
+    # Update each tab layout function safely.
+    try:
+        gui_tab_soceis_module.update_image_sizes()
+    except Exception:
+        pass
+    try:
+        gui_tab_eis_module.update_child_window_size()
+    except Exception:
+        pass
+    try:
+        gui_tab_drt_module.update_child_window_size()
+    except Exception:
+        pass
+    try:
+        gui_tab_cnls_module.update_child_window_size()
+    except Exception:
+        pass
+
 # 05 - Show the window
 dpg.setup_dearpygui()
+dpg.set_viewport_resize_callback(global_viewport_resize_callback)
+global_viewport_resize_callback()
 dpg.set_primary_window("fullscreen", True)
 dpg.show_viewport()
 dpg.start_dearpygui()

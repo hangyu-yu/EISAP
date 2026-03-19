@@ -12,19 +12,23 @@ def update_child_window_size():
     """
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
+
+    def safe_configure(tag, **kwargs):
+        if dpg.does_item_exist(tag):
+            dpg.configure_item(tag, **kwargs)
     
     # Set the width and height of the child window
-    dpg.configure_item("child_window_file_list_cnls", width=int(viewport_width * 0.45), height=int(viewport_height * 0.15))
-    dpg.configure_item("child_window_parameter_cnls", width=int(viewport_width * 0.45), height=int(viewport_height * 0.35))
-    dpg.configure_item("child_window_cnls_buttons", width=int(viewport_width * 0.45), height=int(viewport_height * 0.082))
-    dpg.configure_item("child_window_cnls_data", width=int(viewport_width * 0.45), height=-1)
-    dpg.configure_item("child_window_cnls_elements", width=int(viewport_width * 0.3), height=-1)
-    dpg.configure_item("child_window_cnls_plot", width=-1, height=-1)
-    dpg.configure_item("child_window_cnls_parameters", width=-1, height=-1)
-    dpg.configure_item("Button_cnls_cnls_fit", width=int(viewport_width*0.1))
-    dpg.configure_item("Button_cnls_load_parameters", width=int(viewport_width*0.1))
-    dpg.configure_item("Button_cnls_initialize_parameters", width=int(viewport_width*0.1))
-    dpg.configure_item("Button_Save_CNLS", width=-1)
+    safe_configure("child_window_file_list_cnls", width=int(viewport_width * 0.45), height=int(viewport_height * 0.15))
+    safe_configure("child_window_parameter_cnls", width=int(viewport_width * 0.45), height=int(viewport_height * 0.35))
+    safe_configure("child_window_cnls_buttons", width=int(viewport_width * 0.45), height=int(viewport_height * 0.082))
+    safe_configure("child_window_cnls_data", width=int(viewport_width * 0.45), height=-1)
+    safe_configure("child_window_cnls_elements", width=int(viewport_width * 0.3), height=-1)
+    safe_configure("child_window_cnls_plot", width=-1, height=-1)
+    safe_configure("child_window_cnls_parameters", width=-1, height=-1)
+    safe_configure("Button_cnls_cnls_fit", width=int(viewport_width*0.1))
+    safe_configure("Button_cnls_load_parameters", width=int(viewport_width*0.1))
+    safe_configure("Button_cnls_initialize_parameters", width=int(viewport_width*0.1))
+    safe_configure("Button_Save_CNLS", width=-1)
 
 def _initialization_cnls(config, CNLS):
     for file_name in config.selected_files:
@@ -265,5 +269,5 @@ def gui_tab_cnls(config, EIS, CNLS):
     # Update the child window size when the viewport is resized
     gui_utils.file_list.display_file(None, config.display_file, config)
     dpg.set_value("tab_bar_main", 'tab_cnls')
-    dpg.set_viewport_resize_callback(update_child_window_size)
+    update_child_window_size()
                             
