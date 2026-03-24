@@ -49,7 +49,8 @@ def _is_under(rel_path, prefix):
 
 
 def _should_keep_local(rel_path, keep_paths):
-    return any(rel_path == keep_path for keep_path in keep_paths)
+    # Keep exact paths and everything under kept directories.
+    return any(_is_under(rel_path, keep_path) for keep_path in keep_paths)
 
 
 def _is_internal_keep(rel_path):
@@ -103,7 +104,7 @@ def run_online_update(app_root, repo_owner="hangyu-yu", repo_name="SOCEIS", keep
     """
     app_root = Path(app_root).resolve()
     if keep_paths is None:
-        keep_paths = [Path("src/GUI/config.json")]
+        keep_paths = [Path("src/GUI/config.json"), Path("Projects")]
     keep_paths = [Path(p) for p in keep_paths]
 
     temp_root = Path(tempfile.mkdtemp(prefix="soceis_update_"))
