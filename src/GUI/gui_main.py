@@ -18,7 +18,7 @@ from src.Methods.CNLS.Circuit import Circuit
 
 
 def _normalize_path(path_obj):
-    """Handle Windows long path (260+ chars) by adding \\?\ prefix."""
+    """Handle Windows long path (260+ chars) by adding \\\\?\\ prefix."""
     path_str = str(path_obj)
     if sys.platform == 'win32' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
         return '\\\\?' + os.path.sep + os.path.abspath(path_str)
