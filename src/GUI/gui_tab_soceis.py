@@ -13,13 +13,6 @@ import dearpygui.dearpygui as dpg
 from src.Methods.DRT.DRT import DRT
 from src.Methods.CNLS.Circuit import Circuit
 
-try:
-    import tkinter as tk
-    from tkinter import filedialog
-    TK_AVAILABLE = True
-except Exception:
-    TK_AVAILABLE = False
-
 
 def _normalize_path(path_obj):
     """Handle Windows long path (260+ chars) by adding \\\\?\\ prefix."""
@@ -246,33 +239,47 @@ def folder_selector_cancel_callback(sender, app_data):
 
 
 def choose_project_folder_callback(config, EIS, CNLS):
-    """Cross-platform native folder picker with platform-specific fallbacks."""
+    """Cross-platform system folder picker without tkinter dependency."""
     initial_dir = config.folder_path if config.folder_path and "[Error]" not in config.folder_path else str(Path.cwd())
     selected_dir = ""
 
-    # 1) Primary backend: tkinter (Windows/macOS/Linux when available)
-    if TK_AVAILABLE:
-        root = None
+    # 1) Windows: use native FolderBrowserDialog via PowerShell/.NET
+    if platform.system() == "Windows":
         try:
-            root = tk.Tk()
-            root.withdraw()
-            if platform.system() == "Windows":
-                root.attributes("-topmost", True)
-            selected_dir = filedialog.askdirectory(initialdir=initial_dir, title="Choose project folder")
+            initial_dir_ps = initial_dir.replace("'", "''")
+            ps_script = (
+                "$ErrorActionPreference='SilentlyContinue'; "
+                "Add-Type -AssemblyName System.Windows.Forms; "
+                "$dialog = New-Object System.Windows.Forms.FolderBrowserDialog; "
+                "$dialog.Description = 'Choose project folder'; "
+                "$dialog.ShowNewFolderButton = $true; "
+                f"$dialog.SelectedPath = '{initial_dir_ps}'; "
+                "if($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK){ "
+                "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; "
+                "Write-Output $dialog.SelectedPath }"
+            )
+            result = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_script],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                check=False,
+            )
+            if result.returncode == 0:
+                selected_dir = result.stdout.strip()
         except Exception as exc:
-            print(f"[Warning] tkinter folder picker failed: {exc}")
-            selected_dir = ""
-        finally:
-            if root is not None:
-                try:
-                    root.destroy()
-                except Exception:
-                    pass
+            print(f"[Warning] Windows folder picker failed: {exc}")
 
-    # 2) macOS fallback: AppleScript native chooser
+    # 2) macOS: AppleScript Finder chooser
     if not selected_dir and platform.system() == "Darwin":
         try:
-            script = 'POSIX path of (choose folder with prompt "Choose project folder")'
+            initial_dir_mac = initial_dir.replace('"', '\\"')
+            script = (
+                f'try\nPOSIX path of (choose folder with prompt "Choose project folder" '
+                f'default location POSIX file "{initial_dir_mac}")\n'
+                'on error\nPOSIX path of (choose folder with prompt "Choose project folder")\nend try'
+            )
             result = subprocess.run(
                 ["osascript", "-e", script],
                 capture_output=True,
@@ -284,7 +291,7 @@ def choose_project_folder_callback(config, EIS, CNLS):
         except Exception as exc:
             print(f"[Warning] osascript folder picker failed: {exc}")
 
-    # 3) Linux fallback: zenity directory chooser
+    # 3) Linux: zenity directory chooser
     if not selected_dir and platform.system() == "Linux":
         try:
             result = subprocess.run(
@@ -298,11 +305,9 @@ def choose_project_folder_callback(config, EIS, CNLS):
         except Exception as exc:
             print(f"[Warning] zenity folder picker failed: {exc}")
 
-    # 4) Last resort fallback: DearPyGUI file dialog
+    # No DearPyGUI fallback by request.
     if not selected_dir:
-        if dpg.does_item_exist("file_dialog_soceis"):
-            print("[Info] Falling back to DearPyGUI folder dialog.")
-            dpg.show_item("file_dialog_soceis")
+        print("[Warning] No system folder picker available on this platform.")
         return
 
     if not selected_dir:
