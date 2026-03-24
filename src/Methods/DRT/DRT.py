@@ -9,6 +9,7 @@ Created by:
     Created date: 2025.02.12
     Last modified: 
 """
+import sys
 import src.Methods.DRT.Utils as fn
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,6 +19,15 @@ import zipfile
 import pandas as pd
 import traceback
 from datetime import datetime
+
+
+def _normalize_path(path_obj):
+    """Handle Windows long path (260+ chars) by adding \\?\ prefix."""
+    path_str = str(path_obj)
+    if sys.platform == 'win32' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
+        return '\\\\?' + os.path.sep + os.path.abspath(path_str)
+    return path_str
+
 
 class DRT:
     def __init__(self, Re_raw=None, Im_raw=None, f_raw=None, CellArea=None, n_cell=None, file_folder=None, filename=None):
@@ -679,17 +689,17 @@ class DRT:
 
         base_folder = os.path.abspath(self.file_folder)
         folder_path = os.path.join(base_folder, folder_name)
-        if not os.path.isdir(folder_path):
+        if not os.path.isdir(_normalize_path(folder_path)):
             print(f"---- {folder_name} folder not found, skip backup.")
             return None
 
-        has_files = any(len(files) > 0 for _, _, files in os.walk(folder_path))
+        has_files = any(len(files) > 0 for _, _, files in os.walk(_normalize_path(folder_path)))
         if not has_files:
             print(f"---- {folder_name} folder is empty, skip backup and keep existing backups.")
             return None
 
         temp_folder = os.path.join(base_folder, 'temp')
-        os.makedirs(temp_folder, exist_ok=True)
+        os.makedirs(_normalize_path(temp_folder), exist_ok=True)
         
         # Delete old backup files with the same prefix
         name_without_ext, ext = os.path.splitext(zip_name)
@@ -707,13 +717,13 @@ class DRT:
         zip_name_with_timestamp = f"{name_without_ext}_{timestamp}{ext}"
         zip_path = os.path.join(temp_folder, zip_name_with_timestamp)
         try:
-            with zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
-                for root, _, files in os.walk(folder_path):
+            with zipfile.ZipFile(_normalize_path(zip_path), mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
+                for root, _, files in os.walk(_normalize_path(folder_path)):
                     for file_name in files:
                         file_path = os.path.join(root, file_name)
                         rel_path = os.path.relpath(file_path, start=folder_path)
                         arcname = os.path.join(folder_name, rel_path)
-                        zipf.write(file_path, arcname=arcname)
+                        zipf.write(_normalize_path(file_path), arcname=arcname)
         except Exception as e:
             print(f"[Error] Failed to create backup zip: {e}. Normally due to the file being open or locked. Please close any open files in the {folder_name} folder and try again.")
             return None
@@ -731,16 +741,16 @@ class DRT:
         eis_file = os.path.join(folder_eis, f"{os.path.splitext(self.filename)[0]}{ext_save}")
 
         # Ensure directory exists
-        os.makedirs(folder_eis, exist_ok=True)
+        os.makedirs(_normalize_path(folder_eis), exist_ok=True)
 
         # Remove existing file
-        if os.path.exists(eis_file):
+        if os.path.exists(_normalize_path(eis_file)):
             os.remove(eis_file)
             print(f"---- {eis_file}: already existed, deleted and created a new one.")
 
         # Save EIS data
         print("---- Saving EIS data...")
-        with pd.ExcelWriter(eis_file, engine='openpyxl') as writer:
+        with pd.ExcelWriter(_normalize_path(eis_file), engine='openpyxl') as writer:
             # Info of measurement
             if self.info is not None:
                 # Convert self.info to a DataFrame if it's not already
@@ -851,16 +861,16 @@ class DRT:
         drt_file = os.path.join(folder_drt, f"{os.path.splitext(self.filename)[0]}{ext_save}")
 
         # Ensure directory exists
-        os.makedirs(folder_drt, exist_ok=True)
+        os.makedirs(_normalize_path(folder_drt), exist_ok=True)
 
         # Remove existing file
-        if os.path.exists(drt_file):
+        if os.path.exists(_normalize_path(drt_file)):
             os.remove(drt_file)
             print(f"---- {drt_file}: already existed, deleted and created a new one.")
 
         # Save DRT data
         print("---- Saving DRT data...")
-        with pd.ExcelWriter(drt_file, engine='openpyxl') as writer:
+        with pd.ExcelWriter(_normalize_path(drt_file), engine='openpyxl') as writer:
             # Info of measurement
             if self.info is not None:
                 # Convert self.info to a DataFrame if it's not already
@@ -1017,7 +1027,7 @@ class DRT:
         folder_eis = os.path.join(self.file_folder, 'EIS')
         eis_file = os.path.join(folder_eis, f"{file_to_import}.xlsx")
         
-        if not os.path.exists(eis_file):
+        if not os.path.exists(_normalize_path(eis_file)):
             print(f"[Error] EIS file not found: {eis_file}")
             return False
         
@@ -1026,13 +1036,13 @@ class DRT:
             
             # Import info of measurement
             try:
-                self.info = pd.read_excel(eis_file, sheet_name='Info of measurement')
+                self.info = pd.read_excel(_normalize_path(eis_file), sheet_name='Info of measurement')
             except:
                 print("---- No 'Info of measurement' sheet found")
 
             # Import EIS parameters with default values for missing/empty fields
             try:
-                eis_params = pd.read_excel(eis_file, sheet_name='EIS_Parameters')
+                eis_params = pd.read_excel(_normalize_path(eis_file), sheet_name='EIS_Parameters')
                 
                 # Helper function to safely get values with defaults
                 def safe_get(column_name, default_value, dtype_func):
@@ -1105,7 +1115,7 @@ class DRT:
             
             for sheet_name, target_dict in import_operations:
                 try:
-                    data = pd.read_excel(eis_file, sheet_name=sheet_name)
+                    data = pd.read_excel(_normalize_path(eis_file), sheet_name=sheet_name)
                     target_dict['f'] = data['Frequency/Hz'].values
                     target_dict['Re'] = data['Re/ohm·cm2'].values
                     target_dict['Im'] = data['Im/ohm·cm2'].values
@@ -1117,7 +1127,7 @@ class DRT:
             
             # Import KK data (has additional fields)
             try:
-                kk_data = pd.read_excel(eis_file, sheet_name='Linear Kramers-Kroning')
+                kk_data = pd.read_excel(_normalize_path(eis_file), sheet_name='Linear Kramers-Kroning')
                 self.KK_data['f'] = kk_data['Frequency/Hz'].values
                 self.KK_data['Re'] = kk_data['Re/ohm·cm2'].values
                 self.KK_data['Im'] = kk_data['Im/ohm·cm2'].values
@@ -1130,7 +1140,7 @@ class DRT:
             
             # Import Resistance data
             try:
-                resistance_data = pd.read_excel(eis_file, sheet_name='Resistance')
+                resistance_data = pd.read_excel(_normalize_path(eis_file), sheet_name='Resistance')
                 self.KK_data['L_kk'] = resistance_data['L/H·cm2 - KK'].values if 'L/H·cm2 - KK' in resistance_data.columns else None
                 self.KK_data['C_kk'] = resistance_data['C/C·cm-2 - KK'].values if 'C/C·cm-2 - KK' in resistance_data.columns else None
                 self.KK_data['res_ohm_kk'] = resistance_data['Rohm/ohm·cm2 - KK'].values
@@ -1157,7 +1167,7 @@ class DRT:
             folder_drt = os.path.join(self.file_folder, 'DRT')
             drt_file = os.path.join(folder_drt, f"{file_to_import}.xlsx")
             
-            if not os.path.exists(drt_file):
+            if not os.path.exists(_normalize_path(drt_file)):
                 print(f"[Warning] DRT file not found: {drt_file}")
 
             print(f"-- Importing DRT data from {drt_file}...")
@@ -1174,7 +1184,7 @@ class DRT:
             
             # 3. Import parameter table
             try:
-                drt_params = pd.read_excel(drt_file, sheet_name='DRT_Parameters')
+                drt_params = pd.read_excel(_normalize_path(drt_file), sheet_name='DRT_Parameters')
                 def safe_get(column_name, default_value, dtype_func):
                     try:
                         value = drt_params[column_name].values[0]
@@ -1222,7 +1232,7 @@ class DRT:
                     target_dict = getattr(self, f'tknv_{data_cat}')
                     
                     # Read data
-                    tknv_data = pd.read_excel(drt_file, sheet_name=sheet_name)
+                    tknv_data = pd.read_excel(_normalize_path(drt_file), sheet_name=sheet_name)
                     
                     # Store data
                     if data_type not in target_dict:
@@ -1236,7 +1246,7 @@ class DRT:
                     
                     # Import resistance data
                     res_sheet = f'Resistance_{data_cat}'
-                    resistance_data = pd.read_excel(drt_file, sheet_name=res_sheet)
+                    resistance_data = pd.read_excel(_normalize_path(drt_file), sheet_name=res_sheet)
                     prefix = data_type.replace('Im', 'Im').replace('ReIm', 'ReIm')
                     target_dict['RL'][f'L_{prefix}'] = resistance_data[f'L/ohm·cm2 - DRT_{prefix}'].values[0]
                     target_dict['RL'][f'Rs_{prefix}'] = resistance_data[f'Rohm/ohm·cm2 - DRT_{prefix}'].values[0]

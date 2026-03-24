@@ -54,13 +54,16 @@ import plotly.colors as pc
 from pathlib import Path
 import argparse
 import os
-# --- Optional GUI folder picker (works for local Streamlit runs) ---
-try:
-    import tkinter as tk
-    from tkinter import filedialog
-    TK_AVAILABLE = True
-except Exception:
-    TK_AVAILABLE = False
+
+# ===============================
+# Helper function for Windows long path support
+# ===============================
+def _normalize_path(path_obj):
+    """Handle Windows long path (260+ chars) by adding \\?\ prefix."""
+    path_str = str(path_obj)
+    if sys.platform == 'win32' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
+        return '\\\\?' + os.path.sep + os.path.abspath(path_str)
+    return path_str
 
 # ===============================
 # Configuration
@@ -560,7 +563,7 @@ def has_drt_fit(files_to_process: List[Path]) -> bool:
         if not drt_file.exists():
             continue
         try:
-            xls = pd.ExcelFile(drt_file)
+            xls = pd.ExcelFile(_normalize_path(drt_file))
             if "Tknv_ReIm_s" in xls.sheet_names:
                 df = pd.read_excel(xls, "Tknv_ReIm_s")
                 if df.shape[1] >= 4:
@@ -614,7 +617,7 @@ def extract_cnls_parameters(cnls_file: Path) -> Optional[Dict[str, float]]:
         return None
 
     try:
-        xls = pd.ExcelFile(cnls_file)
+        xls = pd.ExcelFile(_normalize_path(cnls_file))
     except Exception:
         return None
 
@@ -724,7 +727,7 @@ def nyquist_compare_plotly(compare_mode, files_to_process, display_name_map):
         label = latex_label(display_name_map.get(fname, fname))
         color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
 
-        xls = pd.ExcelFile(eis_file)
+        xls = pd.ExcelFile(_normalize_path(eis_file))
 
         # -------------------------
         # Load Truncated (always needed)
@@ -741,7 +744,7 @@ def nyquist_compare_plotly(compare_mode, files_to_process, display_name_map):
         if sheet_other == "DRT Fit":
             drt_file = sibling_file(eis_file, "DRT")
             if drt_file.exists():
-                drt_xls = pd.ExcelFile(drt_file)
+                drt_xls = pd.ExcelFile(_normalize_path(drt_file))
                 if "Tknv_ReIm_s" in drt_xls.sheet_names:
                     df_other = pd.read_excel(drt_xls, "Tknv_ReIm_s")
         else:
@@ -1097,7 +1100,7 @@ def cnls_nyquist_fit_plotly(cnls_file: Path, fname: str):
     if not cnls_file.exists():
         return None
 
-    xls = pd.ExcelFile(cnls_file)
+    xls = pd.ExcelFile(_normalize_path(cnls_file))
 
     if "Z" not in xls.sheet_names or "Summary" not in xls.sheet_names:
         return None
@@ -1183,7 +1186,7 @@ def cnls_residuals_plotly(cnls_file: Path, fname: str):
     if not cnls_file.exists():
         return None
 
-    xls = pd.ExcelFile(cnls_file)
+    xls = pd.ExcelFile(_normalize_path(cnls_file))
 
     if "Z" not in xls.sheet_names:
         return None
@@ -1260,7 +1263,7 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
     if not cnls_file.exists():
         return None
 
-    xls = pd.ExcelFile(cnls_file)
+    xls = pd.ExcelFile(_normalize_path(cnls_file))
 
     if "DRT" not in xls.sheet_names or "Summary" not in xls.sheet_names:
         return None
@@ -1511,7 +1514,7 @@ def add_nyquist_compare_png(
         label = latex_label(display_name_map.get(fname, fname))
         color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
 
-        xls = pd.ExcelFile(eis_file)
+        xls = pd.ExcelFile(_normalize_path(eis_file))
 
         df_trunc = None
         if sheet_trunc in xls.sheet_names:
@@ -1522,7 +1525,7 @@ def add_nyquist_compare_png(
         if sheet_other == "DRT Fit":
             drt_file = sibling_file(eis_file, "DRT")
             if drt_file.exists():
-                drt_xls = pd.ExcelFile(drt_file)
+                drt_xls = pd.ExcelFile(_normalize_path(drt_file))
                 if "Tknv_ReIm_s" in drt_xls.sheet_names:
                     df_other = pd.read_excel(drt_xls, "Tknv_ReIm_s")
         else:
@@ -2535,7 +2538,7 @@ def add_cnls_elements_fitting_png(
     if not cnls_file.exists():
         return
 
-    xls = pd.ExcelFile(cnls_file)
+    xls = pd.ExcelFile(_normalize_path(cnls_file))
 
     if "DRT" not in xls.sheet_names or "Summary" not in xls.sheet_names:
         return
@@ -2627,7 +2630,7 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
 
     fig, ax = plt.subplots(figsize=(6, 6), dpi=600)
 
-    xls = pd.ExcelFile(cnls_file)
+    xls = pd.ExcelFile(_normalize_path(cnls_file))
     summary_df = pd.read_excel(xls, "Summary", header=None)
     elements_raw = summary_df.iloc[1, 0]
     rq_elements = re.findall(r"RQ\d+", str(elements_raw))
@@ -2712,7 +2715,7 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
 
     fig, ax = plt.subplots(figsize=(8, 5), dpi=600)
 
-    xls = pd.ExcelFile(cnls_file)
+    xls = pd.ExcelFile(_normalize_path(cnls_file))
     df = pd.read_excel(xls, "Z")
 
     freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
@@ -3219,7 +3222,7 @@ drt_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in drt_select
 
 for eis_file in files_to_process:
     fname = eis_file.name
-    xls = pd.ExcelFile(eis_file)
+    xls = pd.ExcelFile(_normalize_path(eis_file))
 
     # EIS parameters
     eis_param_rows.append(extract_eis_parameters(xls, fname))
@@ -3243,7 +3246,7 @@ for eis_file in files_to_process:
     # DRT from sibling DRT file
     drt_file = sibling_file(eis_file, "DRT")
     if drt_file.exists():
-        drt_xls = pd.ExcelFile(drt_file)
+        drt_xls = pd.ExcelFile(_normalize_path(drt_file))
 
         lam_row = extract_drt_lambda(drt_xls, fname)
         if lam_row is not None:

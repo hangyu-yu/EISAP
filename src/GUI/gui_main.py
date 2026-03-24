@@ -16,6 +16,15 @@ from src.GUI.config import Config
 from src.Methods.DRT.DRT import DRT
 from src.Methods.CNLS.Circuit import Circuit
 
+
+def _normalize_path(path_obj):
+    """Handle Windows long path (260+ chars) by adding \\?\ prefix."""
+    path_str = str(path_obj)
+    if sys.platform == 'win32' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
+        return '\\\\?' + os.path.sep + os.path.abspath(path_str)
+    return path_str
+
+
 # Importing submodules sets package attributes to module objects.
 # Restore callable GUI entry points expected by the rest of the codebase.
 gui.gui_tab_soceis = gui_tab_soceis_module.gui_tab_soceis
@@ -92,17 +101,17 @@ try:
         if has_special_chars(str(root_dir)):
             temp_dir = Path("C:/Temp/SOCEIS_Assets")
             temp_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Medium.otf", temp_dir / "MiSans-Medium.otf")
-            shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Light.otf", temp_dir / "MiSans-Light.otf")
+            shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Medium.otf", _normalize_path(temp_dir / "MiSans-Medium.otf"))
+            shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Light.otf", _normalize_path(temp_dir / "MiSans-Light.otf"))
             font_path_medium = temp_dir / "MiSans-Medium.otf"
             font_path_light = temp_dir / "MiSans-Light.otf"
 
             # Always refresh icon file in temp to avoid stale/cached wrong icon.
             if icon_ico.exists():
-                shutil.copy2(icon_ico, temp_dir / "app_icon.ico")
+                shutil.copy2(icon_ico, _normalize_path(temp_dir / "app_icon.ico"))
                 icon_path = temp_dir / "app_icon.ico"
             elif icon_png.exists():
-                shutil.copy2(icon_png, temp_dir / "app_icon.png")
+                shutil.copy2(icon_png, _normalize_path(temp_dir / "app_icon.png"))
                 icon_path = temp_dir / "app_icon.png"
         else:
             icon_path = icon_ico if icon_ico.exists() else (icon_png if icon_png.exists() else None)

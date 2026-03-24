@@ -14,6 +14,15 @@ from pathlib import Path
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
 
+
+def _normalize_path(path_obj):
+    """Handle Windows long path (260+ chars) by adding \\?\ prefix."""
+    path_str = str(path_obj)
+    if sys.platform == 'win32' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
+        return '\\\\?' + os.path.sep + os.path.abspath(path_str)
+    return path_str
+
+
 def string_abbreviation(string, begin=0, end=0):
     """
     Abbreviate a string by removing the first and last 'n' characters.
@@ -96,7 +105,7 @@ def separate_multichannel_zahner(config, EIS, CNLS):
             lines = []
             for encoding in encodings:
                 try:
-                    with open(file_path, 'r', encoding=encoding) as f:
+                    with open(_normalize_path(file_path), 'r', encoding=encoding) as f:
                         lines = [line.strip() for line in f if line.strip()]  # Remove empty lines upfront
                     break
                 except UnicodeDecodeError:
@@ -200,7 +209,7 @@ def separate_multichannel_zahner(config, EIS, CNLS):
                     output_file = f"{base_name}_seg{seg_num+1:03d}{config.file_extensions}"
                     output_path = os.path.join(individual_dir, output_file)
                     
-                    with open(output_path, 'w', encoding='utf-8', newline='') as f:
+                    with open(_normalize_path(output_path), 'w', encoding='utf-8', newline='') as f:
                         # Write metadata as comments
                         for key, value in metadata.items():
                             f.write(f"# {key}: {value}\n")
@@ -615,17 +624,15 @@ def font_size_callback(sender, app_data, config, font_path_medium, font_path_lig
 
 
 def restart_application_after_update():
-    """Restart SOCEIS using the same stable Windows path used by font-size changes."""
+    """Restart SOCEIS in a new process, preserving terminal window."""
     current_file = os.path.abspath(__file__)
     parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
     target_file = os.path.join(parent_dir, "SOCEIS.py")
 
     if os.name == 'nt':
         import subprocess
-        creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
-        if hasattr(subprocess, "DETACHED_PROCESS"):
-            creation_flags |= subprocess.DETACHED_PROCESS
-        subprocess.Popen([sys.executable, target_file], creationflags=creation_flags)
+        # CREATE_NEW_CONSOLE creates a new window for the restarted app, avoiding terminal closure
+        subprocess.Popen([sys.executable, target_file], creationflags=subprocess.CREATE_NEW_CONSOLE)
         dpg.stop_dearpygui()
         dpg.destroy_context()
         os._exit(0)
@@ -693,7 +700,7 @@ def _online_update_worker(state_holder):
             app_root=repo_root,
             repo_owner="hangyu-yu",
             repo_name="SOCEIS",
-            keep_paths=[Path("src/GUI/config.json")]
+            keep_paths=[Path("src/GUI/config.json"), Path("Projects")]
         )
     except Exception as exc:
         success, message = False, f"Update failed: {exc}"
@@ -731,7 +738,7 @@ def start_online_update_callback(sender, app_data, config):
 
     with dpg.window(label="Update from GitHub", tag="window_update_confirm", modal=True, width=640, height=320):
         dpg.add_text("This action will sync project files from github.com/hangyu-yu/SOCEIS.")
-        dpg.add_text("All local files will be replaced except src/GUI/config.json.")
+        dpg.add_text("All local files will be replaced except src/GUI/config.json and Projects folder.")
         dpg.add_separator()
         dpg.add_text("Continue?")
 

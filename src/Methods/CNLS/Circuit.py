@@ -9,10 +9,18 @@ import src.Methods.CNLS.Utils as CNLS_fn
 import tkinter as tk
 from tkinter import ttk
 import os
+import sys
 import zipfile
 import tkinter.font as tkFont
 from datetime import datetime
 import ast
+
+def _normalize_path(path_obj):
+    """Handle Windows long path (260+ chars) by adding \\?\ prefix."""
+    path_str = str(path_obj)
+    if sys.platform == 'win32' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
+        return '\\\\?' + os.path.sep + os.path.abspath(path_str)
+    return path_str
 
 class Circuit:
     def __init__(self,file_folder=None, filename=None, Elements = None, EIS = None, data_type = None):
@@ -721,17 +729,17 @@ class Circuit:
 
         base_folder = os.path.abspath(self.file_folder)
         folder_path = os.path.join(base_folder, folder_name)
-        if not os.path.isdir(folder_path):
+        if not os.path.isdir(_normalize_path(folder_path)):
             print(f"---- {folder_name} folder not found, skip backup.")
             return None
 
-        has_files = any(len(files) > 0 for _, _, files in os.walk(folder_path))
+        has_files = any(len(files) > 0 for _, _, files in os.walk(_normalize_path(folder_path)))
         if not has_files:
             print(f"---- {folder_name} folder is empty, skip backup and keep existing backups.")
             return None
 
         temp_folder = os.path.join(base_folder, 'temp')
-        os.makedirs(temp_folder, exist_ok=True)
+        os.makedirs(_normalize_path(temp_folder), exist_ok=True)
         
         # Delete old backup files with the same prefix
         name_without_ext, ext = os.path.splitext(zip_name)
@@ -749,13 +757,13 @@ class Circuit:
         zip_name_with_timestamp = f"{name_without_ext}_{timestamp}{ext}"
         zip_path = os.path.join(temp_folder, zip_name_with_timestamp)
         try:
-            with zipfile.ZipFile(zip_path, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
-                for root, _, files in os.walk(folder_path):
+            with zipfile.ZipFile(_normalize_path(zip_path), mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
+                for root, _, files in os.walk(_normalize_path(folder_path)):
                     for file_name in files:
                         file_path = os.path.join(root, file_name)
                         rel_path = os.path.relpath(file_path, start=folder_path)
                         arcname = os.path.join(folder_name, rel_path)
-                        zipf.write(file_path, arcname=arcname)
+                        zipf.write(_normalize_path(file_path), arcname=arcname)
         except Exception as e:
             print(f"[Error] Failed to create backup zip: {e}. Normally due to the file being open or locked. Please close any open files in the {folder_name} folder and try again.")
             return None
@@ -773,13 +781,13 @@ class Circuit:
 
         # Ensure the CNLS folder exists
         export_folder = os.path.join(self.file_folder, "CNLS")
-        os.makedirs(export_folder, exist_ok=True)
+        os.makedirs(_normalize_path(export_folder), exist_ok=True)
 
         # Define the export file path
         export_file = os.path.join(export_folder, os.path.splitext(self.filename)[0] + ".xlsx")
 
         # Create a Pandas Excel writer
-        with pd.ExcelWriter(export_file, engine='openpyxl') as writer:
+        with pd.ExcelWriter(_normalize_path(export_file), engine='openpyxl') as writer:
             # Sheet - Summary
             summary_data = {
                 "ElementsNames": [self.ElementsNames],
@@ -869,7 +877,7 @@ class Circuit:
         import_file = os.path.join(import_folder, os.path.splitext(self.filename)[0] + ".xlsx")
 
         # Check if the file exists
-        if not os.path.exists(import_file):
+        if not os.path.exists(_normalize_path(import_file)):
             raise FileNotFoundError(f"File not found: {import_file}")
         else:
             print(f"-- Importing CNLS data from {import_file}")
@@ -906,7 +914,7 @@ class Circuit:
             return value
 
         # Read the Excel file
-        with pd.ExcelFile(import_file) as xls:
+        with pd.ExcelFile(_normalize_path(import_file)) as xls:
             for sheet_name in xls.sheet_names:
                 df = pd.read_excel(xls, sheet_name)
                 if sheet_name == "Summary":

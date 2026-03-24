@@ -1,9 +1,19 @@
+import os
 import shutil
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
 
 import requests
+
+
+def _normalize_path(path_obj):
+    """Handle Windows long path (260+ chars) by adding \\?\ prefix."""
+    path_str = str(path_obj)
+    if sys.platform == 'win32' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
+        return '\\\\?' + os.path.sep + os.path.abspath(path_str)
+    return path_str
 
 
 def _get_default_branch(repo_owner, repo_name):
@@ -60,7 +70,7 @@ def _sync_tree(source_root, target_root, keep_paths):
         source_file = source_root / rel_path
         target_file = target_root / rel_path
         target_file.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_file, target_file)
+        shutil.copy2(_normalize_path(source_file), _normalize_path(target_file))
 
     target_files = [p for p in target_root.rglob("*") if p.is_file()]
     for target_file in target_files:
@@ -68,7 +78,10 @@ def _sync_tree(source_root, target_root, keep_paths):
         if _is_internal_keep(rel_path) or _should_keep_local(rel_path, keep_paths):
             continue
         if rel_path not in source_files:
-            target_file.unlink(missing_ok=True)
+            try:
+                Path(_normalize_path(target_file)).unlink(missing_ok=True)
+            except Exception:
+                pass
 
     target_dirs = sorted((p for p in target_root.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True)
     for target_dir in target_dirs:
@@ -102,22 +115,22 @@ def run_online_update(app_root, repo_owner="hangyu-yu", repo_name="SOCEIS", keep
         response = requests.get(zip_url, stream=True, timeout=60)
         response.raise_for_status()
 
-        with open(zip_path, "wb") as file_handle:
+        with open(_normalize_path(zip_path), "wb") as file_handle:
             for chunk in response.iter_content(chunk_size=1024 * 1024):
                 if chunk:
                     file_handle.write(chunk)
 
         extract_dir = temp_root / "extracted"
-        extract_dir.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(zip_path, "r") as archive:
-            archive.extractall(extract_dir)
+        Path(_normalize_path(extract_dir)).mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(_normalize_path(zip_path), "r") as archive:
+            archive.extractall(_normalize_path(extract_dir))
 
         extracted_roots = [path for path in extract_dir.iterdir() if path.is_dir()]
         if len(extracted_roots) != 1:
             return False, "Update package structure is invalid."
 
         source_root = extracted_roots[0]
-        if not (source_root / "SOCEIS.py").exists() or not (source_root / "src").exists():
+        if not Path(_normalize_path(source_root / "SOCEIS.py")).exists() or not Path(_normalize_path(source_root / "src")).exists():
             return False, "Downloaded package does not look like SOCEIS project."
 
         _sync_tree(source_root=source_root, target_root=app_root, keep_paths=keep_paths)
@@ -136,4 +149,7 @@ def run_online_update(app_root, repo_owner="hangyu-yu", repo_name="SOCEIS", keep
     except Exception as exc:
         return False, f"Update failed: {exc}"
     finally:
-        shutil.rmtree(temp_root, ignore_errors=True)
+        try:
+            shutil.rmtree(_normalize_path(temp_root), ignore_errors=True)
+        except Exception:
+            pass
