@@ -246,30 +246,64 @@ def folder_selector_cancel_callback(sender, app_data):
 
 
 def choose_project_folder_callback(config, EIS, CNLS):
-    """Use system-native folder picker to avoid DearPyGUI Unicode path limits."""
-    if not TK_AVAILABLE:
-        print("[Warning] tkinter folder picker unavailable; fallback to DearPyGUI file dialog.")
-        if dpg.does_item_exist("file_dialog_soceis"):
-            dpg.show_item("file_dialog_soceis")
-        return
-
+    """Cross-platform native folder picker with platform-specific fallbacks."""
     initial_dir = config.folder_path if config.folder_path and "[Error]" not in config.folder_path else str(Path.cwd())
     selected_dir = ""
-    root = None
-    try:
-        root = tk.Tk()
-        root.withdraw()
-        root.attributes("-topmost", True)
-        selected_dir = filedialog.askdirectory(initialdir=initial_dir, title="Choose project folder")
-    except Exception as exc:
-        print(f"[Warning] Native folder picker failed: {exc}")
+
+    # 1) Primary backend: tkinter (Windows/macOS/Linux when available)
+    if TK_AVAILABLE:
+        root = None
+        try:
+            root = tk.Tk()
+            root.withdraw()
+            if platform.system() == "Windows":
+                root.attributes("-topmost", True)
+            selected_dir = filedialog.askdirectory(initialdir=initial_dir, title="Choose project folder")
+        except Exception as exc:
+            print(f"[Warning] tkinter folder picker failed: {exc}")
+            selected_dir = ""
+        finally:
+            if root is not None:
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+
+    # 2) macOS fallback: AppleScript native chooser
+    if not selected_dir and platform.system() == "Darwin":
+        try:
+            script = 'POSIX path of (choose folder with prompt "Choose project folder")'
+            result = subprocess.run(
+                ["osascript", "-e", script],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                selected_dir = result.stdout.strip()
+        except Exception as exc:
+            print(f"[Warning] osascript folder picker failed: {exc}")
+
+    # 3) Linux fallback: zenity directory chooser
+    if not selected_dir and platform.system() == "Linux":
+        try:
+            result = subprocess.run(
+                ["zenity", "--file-selection", "--directory", "--filename", initial_dir + os.sep],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode == 0:
+                selected_dir = result.stdout.strip()
+        except Exception as exc:
+            print(f"[Warning] zenity folder picker failed: {exc}")
+
+    # 4) Last resort fallback: DearPyGUI file dialog
+    if not selected_dir:
+        if dpg.does_item_exist("file_dialog_soceis"):
+            print("[Info] Falling back to DearPyGUI folder dialog.")
+            dpg.show_item("file_dialog_soceis")
         return
-    finally:
-        if root is not None:
-            try:
-                root.destroy()
-            except Exception:
-                pass
 
     if not selected_dir:
         return
