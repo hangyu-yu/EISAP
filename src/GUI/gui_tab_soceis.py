@@ -283,7 +283,7 @@ def choose_project_folder_callback(config, EIS, CNLS):
             script = (
                 f'try\nPOSIX path of (choose folder with prompt "Choose project folder" '
                 f'default location POSIX file "{initial_dir_mac}")\n'
-                'on error\nPOSIX path of (choose folder with prompt "Choose project folder")\nend try'
+                'on error number -128\n""\nend try'
             )
             picker_launched = True
             result = subprocess.run(
