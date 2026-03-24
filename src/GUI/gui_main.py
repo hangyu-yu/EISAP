@@ -101,17 +101,17 @@ try:
         if has_special_chars(str(root_dir)):
             temp_dir = Path("C:/Temp/SOCEIS_Assets")
             temp_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Medium.otf", _normalize_path(temp_dir / "MiSans-Medium.otf"))
-            shutil.copy2(root_dir / "assets" / "fonts" / "MiSans-Light.otf", _normalize_path(temp_dir / "MiSans-Light.otf"))
+            shutil.copy2(_normalize_path(root_dir / "assets" / "fonts" / "MiSans-Medium.otf"), _normalize_path(temp_dir / "MiSans-Medium.otf"))
+            shutil.copy2(_normalize_path(root_dir / "assets" / "fonts" / "MiSans-Light.otf"), _normalize_path(temp_dir / "MiSans-Light.otf"))
             font_path_medium = temp_dir / "MiSans-Medium.otf"
             font_path_light = temp_dir / "MiSans-Light.otf"
 
             # Always refresh icon file in temp to avoid stale/cached wrong icon.
             if icon_ico.exists():
-                shutil.copy2(icon_ico, _normalize_path(temp_dir / "app_icon.ico"))
+                shutil.copy2(_normalize_path(icon_ico), _normalize_path(temp_dir / "app_icon.ico"))
                 icon_path = temp_dir / "app_icon.ico"
             elif icon_png.exists():
-                shutil.copy2(icon_png, _normalize_path(temp_dir / "app_icon.png"))
+                shutil.copy2(_normalize_path(icon_png), _normalize_path(temp_dir / "app_icon.png"))
                 icon_path = temp_dir / "app_icon.png"
         else:
             icon_path = icon_ico if icon_ico.exists() else (icon_png if icon_png.exists() else None)
@@ -134,14 +134,28 @@ try:
 
     # Load fonts
     with dpg.font_registry():
-        default_font = dpg.add_font(str(font_path_medium), int(config.font_size))
-        second_font = dpg.add_font(str(font_path_light), int(config.font_size)/2)
+        with dpg.font(str(font_path_medium), int(config.font_size)) as default_font:
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Cyrillic)
+        with dpg.font(str(font_path_light), int(config.font_size) / 2) as second_font:
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Cyrillic)
         dpg.bind_font(default_font)
 except Exception as e:
     print(f"[WARNING] Asset loading failed: {e}")
     # Fallback to system font
+    fallback_font_path = "arial.ttf"
+    if platform.system() == "Windows":
+        msyh = Path("C:/Windows/Fonts/msyh.ttc")
+        if msyh.exists():
+            fallback_font_path = str(msyh)
     with dpg.font_registry():
-        default_font = dpg.add_font("arial.ttf", int(config.font_size))
+        with dpg.font(fallback_font_path, int(config.font_size)) as default_font:
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Default)
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full)
+            dpg.add_font_range_hint(dpg.mvFontRangeHint_Cyrillic)
         dpg.bind_font(default_font)
 
 with dpg.theme() as plot_theme:

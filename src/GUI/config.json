@@ -1,43 +1,19 @@
 {
     "font_size": 18,
-    "folder_path": "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01",
+    "folder_path": "D:\\Downloads\\\u6d4b\u8bd5\\Projects\\00_Code test\\\u5982\u679c",
     "file_list": [
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-01_1224_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_750c_1bar_dc0ma_ac10mv_eis01.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-01_1356_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_750c_1bar_dc1284mv_ac10mv_eis02.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-01_1659_presshyous_elcogen_cu-02_gen-01_37.68-0-16.956_75.36_750c_1bar_dc0ma_ac10mv_eis03.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-01_1807_presshyous_elcogen_cu-02_gen-01_37.68-0-16.956_75.36_750c_1bar_dc1acm_ac10mv_eis04.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_0726_presshyous_elcogen_cu-02_gen-01_37.68-0-16.956_75.36_700c_1bar_dc0ma_ac10mv_eis05.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_0910_presshyous_elcogen_cu-02_gen-01_37.68-0-16.956_75.36_700c_1bar_dc1284mv_ac10mv_eis06.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_1144_presshyous_elcogen_cu-02_gen-01_37.68-0-13.188_75.36_700c_1bar_dc0ma_ac10mv_eis07.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_1249_presshyous_elcogen_cu-02_gen-01_37.68-0-13.188_75.36_700c_1bar_dc1284mv_ac10mv_eis08.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_1433_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc0ma_ac10mv_eis09.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_1433_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc0ma_ac10mv_eis10.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_1541_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc0.25acm_ac10mv_eis11.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_1643_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc0.5acm_ac10mv_eis12.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_1747_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc1284mv_ac10mv_eis13.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_1948_presshyous_elcogen_cu-02_gen-01_50-0-12.5_75.36_700c_1bar_dc0ma_ac10mv_eis14.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_2125_presshyous_elcogen_cu-02_gen-01_50-0-12.5_75.36_700c_1bar_dc0.25acm_ac10mv_eis15.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_2228_presshyous_elcogen_cu-02_gen-01_50-0-12.5_75.36_700c_1bar_dc0.5acm_ac10mv_eis16.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-02_2329_presshyous_elcogen_cu-02_gen-01_50-0-12.5_75.36_700c_1bar_dc1284mv_ac10mv_eis17.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-03_0607_presshyous_elcogen_cu-02_gen-01_37.68-0-16.956_75.36_700c_1bar_dc0.25acm_ac10mv_eis18.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-03_0706_presshyous_elcogen_cu-02_gen-01_37.68-0-16.956_75.36_700c_1bar_dc0.5acm_ac10mv_eis19.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-03_1137_presshyous_elcogen_cu-02_gen-01_37.68-0-16.956_75.36_650c_1bar_dc0ma_ac10mv_eis20.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-03_1245_presshyous_elcogen_cu-02_gen-01_37.68-0-16.956_75.36_650c_1bar_dc1284mv_ac10mv_eis21.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-03_1454_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_650c_1bar_dc0ma_ac10mv_eis22.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-03_1556_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_650c_1bar_dc0.25acm_ac10mv_eis23.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-03_1706_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_650c_1bar_dc1284mv_ac10mv_eis24.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-03_1946_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_675c_1bar_dc0.25acm_ac10mv_eis25.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-07_1114_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc0.5acm_ac10ma_eis26.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-07_1407_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_71.592-3.768_700c_1bar_dc0.5acm_ac10ma_eis27.txt",
-        "/Users/atlas/Library/CloudStorage/OneDrive-Personal/Experience/01_Projects/06_PressHyous/2_Data/02_Data/01_CU02_Gen01/2024-10-07_1532_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_64.056-11.304_700c_1bar_dc0.5acm_ac10mv_eis28.txt"
+        "D:\\Downloads\\\u6d4b\u8bd5\\Projects\\00_Code test\\\u5982\u679c\\2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
+        "D:\\Downloads\\\u6d4b\u8bd5\\Projects\\00_Code test\\\u5982\u679c\\2024-09-02_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis02.txt",
+        "D:\\Downloads\\\u6d4b\u8bd5\\Projects\\00_Code test\\\u5982\u679c\\2024-09-03_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis03.txt",
+        "D:\\Downloads\\\u6d4b\u8bd5\\Projects\\00_Code test\\\u5982\u679c\\2024-09-04_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis04.txt"
     ],
     "selected_files": [
-        "2024-10-02_1433_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc0ma_ac10mv_eis10.txt",
-        "2024-10-02_1541_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc0.25acm_ac10mv_eis11.txt",
-        "2024-10-02_1643_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc0.5acm_ac10mv_eis12.txt",
-        "2024-10-02_1747_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc1284mv_ac10mv_eis13.txt"
+        "2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
+        "2024-09-02_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis02.txt",
+        "2024-09-03_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis03.txt",
+        "2024-09-04_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis04.txt"
     ],
     "file_extensions": ".txt",
-    "display_file": "2024-10-02_1433_presshyous_elcogen_cu-02_gen-01_37.68-0-9.42_75.36_700c_1bar_dc0ma_ac10mv_eis10.txt",
-    "data_import_function": "/Users/atlas/Desktop/Git/SOCEIS/src/Functions/01_Data_read/read_general_all.py"
+    "display_file": "2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
+    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_general_all.py"
 }

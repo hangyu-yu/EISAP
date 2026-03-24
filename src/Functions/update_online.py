@@ -4,6 +4,7 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
+from urllib.parse import unquote
 
 import requests
 
@@ -26,6 +27,14 @@ def _get_default_branch(repo_owner, repo_name):
         return payload.get("default_branch", "main")
     except requests.RequestException:
         return "main"
+
+
+def _decode_windows_zip_path(path_obj):
+    """Decode URL-encoded names from zip entries on Windows when present."""
+    path_str = str(path_obj)
+    if sys.platform == 'win32' and '%' in path_str:
+        return Path(unquote(path_str))
+    return Path(path_str)
 
 
 def _iter_relative_files(root_dir):
@@ -138,7 +147,7 @@ def run_online_update(app_root, repo_owner="hangyu-yu", repo_name="SOCEIS", keep
         if len(extracted_roots) != 1:
             return False, "Update package structure is invalid."
 
-        source_root = extracted_roots[0]
+        source_root = _decode_windows_zip_path(extracted_roots[0])
         if not Path(_normalize_path(source_root / "SOCEIS.py")).exists() or not Path(_normalize_path(source_root / "src")).exists():
             return False, "Downloaded package does not look like SOCEIS project."
 

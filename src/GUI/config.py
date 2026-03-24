@@ -3,6 +3,14 @@ import json
 from pathlib import Path
 import numpy as np
 
+
+def _normalize_path(path_obj):
+    """Handle Windows long path (260+ chars) by adding \\\\?\\ prefix."""
+    path_str = str(path_obj)
+    if os.name == 'nt' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
+        return '\\\\?' + os.path.sep + os.path.abspath(path_str)
+    return path_str
+
 class Config:
     def __init__(self, config_file="config.json"):
         self.project_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -39,11 +47,12 @@ class Config:
     def load_config(self):
         """Load configuration from a JSON file"""
         self.store['viewer_processes'] = []
-        if os.path.exists(self.config_file):
-            with open(self.config_file, "r") as f:
+        if os.path.exists(_normalize_path(self.config_file)):
+            with open(_normalize_path(self.config_file), "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self.font_size = data.get("font_size", self.font_size) or self.font_size
-                if os.path.exists(data.get("folder_path", "")):
+                folder_path = data.get("folder_path", "")
+                if os.path.exists(_normalize_path(folder_path)):
                     self.folder_path = data.get("folder_path", self.folder_path) or self.folder_path
                     self.file_list = data.get("file_list", self.file_list) or self.file_list
                     self.selected_files = data.get("selected_files", self.selected_files) or self.selected_files
@@ -65,5 +74,5 @@ class Config:
             "display_file": self.display_file,
             "data_import_function": self.data_import_function
         }
-        with open(self.config_file, "w") as f:
+        with open(_normalize_path(self.config_file), "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)

@@ -13,6 +13,21 @@ import dearpygui.dearpygui as dpg
 from src.Methods.DRT.DRT import DRT
 from src.Methods.CNLS.Circuit import Circuit
 
+try:
+    import tkinter as tk
+    from tkinter import filedialog
+    TK_AVAILABLE = True
+except Exception:
+    TK_AVAILABLE = False
+
+
+def _normalize_path(path_obj):
+    """Handle Windows long path (260+ chars) by adding \\\\?\\ prefix."""
+    path_str = str(path_obj)
+    if sys.platform == 'win32' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
+        return '\\\\?' + os.path.sep + os.path.abspath(path_str)
+    return path_str
+
 """
 SOCEIS GUI Module Documentation
 This module implements the GUI interface for SOCEIS using Dear PyGui. It provides functionality for:
@@ -56,7 +71,8 @@ def load_images(icon_path, picture_list):
     """
     images = {}
     for name, file in picture_list:
-        width, height, _, data = dpg.load_image(os.path.join(icon_path, file))
+        image_path = Path(icon_path) / file
+        width, height, _, data = dpg.load_image(_normalize_path(image_path))
         images[name] = {"width": width, "height": height, "data": data}
     return images
 
@@ -217,7 +233,8 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
             dpg.delete_item("tab_drt", children_only=False)  # Clear the tab content if it exists
             dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab
     config.store['folder_path_old'] = config.folder_path
-    dpg.configure_item("file_dialog_soceis", default_path=config.folder_path)
+    if dpg.does_item_exist("file_dialog_soceis"):
+        dpg.configure_item("file_dialog_soceis", default_path=config.folder_path)
 
 def folder_selector_cancel_callback(sender, app_data):
     """
@@ -226,6 +243,44 @@ def folder_selector_cancel_callback(sender, app_data):
     print('Cancel was clicked.')
     print("Sender: ", sender)
     print("App Data: ", app_data)
+
+
+def choose_project_folder_callback(config, EIS, CNLS):
+    """Use system-native folder picker to avoid DearPyGUI Unicode path limits."""
+    if not TK_AVAILABLE:
+        print("[Warning] tkinter folder picker unavailable; fallback to DearPyGUI file dialog.")
+        if dpg.does_item_exist("file_dialog_soceis"):
+            dpg.show_item("file_dialog_soceis")
+        return
+
+    initial_dir = config.folder_path if config.folder_path and "[Error]" not in config.folder_path else str(Path.cwd())
+    selected_dir = ""
+    root = None
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        selected_dir = filedialog.askdirectory(initialdir=initial_dir, title="Choose project folder")
+    except Exception as exc:
+        print(f"[Warning] Native folder picker failed: {exc}")
+        return
+    finally:
+        if root is not None:
+            try:
+                root.destroy()
+            except Exception:
+                pass
+
+    if not selected_dir:
+        return
+
+    folder_selector_ok_callback(
+        sender="native_folder_picker",
+        app_data={"file_path_name": os.path.abspath(selected_dir)},
+        config=config,
+        EIS=EIS,
+        CNLS=CNLS,
+    )
 
 def launch_data_viewer(config):
     """
@@ -292,15 +347,15 @@ def gui_tab_soceis(config, EIS, CNLS):
         
         if has_special_chars(original_path):
             # Use temp directory if path has special characters
-            temp_dir = Path("C:/Temp/SOCEIS_Fonts")
+            temp_dir = Path("C:/Temp/SOCEIS_Assets")
             temp_dir.mkdir(parents=True, exist_ok=True)
             icon_path = temp_dir
             
-            # Copy icon files to temp directory if not already there
+            # Copy icon files to temp directory so DearPyGui can load from ASCII-safe path.
             icons_src_dir = root_dir / "assets" / "icons"
             for icon_file in icons_src_dir.glob('*'):
-                if icon_file.is_file() and not (temp_dir / icon_file.name).exists():
-                    shutil.copy2(icon_file, temp_dir / icon_file.name)
+                if icon_file.is_file():
+                    shutil.copy2(_normalize_path(icon_file), _normalize_path(temp_dir / icon_file.name))
         else:
             # Use original path if no special characters
             icon_path = root_dir / "assets" / "icons"
@@ -368,7 +423,7 @@ def gui_tab_soceis(config, EIS, CNLS):
 
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="Directory_before_spacer")
-            dpg.add_button(label="Choose project folder", callback=lambda: dpg.show_item("file_dialog_soceis"))
+            dpg.add_button(label="Choose project folder", callback=lambda: choose_project_folder_callback(config, EIS, CNLS))
         
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="Directory_child_before_spacer")
