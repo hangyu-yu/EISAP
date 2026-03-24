@@ -48,9 +48,13 @@ def _is_under(rel_path, prefix):
         return False
 
 
+def _is_projects_tree(rel_path):
+    return bool(rel_path.parts) and rel_path.parts[0].lower() == "projects"
+
+
 def _should_keep_local(rel_path, keep_paths):
     # Keep exact paths and everything under kept directories.
-    return any(_is_under(rel_path, keep_path) for keep_path in keep_paths)
+    return _is_projects_tree(rel_path) or any(_is_under(rel_path, keep_path) for keep_path in keep_paths)
 
 
 def _is_internal_keep(rel_path):
@@ -89,6 +93,10 @@ def _sync_tree(source_root, target_root, keep_paths):
         rel_path = target_dir.relative_to(target_root)
         if _is_internal_keep(rel_path):
             continue
+        # Skip kept directories themselves and all their descendants.
+        if _should_keep_local(rel_path, keep_paths):
+            continue
+        # Also skip ancestors of kept paths (e.g., `src` for `src/GUI/config.json`).
         if any(_is_under(keep_path, rel_path) for keep_path in keep_paths):
             continue
         if rel_path not in source_dirs:
