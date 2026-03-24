@@ -2,6 +2,11 @@ import os
 import re
 import sys
 import csv
+import threading
+import importlib.util
+import tempfile
+import urllib.request
+import urllib.error
 import numpy as np
 import pandas as pd
 import src.GUI as gui
@@ -607,3 +612,154 @@ def font_size_callback(sender, app_data, config, font_path_medium, font_path_lig
         with dpg.group(horizontal=True):
             dpg.add_button(label="Confirm", callback=lambda: font_size_confirm_callback(sender, app_data, config, font_path_medium, font_path_light))
             dpg.add_button(label="Cancel", callback=lambda: print("---- Font size change cancelled."))
+
+
+def restart_application_after_update():
+    """Restart SOCEIS using the same stable Windows path used by font-size changes."""
+    current_file = os.path.abspath(__file__)
+    parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_file))))
+    target_file = os.path.join(parent_dir, "SOCEIS.py")
+
+    if os.name == 'nt':
+        import subprocess
+        creation_flags = subprocess.CREATE_NEW_PROCESS_GROUP
+        if hasattr(subprocess, "DETACHED_PROCESS"):
+            creation_flags |= subprocess.DETACHED_PROCESS
+        subprocess.Popen([sys.executable, target_file], creationflags=creation_flags)
+        dpg.stop_dearpygui()
+        dpg.destroy_context()
+        os._exit(0)
+
+    try:
+        dpg.stop_dearpygui()
+    except Exception:
+        pass
+    try:
+        dpg.destroy_context()
+    except Exception:
+        pass
+    os.execv(sys.executable, [sys.executable, target_file])
+
+
+def _show_update_error_window(title, lines):
+    if dpg.does_item_exist("window_update_result"):
+        dpg.delete_item("window_update_result")
+
+    with dpg.window(label=title, tag="window_update_result", modal=True, width=640, height=260):
+        for line in lines:
+            dpg.add_text(line, wrap=600)
+        dpg.add_button(label="Close", callback=lambda: dpg.delete_item("window_update_result"))
+
+
+def _preflight_online_update(repo_root):
+    """Beginner-friendly checks before online update starts."""
+    issues = []
+
+    if not sys.executable or not Path(sys.executable).exists():
+        issues.append("Python runtime unavailable. Please reinstall Python and relaunch SOCEIS.")
+
+    if importlib.util.find_spec("pip") is None:
+        issues.append("pip module is not available in current Python environment.")
+
+    try:
+        with urllib.request.urlopen("https://api.github.com", timeout=6):
+            pass
+    except urllib.error.URLError:
+        issues.append("Network check failed: cannot reach GitHub. Check proxy/firewall/VPN settings.")
+    except Exception:
+        issues.append("Network check failed with an unexpected error.")
+
+    try:
+        with tempfile.NamedTemporaryFile(prefix="soceis_perm_", dir=str(repo_root), delete=True):
+            pass
+    except Exception:
+        issues.append("No write permission in project folder. Try running SOCEIS with proper folder permissions.")
+
+    return len(issues) == 0, issues
+
+
+def _online_update_worker(state_holder):
+    try:
+        repo_root = Path(__file__).resolve().parents[3]
+        updater_file = repo_root / "src" / "Functions" / "update_online.py"
+        spec = importlib.util.spec_from_file_location("soceis_update_online", updater_file)
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Cannot load updater module.")
+
+        updater_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(updater_module)
+
+        success, message = updater_module.run_online_update(
+            app_root=repo_root,
+            repo_owner="hangyu-yu",
+            repo_name="SOCEIS",
+            keep_paths=[Path("src/GUI/config.json")]
+        )
+    except Exception as exc:
+        success, message = False, f"Update failed: {exc}"
+
+    state_holder["done"] = True
+    state_holder["success"] = success
+    state_holder["message"] = message
+
+
+def _online_update_poll(state_holder):
+    if not state_holder.get("done", False):
+        dpg.set_frame_callback(dpg.get_frame_count() + 1, lambda: _online_update_poll(state_holder))
+        return
+
+    if dpg.does_item_exist("window_update_progress"):
+        dpg.delete_item("window_update_progress")
+
+    if state_holder.get("success"):
+        with dpg.window(label="Update completed", tag="window_update_result", modal=True, width=480, height=180):
+            dpg.add_text(state_holder.get("message", "Update completed."))
+            dpg.add_text("Application will restart now.")
+        dpg.set_frame_callback(dpg.get_frame_count() + 2, restart_application_after_update)
+        return
+
+    with dpg.window(label="Update failed", tag="window_update_result", modal=True, width=560, height=220):
+        dpg.add_text("Online update failed. Current files were not restarted.")
+        dpg.add_text(state_holder.get("message", "Unknown error."), wrap=520)
+        dpg.add_text("Tip: check network, folder write permission, and antivirus lock first.", wrap=520)
+        dpg.add_button(label="Close", callback=lambda: dpg.delete_item("window_update_result"))
+
+
+def start_online_update_callback(sender, app_data, config):
+    if dpg.does_item_exist("window_update_confirm"):
+        dpg.delete_item("window_update_confirm")
+
+    with dpg.window(label="Update from GitHub", tag="window_update_confirm", modal=True, width=640, height=320):
+        dpg.add_text("This action will sync project files from github.com/hangyu-yu/SOCEIS.")
+        dpg.add_text("All local files will be replaced except src/GUI/config.json.")
+        dpg.add_separator()
+        dpg.add_text("Continue?")
+
+        def _confirm_update():
+            if dpg.does_item_exist("window_update_confirm"):
+                dpg.delete_item("window_update_confirm")
+
+            repo_root = Path(__file__).resolve().parents[3]
+            ok, issues = _preflight_online_update(repo_root)
+            if not ok:
+                _show_update_error_window(
+                    "Update prerequisites not met",
+                    ["Cannot start online update due to the following issues:"] + [f"- {issue}" for issue in issues]
+                )
+                return
+
+            if dpg.does_item_exist("window_update_result"):
+                dpg.delete_item("window_update_result")
+
+            with dpg.window(label="Updating", tag="window_update_progress", modal=True, width=420, height=160):
+                dpg.add_text("Downloading and applying latest update...")
+                dpg.add_text("Please keep this window open.")
+
+            state_holder = {"done": False, "success": False, "message": ""}
+            update_thread = threading.Thread(target=_online_update_worker, args=(state_holder,), daemon=True)
+            update_thread.start()
+            dpg.set_frame_callback(dpg.get_frame_count() + 1, lambda: _online_update_poll(state_holder))
+
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Update now", callback=_confirm_update)
+            dpg.add_button(label="Cancel", callback=lambda: dpg.delete_item("window_update_confirm"))
