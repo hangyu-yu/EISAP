@@ -37,7 +37,101 @@ def string_abbreviation(string, begin=0, end=0):
     """
     return f"{string[:begin]}...{string[-end:]}" if len(string) > begin+end else string
 
-def separate_multichannel_zahner(config, EIS, CNLS):
+
+def _build_separation_output_dir(individual_dir, data_file, output_layout):
+    """Return output folder path according to selected separation layout."""
+    if output_layout == "per_file_subfolder":
+        base_name = os.path.splitext(data_file)[0]
+        safe_name = re.sub(r'[\\/:*?"<>|]', '_', base_name)
+        output_dir = os.path.join(individual_dir, safe_name)
+    else:
+        output_dir = individual_dir
+    os.makedirs(output_dir, exist_ok=True)
+    return output_dir
+
+
+def _resolve_post_separation_folder(individual_dir, output_layout, created_output_dirs):
+    """Choose GUI target folder after separation based on output layout."""
+    def _natural_sort_key(path_value):
+        name = os.path.basename(path_value)
+        return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", name)]
+
+    if output_layout != "per_file_subfolder":
+        return individual_dir
+
+    existing_dirs = [
+        path for path in created_output_dirs
+        if os.path.isdir(_normalize_path(path))
+    ]
+    if not existing_dirs:
+        try:
+            existing_dirs = [
+                os.path.join(individual_dir, name)
+                for name in os.listdir(individual_dir)
+                if os.path.isdir(_normalize_path(os.path.join(individual_dir, name)))
+            ]
+        except Exception:
+            existing_dirs = []
+
+    if existing_dirs:
+        return sorted(existing_dirs, key=_natural_sort_key)[0]
+    return individual_dir
+
+
+def _open_separation_layout_dialog(config, EIS, CNLS, run_callback):
+    """Ask user how separated files should be organized under Individual folder."""
+    window_tag = "window_separation_layout"
+    mode_tag = "radio_separation_layout"
+
+    if dpg.does_item_exist(window_tag):
+        dpg.delete_item(window_tag)
+
+    def _confirm_and_run():
+        selected = dpg.get_value(mode_tag)
+        layout = "per_file_subfolder" if selected == "Each file to its own subfolder" else "flat"
+        dpg.delete_item(window_tag)
+        run_callback(layout)
+
+    with dpg.window(label="Separation Output Mode", tag=window_tag, modal=True, width=460, height=200, no_resize=True):
+        dpg.add_text("How should separated files be stored in Individual?")
+        dpg.add_radio_button(
+            tag=mode_tag,
+            items=["All files directly in Individual", "Each file to its own subfolder"],
+            default_value="All files directly in Individual",
+        )
+        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Confirm", callback=lambda: _confirm_and_run())
+            dpg.add_button(label="Cancel", callback=lambda: dpg.delete_item(window_tag))
+
+
+def prompt_and_separate_multichannel_zahner(config, EIS, CNLS):
+    _open_separation_layout_dialog(
+        config,
+        EIS,
+        CNLS,
+        run_callback=lambda layout: separate_multichannel_zahner(config, EIS, CNLS, output_layout=layout),
+    )
+
+
+def prompt_and_separate_multichannel_biologic(config, EIS, CNLS):
+    _open_separation_layout_dialog(
+        config,
+        EIS,
+        CNLS,
+        run_callback=lambda layout: separate_multichannel_biologic(config, EIS, CNLS, output_layout=layout),
+    )
+
+
+def prompt_and_separate_multichannel_fcd(config, EIS, CNLS):
+    _open_separation_layout_dialog(
+        config,
+        EIS,
+        CNLS,
+        run_callback=lambda layout: separate_multichannel_fcd(config, EIS, CNLS, output_layout=layout),
+    )
+
+def separate_multichannel_zahner(config, EIS, CNLS, output_layout="flat"):
     """
     Smartly separate multiple EIS measurements in a single file based on data segments detection.
     Correctly handles multiple measurements by properly identifying each segment's boundaries.
@@ -91,10 +185,13 @@ def separate_multichannel_zahner(config, EIS, CNLS):
     directory = config.folder_path
     individual_dir = os.path.join(directory, "Individual")
     os.makedirs(individual_dir, exist_ok=True)
+    # Always remove temp from source folder once before separation starts.
+    config.remove_temp_folder_for_folder(directory)
     
     # Get all data files in directory
     data_files = [f for f in os.listdir(directory) 
                  if f.lower().endswith(tuple(ext.lower() for ext in ['.csv', '.txt', '.dat']))]
+    created_output_dirs = set()
     
     for data_file in data_files:
         file_path = os.path.join(directory, data_file)
@@ -172,6 +269,8 @@ def separate_multichannel_zahner(config, EIS, CNLS):
                 continue
             
             # Process each segment
+            output_dir = _build_separation_output_dir(individual_dir, data_file, output_layout)
+            wrote_current_file = False
             for seg_num, segment in enumerate(segments):
                 try:
                     # Extract metadata (non-empty lines only)
@@ -198,7 +297,7 @@ def separate_multichannel_zahner(config, EIS, CNLS):
                     # Prepare metadata
                     metadata = {
                         "original_file": os.path.basename(file_path),
-                        "segment_number": seg_num + 1,
+                        "segment_number": seg_num,
                         "total_segments": len(segments),
                         "segment_type": segment['type'],
                         "metadata": "\n".join(metadata_lines)
@@ -206,8 +305,8 @@ def separate_multichannel_zahner(config, EIS, CNLS):
                     
                     # Save to new file with tab delimiter
                     base_name = os.path.splitext(data_file)[0]
-                    output_file = f"{base_name}_seg{seg_num+1:03d}{config.file_extensions}"
-                    output_path = os.path.join(individual_dir, output_file)
+                    output_file = f"{base_name}_seg{seg_num:03d}{config.file_extensions}"
+                    output_path = os.path.join(output_dir, output_file)
                     
                     with open(_normalize_path(output_path), 'w', encoding='utf-8', newline='') as f:
                         # Write metadata as comments
@@ -215,15 +314,24 @@ def separate_multichannel_zahner(config, EIS, CNLS):
                             f.write(f"# {key}: {value}\n")
                         # Write data with tab separator and no empty lines
                         data.to_csv(f, index=False, sep='\t', lineterminator='\n')
+                    wrote_current_file = True
                 
                 except Exception as e:
-                    print(f"Error processing segment {seg_num+1} in file {data_file}: {str(e)}")
+                    print(f"Error processing segment {seg_num:03d} in file {data_file}: {str(e)}")
                     continue
+
+            if wrote_current_file:
+                created_output_dirs.add(output_dir)
             
             # Update the file list in the GUI
-            config.folder_path = individual_dir
+            target_folder = _resolve_post_separation_folder(individual_dir, output_layout, created_output_dirs)
+            config.remove_temp_folder_for_folder(directory)
+            config.create_temp_config_for_folder(target_folder, replace_existing=True)
+            config.use_project_folder(target_folder, load_existing=True)
             dpg.delete_item("selected_directory")
             dpg.add_text(config.folder_path, tag="selected_directory", parent="child_window_folder_directory")
+            if dpg.does_item_exist("file_dialog_soceis"):
+                dpg.configure_item("file_dialog_soceis", default_path=config.folder_path)
             config.data_import_function = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                 "Functions", "01_Data_read", "read_general_all.py")
@@ -233,7 +341,7 @@ def separate_multichannel_zahner(config, EIS, CNLS):
         except Exception as e:
             print(f"Error processing file {data_file}: {str(e)}")
 
-def separate_multichannel_biologic(config, EIS, CNLS):
+def separate_multichannel_biologic(config, EIS, CNLS, output_layout="flat"):
     """
     Separate multiple EIS measurements by identifying frequency repetition boundaries
     and saving each segment as a separate CSV file with original order preserved.
@@ -246,9 +354,12 @@ def separate_multichannel_biologic(config, EIS, CNLS):
     directory = config.folder_path
     individual_dir = os.path.join(directory, "Individual")
     os.makedirs(individual_dir, exist_ok=True)
+    # Always remove temp from source folder once before separation starts.
+    config.remove_temp_folder_for_folder(directory)
     
     # Get all MPT files in directory
     data_files = [f for f in os.listdir(directory) if f.lower().endswith('.mpt')]
+    created_output_dirs = set()
     
     for data_file in data_files:
         file_path = os.path.join(directory, data_file)
@@ -321,6 +432,8 @@ def separate_multichannel_biologic(config, EIS, CNLS):
             
             # Save each segment as a separate CSV file
             base_name = os.path.splitext(data_file)[0]
+            output_dir = _build_separation_output_dir(individual_dir, data_file, output_layout)
+            wrote_current_file = False
             
             for seg_num, (start_idx, end_idx) in enumerate(boundaries):
                 try:
@@ -332,8 +445,8 @@ def separate_multichannel_biologic(config, EIS, CNLS):
                     df = pd.DataFrame(segment_data, columns=header)
                     
                     # 构建输出路径
-                    output_file = f"{base_name}_seg{seg_num+1:03d}.csv"
-                    output_path = os.path.join(individual_dir, output_file)
+                    output_file = f"{base_name}_seg{seg_num:03d}.csv"
+                    output_path = os.path.join(output_dir, output_file)
                     
                     # 使用to_csv写入文件
                     df.to_csv(
@@ -345,17 +458,26 @@ def separate_multichannel_biologic(config, EIS, CNLS):
                         quoting=csv.QUOTE_NONE,  # 不添加额外引号
                         escapechar='\\'      # 转义字符
                     )
+                    wrote_current_file = True
                     
-                    print(f"Saved segment {seg_num+1} with {len(df)} data points")
+                    print(f"Saved segment {seg_num:03d} with {len(df)} data points")
                     
                 except Exception as e:
-                    print(f"Error processing segment {seg_num+1}: {str(e)}")
+                    print(f"Error processing segment {seg_num:03d}: {str(e)}")
                     continue
+
+            if wrote_current_file:
+                created_output_dirs.add(output_dir)
             
             # Update the file list in the GUI
-            config.folder_path = individual_dir
+            target_folder = _resolve_post_separation_folder(individual_dir, output_layout, created_output_dirs)
+            config.remove_temp_folder_for_folder(directory)
+            config.create_temp_config_for_folder(target_folder, replace_existing=True)
+            config.use_project_folder(target_folder, load_existing=True)
             dpg.delete_item("selected_directory")
             dpg.add_text(config.folder_path, tag="selected_directory", parent="child_window_folder_directory")
+            if dpg.does_item_exist("file_dialog_soceis"):
+                dpg.configure_item("file_dialog_soceis", default_path=config.folder_path)
             dpg.set_value("file_extension_selector", ".csv")
             config.data_import_function = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -365,7 +487,7 @@ def separate_multichannel_biologic(config, EIS, CNLS):
         except Exception as e:
             print(f"Error processing file {data_file}: {str(e)}")
 
-def separate_multichannel_fcd(config, EIS, CNLS):
+def separate_multichannel_fcd(config, EIS, CNLS, output_layout="flat"):
     """
     Process fcd files by separating stack and cell impedance data into different CSV files.
     """
@@ -467,9 +589,12 @@ def separate_multichannel_fcd(config, EIS, CNLS):
     directory = config.folder_path
     individual_dir = os.path.join(directory, "Individual")
     os.makedirs(individual_dir, exist_ok=True)
+    # Always remove temp from source folder once before separation starts.
+    config.remove_temp_folder_for_folder(directory)
     
     # Get all fcd files
     data_files = [f for f in os.listdir(directory) if f.lower().endswith('.fcd')]
+    created_output_dirs = set()
     
     for data_file in data_files:
         file_path = os.path.join(directory, data_file)
@@ -520,6 +645,7 @@ def separate_multichannel_fcd(config, EIS, CNLS):
                     raw_data.append(parts)
             
             base_name = os.path.splitext(data_file)[0]
+            output_dir = _build_separation_output_dir(individual_dir, data_file, output_layout)
             files_created = []
             
             # 保存电堆数据 (_0后缀)
@@ -528,7 +654,7 @@ def separate_multichannel_fcd(config, EIS, CNLS):
                 if stack_data:
                     stack_df = pd.DataFrame(stack_data, columns=['Freq', 'Z_Real', 'Z_Imag'])
                     output_file = f"{base_name}_0.csv"
-                    output_path = os.path.join(individual_dir, output_file)
+                    output_path = os.path.join(output_dir, output_file)
                     
                     stack_df.to_csv(
                         output_path,
@@ -550,7 +676,7 @@ def separate_multichannel_fcd(config, EIS, CNLS):
                         if cell_data:
                             cell_df = pd.DataFrame(cell_data, columns=['Freq', 'Z_Real', 'Z_Imag'])
                             output_file = f"{base_name}_{cell_num}.csv"
-                            output_path = os.path.join(individual_dir, output_file)
+                            output_path = os.path.join(output_dir, output_file)
                             
                             cell_df.to_csv(
                                 output_path,
@@ -566,13 +692,19 @@ def separate_multichannel_fcd(config, EIS, CNLS):
             
             if files_created:
                 print(f"Successfully processed {data_file}: {', '.join(files_created)}")
+                created_output_dirs.add(output_dir)
             else:
                 print(f"Warning: No valid impedance data found in {data_file}")
             
             # Update GUI
-            config.folder_path = individual_dir
+            target_folder = _resolve_post_separation_folder(individual_dir, output_layout, created_output_dirs)
+            config.remove_temp_folder_for_folder(directory)
+            config.create_temp_config_for_folder(target_folder, replace_existing=True)
+            config.use_project_folder(target_folder, load_existing=True)
             dpg.delete_item("selected_directory")
             dpg.add_text(config.folder_path, tag="selected_directory", parent="child_window_folder_directory")
+            if dpg.does_item_exist("file_dialog_soceis"):
+                dpg.configure_item("file_dialog_soceis", default_path=config.folder_path)
             dpg.set_value("file_extension_selector", ".csv")
             config.data_import_function = os.path.join(
                 os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),

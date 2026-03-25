@@ -55,6 +55,15 @@ from pathlib import Path
 import argparse
 import os
 
+try:
+    import tkinter as tk
+    from tkinter import filedialog
+    TK_AVAILABLE = True
+except Exception:
+    tk = None
+    filedialog = None
+    TK_AVAILABLE = False
+
 # ===============================
 # Helper function for Windows long path support
 # ===============================

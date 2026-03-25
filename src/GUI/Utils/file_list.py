@@ -113,6 +113,158 @@ def unselect_all_files(config, tag=None):
             dpg.set_value(checkbox_tag, False)
     update_selected_files(config, tag)
 
+def _sync_selected_files_with_current_list(config):
+    """Keep selected files valid after refreshing current folder-based file list."""
+    valid_basenames = {os.path.basename(file) for file in config.file_list if "[Error]" not in file}
+    config.selected_files = [name for name in (config.selected_files or []) if name in valid_basenames]
+    config.display_file = config.selected_files[0] if config.selected_files else None
+
+def _open_large_file_select_window(config, tag):
+    """Open a dedicated, larger window for selecting from current available file list."""
+    window_tag = f"window_large_file_selector_{tag}"
+    list_child_tag = f"child_large_selector_list_{tag}"
+    index_input_tag = f"input_large_selector_index_{tag}"
+
+    if dpg.does_item_exist(window_tag):
+        dpg.delete_item(window_tag)
+
+    # Ensure the list reflects current folder + extension.
+    select_files(config, tag)
+    current_file_names = [os.path.basename(path) for path in config.file_list if "[Error]" not in path]
+
+    def _compress_one_based_indices(indices):
+        ordered = sorted(set(indices))
+        if not ordered:
+            return ""
+
+        ranges = []
+        start = ordered[0]
+        prev = ordered[0]
+        for idx in ordered[1:]:
+            if idx == prev + 1:
+                prev = idx
+            else:
+                ranges.append(f"{start}-{prev}" if start != prev else f"{start}")
+                start = idx
+                prev = idx
+        ranges.append(f"{start}-{prev}" if start != prev else f"{start}")
+        return ",".join(ranges)
+
+    def _selected_index_text_from_names(selected_names):
+        index_map = {name: i for i, name in enumerate(current_file_names, start=1)}
+        selected_indices = [index_map[name] for name in selected_names if name in index_map]
+        return _compress_one_based_indices(selected_indices)
+
+    def _update_temp_selected_from_window():
+        selected_names = []
+        for filename in current_file_names:
+            cb_tag = f"checkbox_large_selector_{tag}_{filename}"
+            if dpg.does_item_exist(cb_tag) and dpg.get_value(cb_tag):
+                selected_names.append(filename)
+        dpg.set_item_user_data(window_tag, selected_names)
+        if dpg.does_item_exist(index_input_tag):
+            dpg.set_value(index_input_tag, _selected_index_text_from_names(selected_names))
+
+    def _on_confirm_add_files():
+        _update_temp_selected_from_window()
+        selected_names = dpg.get_item_user_data(window_tag) or []
+
+        # Refresh by current folder + extension then apply selected filenames.
+        select_files(config, tag)
+        current_names = {os.path.basename(path) for path in config.file_list if "[Error]" not in path}
+        config.selected_files = [name for name in selected_names if name in current_names]
+        _sync_selected_files_with_current_list(config)
+
+        update_file_list(config, tag)
+        # Reuse standard selection callback to update display file and redraw all related plots.
+        update_selected_files(config, tag)
+        dpg.delete_item(window_tag)
+
+    def _apply_index_selection():
+        raw_text = dpg.get_value(index_input_tag) if dpg.does_item_exist(index_input_tag) else ""
+        if not raw_text:
+            for filename in current_file_names:
+                cb_tag = f"checkbox_large_selector_{tag}_{filename}"
+                if dpg.does_item_exist(cb_tag):
+                    dpg.set_value(cb_tag, False)
+            _update_temp_selected_from_window()
+            return
+
+        chosen_indices = set()
+        for token in str(raw_text).split(","):
+            part = token.strip()
+            if not part:
+                continue
+            if "-" in part:
+                pieces = part.split("-", 1)
+                try:
+                    start = int(pieces[0].strip())
+                    end = int(pieces[1].strip())
+                except ValueError:
+                    continue
+                if start > end:
+                    start, end = end, start
+                for idx in range(start, end + 1):
+                    chosen_indices.add(idx)
+            else:
+                try:
+                    chosen_indices.add(int(part))
+                except ValueError:
+                    continue
+
+        for one_based_idx, filename in enumerate(current_file_names, start=1):
+            cb_tag = f"checkbox_large_selector_{tag}_{filename}"
+            if dpg.does_item_exist(cb_tag):
+                dpg.set_value(cb_tag, one_based_idx in chosen_indices)
+
+        _update_temp_selected_from_window()
+
+    viewport_width = dpg.get_viewport_client_width() if hasattr(dpg, "get_viewport_client_width") else dpg.get_viewport_width()
+    viewport_height = dpg.get_viewport_client_height() if hasattr(dpg, "get_viewport_client_height") else dpg.get_viewport_height()
+    win_width = max(900, int(viewport_width * 0.75))
+    win_height = max(620, int(viewport_height * 0.75))
+
+    with dpg.window(
+        label="Large File Selector",
+        tag=window_tag,
+        modal=True,
+        width=win_width,
+        height=win_height,
+        no_resize=False,
+        no_collapse=True,
+    ):
+        dpg.add_text("Select files from current available list, then confirm to apply.")
+        dpg.add_separator()
+        with dpg.child_window(tag=list_child_tag, width=-1, height=int(win_height * 0.78), horizontal_scrollbar=True):
+            for filename in current_file_names:
+                default_checked = filename in (config.selected_files or [])
+                dpg.add_checkbox(
+                    label=filename,
+                    tag=f"checkbox_large_selector_{tag}_{filename}",
+                    default_value=default_checked,
+                    callback=lambda s, a: _update_temp_selected_from_window()
+                )
+        dpg.add_spacer(height=8)
+        with dpg.group(horizontal=True):
+            dpg.add_text("Index")
+            dpg.add_input_text(
+                tag=index_input_tag,
+                hint="e.g. 1,3,5-8",
+                width=220,
+                on_enter=True,
+                callback=lambda s, a: _apply_index_selection(),
+            )
+            dpg.add_button(label="Apply Index", callback=lambda: _apply_index_selection())
+        _update_temp_selected_from_window()
+        dpg.add_spacer(height=6)
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Select all", callback=lambda: [dpg.set_value(f"checkbox_large_selector_{tag}_{name}", True) for name in current_file_names if dpg.does_item_exist(f"checkbox_large_selector_{tag}_{name}")] or _update_temp_selected_from_window())
+            dpg.add_button(label="Unselect all", callback=lambda: [dpg.set_value(f"checkbox_large_selector_{tag}_{name}", False) for name in current_file_names if dpg.does_item_exist(f"checkbox_large_selector_{tag}_{name}")] or _update_temp_selected_from_window())
+        dpg.add_spacer(height=6)
+        with dpg.group(horizontal=True):
+            dpg.add_button(label="Confirm", callback=_on_confirm_add_files)
+            dpg.add_button(label="Cancel", callback=lambda: dpg.delete_item(window_tag))
+
 def update_file_list(config, tag = None, EIS = None, CNLS = None):
     """
     Update the file list based on the selected extension and default folder path.
@@ -126,6 +278,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
         with dpg.menu(label="File list"):
             dpg.add_menu_item(label="Select all", callback=lambda: select_all_files(config, tag))
             dpg.add_menu_item(label="Unselect all", callback=lambda: unselect_all_files(config, tag))
+            dpg.add_menu_item(label="Open large selector", callback=lambda: _open_large_file_select_window(config, tag))
             dpg.add_menu_item(label="Refresh", callback=lambda: update_file_list(config, tag))
 
     for file in config.file_list:

@@ -204,12 +204,15 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
     EIS.backup_folder_to_temp_zip('DRT', 'DRT_backup.zip')
     CNLS.backup_folder_to_temp_zip('CNLS', 'CNLS_backup.zip')
     print("---- Backup of EIS, DRT, CNLS folders completed. Starting initialization with new folder path.")
-    if config.folder_path != app_data['file_path_name']:
+    new_folder = os.path.abspath(app_data['file_path_name'])
+    if config.folder_path != new_folder:
         dpg.delete_item("file_dialog_eis")  # Delete the tab bar if it already exists
         dpg.delete_item("tab_eis", children_only=False)  # Delete the tab if it already exists
         dpg.delete_item("tab_drt", children_only=False)  # Clear the tab content if it exists
         dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab content if it exists
-        config.folder_path = app_data['file_path_name']
+    if not config.use_project_folder(new_folder, load_existing=True):
+        print(f"[Warning] Invalid folder path: {new_folder}")
+        return
     initialize_eis_cnls(EIS, CNLS, config.folder_path)
     config.store['beacon_DRT_import'] = True
     print("Folder path:", config.folder_path)
@@ -248,6 +251,14 @@ def folder_selector_cancel_callback(sender, app_data):
 def choose_project_folder_callback(config, EIS, CNLS):
     """Cross-platform folder picker with Windows tkinter backend and DearPyGUI fallback."""
     initial_dir = config.folder_path if config.folder_path and "[Error]" not in config.folder_path else str(Path.cwd())
+    initial_dir = os.path.abspath(initial_dir)
+    if not os.path.isdir(initial_dir):
+        initial_dir = str(Path.cwd())
+
+    # Keep DPG folder dialog path in sync regardless of which picker backend is used.
+    if dpg.does_item_exist("file_dialog_soceis"):
+        dpg.configure_item("file_dialog_soceis", default_path=initial_dir)
+
     selected_dir = ""
     picker_launched = False
     picker_failed = False
@@ -449,7 +460,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width*0.45), tag="version_spacer")
-                    dpg.add_text("(/so.sis/) V1.00", tag="version_text")
+                    dpg.add_text("(/so.sis/) V1.01", tag="version_text")
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer_1")
@@ -483,9 +494,9 @@ def gui_tab_soceis(config, EIS, CNLS):
             with dpg.child_window(width=int(viewport_width*0.5), height=80, horizontal_scrollbar=True, menubar=True, tag="child_window_folder_directory"):
                 with dpg.menu_bar():
                     with dpg.menu(label="Selected directory"):
-                        dpg.add_menu_item(label="Separate multi-channel zahner files", callback=lambda: gui_utils.small_functions.separate_multichannel_zahner(config, EIS, CNLS)) 
-                        dpg.add_menu_item(label="Separate multi-channel biologic files", callback=lambda: gui_utils.small_functions.separate_multichannel_biologic(config, EIS, CNLS)) 
-                        dpg.add_menu_item(label="Separate multi-channel fcd files", callback=lambda: gui_utils.small_functions.separate_multichannel_fcd(config, EIS, CNLS)) 
+                        dpg.add_menu_item(label="Separate multi-channel zahner files", callback=lambda: gui_utils.small_functions.prompt_and_separate_multichannel_zahner(config, EIS, CNLS)) 
+                        dpg.add_menu_item(label="Separate multi-channel biologic files", callback=lambda: gui_utils.small_functions.prompt_and_separate_multichannel_biologic(config, EIS, CNLS)) 
+                        dpg.add_menu_item(label="Separate multi-channel fcd files", callback=lambda: gui_utils.small_functions.prompt_and_separate_multichannel_fcd(config, EIS, CNLS)) 
                 dpg.add_text(config.folder_path, tag="selected_directory", parent="child_window_folder_directory")
 
         # Setup the file dialog
@@ -496,7 +507,7 @@ def gui_tab_soceis(config, EIS, CNLS):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="extension_spacer")
             dpg.add_text("File extension:")
             dpg.add_combo(
-                items=[".txt", ".mpt", ".csv", ".xlsx", ".dta", ".z", ".fcd"],
+                items=config.supported_file_extensions,
                 tag = 'file_extension_selector',
                 default_value=config.file_extensions,
                 callback=lambda _, app_data: gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS),
