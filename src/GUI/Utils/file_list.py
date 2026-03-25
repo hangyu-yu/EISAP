@@ -119,7 +119,7 @@ def _sync_selected_files_with_current_list(config):
     config.selected_files = [name for name in (config.selected_files or []) if name in valid_basenames]
     config.display_file = config.selected_files[0] if config.selected_files else None
 
-def _open_large_file_select_window(config, tag):
+def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
     """Open a dedicated, larger window for selecting from current available file list."""
     window_tag = f"window_large_file_selector_{tag}"
     list_child_tag = f"child_large_selector_list_{tag}"
@@ -175,7 +175,7 @@ def _open_large_file_select_window(config, tag):
         config.selected_files = [name for name in selected_names if name in current_names]
         _sync_selected_files_with_current_list(config)
 
-        update_file_list(config, tag)
+        update_file_list(config, tag, EIS, CNLS)
         # Reuse standard selection callback to update display file and redraw all related plots.
         update_selected_files(config, tag)
         dpg.delete_item(window_tag)
@@ -278,8 +278,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None):
         with dpg.menu(label="File list"):
             dpg.add_menu_item(label="Select all", callback=lambda: select_all_files(config, tag))
             dpg.add_menu_item(label="Unselect all", callback=lambda: unselect_all_files(config, tag))
-            dpg.add_menu_item(label="Open large selector", callback=lambda: _open_large_file_select_window(config, tag))
-            dpg.add_menu_item(label="Refresh", callback=lambda: update_file_list(config, tag))
+            dpg.add_menu_item(label="Open large selector", callback=lambda: _open_large_file_select_window(config, tag, EIS, CNLS))
 
     for file in config.file_list:
         filename = os.path.basename(file)
