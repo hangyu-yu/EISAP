@@ -62,13 +62,60 @@ def tknv_pos_callback(sender, app_data, EIS, config):
     """
     Callback function for the tikhonov positive checkbox.
     """
+    def _is_lambda_auto_switch_candidate():
+        """Treat blank/invalid/default lambda as not manually provided."""
+        if not dpg.does_item_exist("input_text_lambda"):
+            return True
+
+        raw_value = dpg.get_value("input_text_lambda")
+        if raw_value is None:
+            return True
+
+        try:
+            if isinstance(raw_value, str):
+                text = raw_value.strip()
+                if text == "":
+                    return True
+                value = float(text)
+            else:
+                value = float(raw_value)
+        except (TypeError, ValueError):
+            return True
+
+        # If value is still one of default lambda values, allow automatic switching.
+        return np.isclose(value, 0.05) or np.isclose(value, 5e-4)
+
+    def _target_files_for_update():
+        if config.selected_files:
+            return list(config.selected_files)
+        if config.display_file:
+            return [config.display_file]
+        return []
+
+    def _get_display_eis_obj():
+        if config.display_file:
+            key = os.path.splitext(config.display_file)[0]
+            if key in config.store and "EIS" in config.store[key]:
+                return config.store[key]["EIS"]
+        if config.selected_files:
+            key = os.path.splitext(config.selected_files[0])[0]
+            if key in config.store and "EIS" in config.store[key]:
+                return config.store[key]["EIS"]
+        return None
+
     mode = False
-    for file_name in config.selected_files:
+    lambda_auto_candidate = _is_lambda_auto_switch_candidate()
+    auto_lambda = 0.05 if app_data else 5e-4
+
+    for file_name in _target_files_for_update():
         file_name_no_ext = os.path.splitext(file_name)[0]
         if file_name_no_ext not in config.store.keys():
-            raise FileNotFoundError("The specified file is not loaded or EIS processing is not done.")
+            continue
         else:
             EIS_tmp = config.store[file_name_no_ext]["EIS"]
+            # If lambda is not manually provided, toggle between default values with tikhonov mode.
+            if lambda_auto_candidate and EIS_tmp.parameter["DRT"].get("Lambda_selection", "Manual") != "Optimal":
+                EIS_tmp.parameter["DRT"]["lambda"] = auto_lambda
             if app_data:
                 mode = True
                 if dpg.does_item_exist("input_text_lambda"):
@@ -97,6 +144,12 @@ def tknv_pos_callback(sender, app_data, EIS, config):
                 dpg.configure_item("input_text_min_lambda", enabled=True, default_value=EIS_tmp.parameter["LambdaOpt"]["lambda_min"])
                 dpg.configure_item("input_text_lambda_points", enabled=True, default_value=EIS_tmp.parameter["LambdaOpt"]["n"])
             EIS_tmp.parameter["DRT"]["tknv_pos"] = mode
+
+    # Keep the visible lambda in sync with displayed file after toggle.
+    if dpg.does_item_exist("input_text_lambda") and not dpg.get_value("check_box_lambda_mode"):
+        display_eis = _get_display_eis_obj()
+        if display_eis is not None:
+            dpg.set_value("input_text_lambda", display_eis.parameter["DRT"]["lambda"])
 
     print(f"-- Tikhonov positive mode set to {mode}")
 
