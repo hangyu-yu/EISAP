@@ -3,11 +3,83 @@ import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
 
-def _ensure_contiguous(data):
-    """Ensure that NumPy arrays are C-contiguous and handle NaN values."""
-    if isinstance(data, dict):
-        return {k: np.ascontiguousarray(v) if isinstance(v, np.ndarray) else v for k, v in data.items()}
-    return np.ascontiguousarray(data)
+def _has_zhit_tknv(data):
+    return (
+        hasattr(data, "tknv_zhit")
+        and isinstance(data.tknv_zhit, dict)
+        and data.tknv_zhit.get("Re", None) is not None
+        and data.tknv_zhit.get("Im", None) is not None
+        and data.tknv_zhit.get("ReIm", None) is not None
+    )
+
+
+def _get_zhit_smooth_eis(data):
+    if not hasattr(data, "zhit_data") or data.zhit_data.get("f", None) is None:
+        return None
+
+    f = data.zhit_data.get("f", None)
+    z_mod = data.zhit_data.get("Z_mod_zhit", None)
+    phi_deg = data.zhit_data.get("phi_smooth_deg", None)
+    if phi_deg is None:
+        phi_deg = data.zhit_data.get("phi_deg", None)
+    if f is None or z_mod is None or phi_deg is None:
+        return None
+
+    f = np.asarray(f, dtype=float)
+    z_mod = np.asarray(z_mod, dtype=float)
+    phi_deg = np.asarray(phi_deg, dtype=float)
+    valid = np.isfinite(f) & np.isfinite(z_mod) & np.isfinite(phi_deg) & (f > 0)
+    if not np.any(valid):
+        return None
+
+    f = f[valid]
+    z_mod = z_mod[valid]
+    phi_deg = phi_deg[valid]
+
+    phi_rad = np.deg2rad(phi_deg)
+    re = z_mod * np.cos(phi_rad)
+    im = z_mod * np.sin(phi_rad)
+    z = re + 1j * im
+
+    return {
+        "f": f,
+        "Re": re,
+        "Im": im,
+        "Z": z,
+    }
+
+
+def _ensure_or_clear_tab(tab_tag, tab_label, parent_tag):
+    if not dpg.does_item_exist(parent_tag):
+        print(f"-- Warning: parent tab bar '{parent_tag}' missing for tab '{tab_tag}'.")
+        return False
+
+    if dpg.does_item_exist(tab_tag):
+        dpg.delete_item(tab_tag, children_only=True)
+        return True
+
+    dpg.add_tab(label=tab_label, tag=tab_tag, parent=parent_tag)
+    return True
+
+
+def _ensure_tab_exists(tab_tag, tab_label, parent_tag):
+    if not dpg.does_item_exist(parent_tag):
+        print(f"-- Warning: parent tab bar '{parent_tag}' missing for tab '{tab_tag}'.")
+        return False
+
+    if not dpg.does_item_exist(tab_tag):
+        dpg.add_tab(label=tab_label, tag=tab_tag, parent=parent_tag)
+    return True
+
+
+def _ensure_or_reset_tab_bar(tab_bar_tag, parent_tag):
+    if not dpg.does_item_exist(parent_tag):
+        print(f"-- Warning: parent tab '{parent_tag}' missing for tab bar '{tab_bar_tag}'.")
+        return False
+
+    if not dpg.does_item_exist(tab_bar_tag):
+        dpg.add_tab_bar(tag=tab_bar_tag, parent=parent_tag)
+    return True
 
 def _create_plot_with_axes(parent_tag, width, height, x_label, y_label, log_x=False):
     """Create a plot area with axes."""
@@ -19,73 +91,593 @@ def _create_plot_with_axes(parent_tag, width, height, x_label, y_label, log_x=Fa
 
 def _add_series_to_plot(plot_data, y_axis, label, is_line=True):
     """Add a line or scatter series to the plot."""
-    x_data = _ensure_contiguous(plot_data['f'])
-    y_data = _ensure_contiguous(plot_data['y'])
+    x_data, y_data = _prepare_xy(plot_data['f'], plot_data['y'], require_positive_x=True)
+    if x_data is None:
+        print(f"-- Warning: Skip invalid series '{label}'.")
+        return
     if dpg.get_value('check_box_drt_tau'):
         x_data = 1/(2*np.pi*x_data)  # Convert frequency to tau if the button is active
+        x_data, y_data = _prepare_xy(x_data, y_data, require_positive_x=True)
+        if x_data is None:
+            print(f"-- Warning: Skip invalid tau series '{label}'.")
+            return
     if is_line:
         dpg.add_line_series(x_data, y_data, parent=y_axis, label=label)
     else:
         dpg.add_scatter_series(x_data, y_data, parent=y_axis, label=label)
 
-def _update_bode_plots(data, parent_tag, data_category):
-    """Update Bode plots (Re and Im)."""
-    # Real part (Z')
+
+def _prepare_xy(x_data, y_data, require_positive_x=False):
+    try:
+        x_arr = np.asarray(x_data, dtype=float).reshape(-1)
+        y_arr = np.asarray(y_data, dtype=float).reshape(-1)
+    except Exception:
+        return None, None
+
+    n = min(len(x_arr), len(y_arr))
+    if n < 2:
+        return None, None
+
+    x_arr = x_arr[:n]
+    y_arr = y_arr[:n]
+
+    valid = np.isfinite(x_arr) & np.isfinite(y_arr)
+    if require_positive_x:
+        valid &= x_arr > 0
+    if np.count_nonzero(valid) < 2:
+        return None, None
+
+    return np.ascontiguousarray(x_arr[valid]), np.ascontiguousarray(y_arr[valid])
+
+
+def _safe_add_xy_series(y_axis, x_data, y_data, label, is_line=True, require_positive_x=False):
+    x_arr, y_arr = _prepare_xy(x_data, y_data, require_positive_x=require_positive_x)
+    if x_arr is None:
+        print(f"-- Warning: Skip invalid XY series '{label}'.")
+        return
+    if is_line:
+        dpg.add_line_series(x_arr, y_arr, parent=y_axis, label=label)
+    else:
+        dpg.add_scatter_series(x_arr, y_arr, parent=y_axis, label=label)
+
+
+def _plot_three_views_with_drt(data, parent_tag, data_category, measured, measured_label, smooth, smooth_label, drt_data, extra_series=None):
     y_axis_re = _create_plot_with_axes(
         f"{parent_tag}_Re", -1, int(dpg.get_viewport_height() * 0.25),
         "Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", "Z' [Ohm·cm2]", log_x=True
     )
-    _add_series_to_plot({'f': data.truncated['f'], 'y': data.truncated['Re']}, y_axis_re, f"{data_category}_truncated", False)
-    _add_series_to_plot({'f': data.smooth['f'], 'y': data.smooth['Re']}, y_axis_re, f"{data_category}_KK_smooth")
-    _add_series_to_plot({'f': data.tknv_truncated[data_category]['f'], 'y': data.tknv_truncated[data_category]['Re']}, y_axis_re, f"{data_category}_DRT_smooth")
+    _add_series_to_plot({'f': measured['f'], 'y': measured['Re']}, y_axis_re, f"{data_category}_{measured_label}", False)
+    _add_series_to_plot({'f': smooth['f'], 'y': smooth['Re']}, y_axis_re, f"{data_category}_{smooth_label}")
+    if extra_series is not None:
+        extra_label = extra_series.get('label', 'extra')
+        extra_smooth = extra_series.get('smooth', None)
+        extra_drt = extra_series.get('drt', None)
+        if extra_smooth is not None:
+            _add_series_to_plot({'f': extra_smooth['f'], 'y': extra_smooth['Re']}, y_axis_re, f"{data_category}_{extra_label}_smooth")
+        if isinstance(extra_drt, dict) and data_category in extra_drt:
+            _add_series_to_plot({'f': extra_drt[data_category]['f'], 'y': extra_drt[data_category]['Re']}, y_axis_re, f"{data_category}_{extra_label}_DRT")
+    _add_series_to_plot({'f': drt_data[data_category]['f'], 'y': drt_data[data_category]['Re']}, y_axis_re, f"{data_category}_DRT")
     dpg.add_plot_legend(parent=f"{parent_tag}_Re")
 
-    # Imaginary part (-Z'')
     y_axis_im = _create_plot_with_axes(
         f"{parent_tag}_Im", -1, int(dpg.get_viewport_height() * 0.25),
         "Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", "-Z'' [Ohm·cm2]", log_x=True
     )
-    _add_series_to_plot({'f': data.truncated['f'], 'y': -data.truncated['Im']}, y_axis_im, f"{data_category}_truncated", False)
-    _add_series_to_plot({'f': data.smooth['f'], 'y': -data.smooth['Im']}, y_axis_im, f"{data_category}_KK_smooth")
-    _add_series_to_plot({'f': data.tknv_truncated[data_category]['f'], 'y': -data.tknv_truncated[data_category]['Im']}, y_axis_im, f"{data_category}_DRT_smooth")
+    _add_series_to_plot({'f': measured['f'], 'y': -measured['Im']}, y_axis_im, f"{data_category}_{measured_label}", False)
+    _add_series_to_plot({'f': smooth['f'], 'y': -smooth['Im']}, y_axis_im, f"{data_category}_{smooth_label}")
+    if extra_series is not None:
+        extra_label = extra_series.get('label', 'extra')
+        extra_smooth = extra_series.get('smooth', None)
+        extra_drt = extra_series.get('drt', None)
+        if extra_smooth is not None:
+            _add_series_to_plot({'f': extra_smooth['f'], 'y': -extra_smooth['Im']}, y_axis_im, f"{data_category}_{extra_label}_smooth")
+        if isinstance(extra_drt, dict) and data_category in extra_drt:
+            _add_series_to_plot({'f': extra_drt[data_category]['f'], 'y': -extra_drt[data_category]['Im']}, y_axis_im, f"{data_category}_{extra_label}_DRT")
+    _add_series_to_plot({'f': drt_data[data_category]['f'], 'y': -drt_data[data_category]['Im']}, y_axis_im, f"{data_category}_DRT")
     dpg.add_plot_legend(parent=f"{parent_tag}_Im")
 
-def _update_nyquist_plot(data, parent_tag, data_category):
-    """Update Nyquist plot."""
     y_axis = _create_plot_with_axes(
         f"{parent_tag}_ReIm", -1, -1,
         "Z' [Ohm·cm2]", "-Z'' [Ohm·cm2]"
     )
-    _add_series_to_plot({'f': data.truncated['Re'] if not dpg.get_value('check_box_drt_tau') else 1/(2*np.pi*data.truncated['Re']), 'y': -data.truncated['Im']}, y_axis, f"{data_category}_truncated", False)
-    _add_series_to_plot({'f': data.smooth['Re'] if not dpg.get_value('check_box_drt_tau') else 1/(2*np.pi*data.smooth['Re']), 'y': -data.smooth['Im']}, y_axis, f"{data_category}_KK_smooth")
-    _add_series_to_plot({'f': data.tknv_truncated[data_category]['Re'] if not dpg.get_value('check_box_drt_tau') else 1/(2*np.pi*data.tknv_truncated[data_category]['Re']), 'y': -data.tknv_truncated[data_category]['Im']}, y_axis, f"{data_category}_DRT_smooth")
+    _safe_add_xy_series(
+        y_axis,
+        measured['Re'],
+        -np.asarray(measured['Im']),
+        f"{data_category}_{measured_label}",
+        is_line=False,
+        require_positive_x=False,
+    )
+    _safe_add_xy_series(
+        y_axis,
+        smooth['Re'],
+        -np.asarray(smooth['Im']),
+        f"{data_category}_{smooth_label}",
+        is_line=True,
+        require_positive_x=False,
+    )
+    if extra_series is not None:
+        extra_label = extra_series.get('label', 'extra')
+        extra_smooth = extra_series.get('smooth', None)
+        extra_drt = extra_series.get('drt', None)
+        if extra_smooth is not None:
+            _safe_add_xy_series(
+                y_axis,
+                extra_smooth['Re'],
+                -np.asarray(extra_smooth['Im']),
+                f"{data_category}_{extra_label}_smooth",
+                is_line=True,
+                require_positive_x=False,
+            )
+        if isinstance(extra_drt, dict) and data_category in extra_drt:
+            _safe_add_xy_series(
+                y_axis,
+                extra_drt[data_category]['Re'],
+                -np.asarray(extra_drt[data_category]['Im']),
+                f"{data_category}_{extra_label}_DRT",
+                is_line=True,
+                require_positive_x=False,
+            )
+    _safe_add_xy_series(
+        y_axis,
+        drt_data[data_category]['Re'],
+        -np.asarray(drt_data[data_category]['Im']),
+        f"{data_category}_DRT",
+        is_line=True,
+        require_positive_x=False,
+    )
     dpg.add_plot_legend(parent=f"{parent_tag}_ReIm")
 
-def _update_residual_plots(data, parent_tag):
-    """Update residual plots (ReIm and Re)."""
-    # Real part (Z')
-    y_axis_re = _create_plot_with_axes(
-        f"{parent_tag}_ReIm_residual", -1, int(dpg.get_viewport_height() * 0.4),
-        "Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", "Residual [%]", log_x=True
-    )
-    if len(data.truncated['f']) != len(data.tknv_truncated['ReIm']['f']):
-        print(f"-- Warning: Frequency arrays have different lengths (truncated: {len(data.truncated['f'])}, tknv_truncated: {len(data.tknv_truncated['ReIm']['f'])}).")
-    else:
-        _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Re']-data.tknv_truncated['ReIm']['Re'])/np.abs(data.truncated['Z'])*100}, y_axis_re, f"ReIm_Re", False)
-        _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Im']-data.tknv_truncated['ReIm']['Im'])/np.abs(data.truncated['Z'])*100}, y_axis_re, f"ReIm_Im", False)
-        dpg.add_plot_legend(parent=f"{parent_tag}_ReIm_residual")
 
-    # Imaginary part (-Z'')
-    y_axis_im = _create_plot_with_axes(
-        f"{parent_tag}_Re_residual", -1, int(dpg.get_viewport_height() * 0.4),
+def _compute_residual_series(f_ref, re_ref, im_ref, z_ref, f_fit, re_fit, im_fit):
+    f_ref = np.asarray(f_ref, dtype=float)
+    re_ref = np.asarray(re_ref, dtype=float)
+    im_ref = np.asarray(im_ref, dtype=float)
+    z_abs_ref = np.abs(np.asarray(z_ref))
+    f_fit = np.asarray(f_fit, dtype=float)
+    re_fit = np.asarray(re_fit, dtype=float)
+    im_fit = np.asarray(im_fit, dtype=float)
+
+    fit_sort = np.argsort(f_fit)
+    f_fit_sorted = f_fit[fit_sort]
+    re_fit_sorted = re_fit[fit_sort]
+    im_fit_sorted = im_fit[fit_sort]
+
+    f_min = np.nanmin(f_fit_sorted)
+    f_max = np.nanmax(f_fit_sorted)
+    valid = np.isfinite(f_ref) & np.isfinite(re_ref) & np.isfinite(im_ref) & np.isfinite(z_abs_ref) & (z_abs_ref > 0)
+    valid &= (f_ref >= f_min) & (f_ref <= f_max)
+    if not np.any(valid):
+        return None, None, None
+
+    f_eval = f_ref[valid]
+    re_eval = re_ref[valid]
+    im_eval = im_ref[valid]
+    z_abs_eval = z_abs_ref[valid]
+
+    re_interp = np.interp(np.log10(f_eval), np.log10(f_fit_sorted), re_fit_sorted)
+    im_interp = np.interp(np.log10(f_eval), np.log10(f_fit_sorted), im_fit_sorted)
+
+    residual_re = (re_eval - re_interp) / z_abs_eval * 100
+    residual_im = (im_eval - im_interp) / z_abs_eval * 100
+    return f_eval, residual_re, residual_im
+
+
+def _plot_residuals(parent_tag, ref_data, drt_data, extra_drt_data=None, extra_label="ZHIT", kk_smooth_data=None):
+    y_axis_re = _create_plot_with_axes(
+        f"{parent_tag}_ReIm_residual", -1, int(dpg.get_viewport_height() * 0.25),
         "Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", "Residual [%]", log_x=True
     )
-    if len(data.truncated['f']) != len(data.tknv_truncated['Re']['f']):
-        print(f"-- Warning: Frequency arrays have different lengths (truncated: {len(data.truncated['f'])}, tknv_truncated: {len(data.tknv_truncated['Re']['f'])}).")
+
+    f_eval, residual_re, residual_im = _compute_residual_series(
+        ref_data['f'],
+        ref_data['Re'],
+        ref_data['Im'],
+        ref_data['Z'],
+        drt_data['ReIm']['f'],
+        drt_data['ReIm']['Re'],
+        drt_data['ReIm']['Im'],
+    )
+    if f_eval is None:
+        print("-- Warning: Failed to build ReIm residual series due to invalid overlap.")
     else:
-        _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Re']-data.tknv_truncated['Re']['Re']) / np.abs(data.truncated['Z']) * 100}, y_axis_im, f"Re_Re", False)
-        _add_series_to_plot({'f': data.truncated['f'], 'y': (data.truncated['Im']-data.tknv_truncated['Re']['Im']) / np.abs(data.truncated['Z']) * 100}, y_axis_im, f"Re_Im", False)
-        dpg.add_plot_legend(parent=f"{parent_tag}_Re_residual")
+        _add_series_to_plot({'f': f_eval, 'y': residual_re}, y_axis_re, "DRT_ReIm_Re", False)
+        _add_series_to_plot({'f': f_eval, 'y': residual_im}, y_axis_re, "DRT_ReIm_Im", False)
+    if isinstance(extra_drt_data, dict) and extra_drt_data.get('ReIm', None) is not None:
+        f_eval_extra, residual_re_extra, residual_im_extra = _compute_residual_series(
+            ref_data['f'],
+            ref_data['Re'],
+            ref_data['Im'],
+            ref_data['Z'],
+            extra_drt_data['ReIm']['f'],
+            extra_drt_data['ReIm']['Re'],
+            extra_drt_data['ReIm']['Im'],
+        )
+        if f_eval_extra is not None:
+            _add_series_to_plot({'f': f_eval_extra, 'y': residual_re_extra}, y_axis_re, f"{extra_label}_ReIm_Re", False)
+            _add_series_to_plot({'f': f_eval_extra, 'y': residual_im_extra}, y_axis_re, f"{extra_label}_ReIm_Im", False)
+    if isinstance(kk_smooth_data, dict) and kk_smooth_data.get('f', None) is not None:
+        f_eval_kk, residual_re_kk, residual_im_kk = _compute_residual_series(
+            ref_data['f'],
+            ref_data['Re'],
+            ref_data['Im'],
+            ref_data['Z'],
+            kk_smooth_data['f'],
+            kk_smooth_data['Re'],
+            kk_smooth_data['Im'],
+        )
+        if f_eval_kk is not None:
+            _add_series_to_plot({'f': f_eval_kk, 'y': residual_re_kk}, y_axis_re, "KKsmooth_ReIm_Re", False)
+            _add_series_to_plot({'f': f_eval_kk, 'y': residual_im_kk}, y_axis_re, "KKsmooth_ReIm_Im", False)
+    dpg.add_plot_legend(parent=f"{parent_tag}_ReIm_residual")
+
+    y_axis_im = _create_plot_with_axes(
+        f"{parent_tag}_Re_residual", -1, -1,
+        "Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", "Residual [%]", log_x=True
+    )
+    f_eval, residual_re, residual_im = _compute_residual_series(
+        ref_data['f'],
+        ref_data['Re'],
+        ref_data['Im'],
+        ref_data['Z'],
+        drt_data['Re']['f'],
+        drt_data['Re']['Re'],
+        drt_data['Re']['Im'],
+    )
+    if f_eval is None:
+        print("-- Warning: Failed to build Re residual series due to invalid overlap.")
+    else:
+        _add_series_to_plot({'f': f_eval, 'y': residual_re}, y_axis_im, "DRT_Re_Re", False)
+        _add_series_to_plot({'f': f_eval, 'y': residual_im}, y_axis_im, "DRT_Re_Im", False)
+    if isinstance(extra_drt_data, dict) and extra_drt_data.get('Re', None) is not None:
+        f_eval_extra, residual_re_extra, residual_im_extra = _compute_residual_series(
+            ref_data['f'],
+            ref_data['Re'],
+            ref_data['Im'],
+            ref_data['Z'],
+            extra_drt_data['Re']['f'],
+            extra_drt_data['Re']['Re'],
+            extra_drt_data['Re']['Im'],
+        )
+        if f_eval_extra is not None:
+            _add_series_to_plot({'f': f_eval_extra, 'y': residual_re_extra}, y_axis_im, f"{extra_label}_Re_Re", False)
+            _add_series_to_plot({'f': f_eval_extra, 'y': residual_im_extra}, y_axis_im, f"{extra_label}_Re_Im", False)
+    if isinstance(kk_smooth_data, dict) and kk_smooth_data.get('f', None) is not None:
+        f_eval_kk, residual_re_kk, residual_im_kk = _compute_residual_series(
+            ref_data['f'],
+            ref_data['Re'],
+            ref_data['Im'],
+            ref_data['Z'],
+            kk_smooth_data['f'],
+            kk_smooth_data['Re'],
+            kk_smooth_data['Im'],
+        )
+        if f_eval_kk is not None:
+            _add_series_to_plot({'f': f_eval_kk, 'y': residual_re_kk}, y_axis_im, "KKsmooth_Re_Re", False)
+            _add_series_to_plot({'f': f_eval_kk, 'y': residual_im_kk}, y_axis_im, "KKsmooth_Re_Im", False)
+    dpg.add_plot_legend(parent=f"{parent_tag}_Re_residual")
+
+def _update_eis_truncated_views(data, parent_tag, data_category):
+    extra_series = None
+    zhit_smooth = _get_zhit_smooth_eis(data)
+    if zhit_smooth is not None:
+        extra_series = {
+            'label': 'ZHIT',
+            'smooth': zhit_smooth,
+            # Keep only ZHIT smooth overlay here. DRT curve must come from truncated DRT only.
+            'drt': None,
+        }
+
+    _plot_three_views_with_drt(
+        data,
+        parent_tag,
+        data_category,
+        measured=data.truncated,
+        measured_label="truncated",
+        smooth=data.smooth,
+        smooth_label="KK_smooth",
+        drt_data=data.tknv_truncated,
+        extra_series=extra_series,
+    )
+
+
+def _render_single_gamma_distribution(parent_tag, data, data_type):
+    if data[f"tknv_{data_type}"] is None:
+        dpg.add_text(f"No DRT data for {data_type}.", parent=parent_tag)
+        return
+
+    with dpg.plot(
+        tag=f"{parent_tag}_{data_type}_gamma_single",
+        width=-1,
+        height=-1,
+        no_menus=False,
+        parent=parent_tag,
+    ):
+        dpg.add_plot_axis(
+            dpg.mvXAxis,
+            label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]",
+            log_scale=True,
+        )
+        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
+
+        y_max_value = 0.0
+        y_min_value = 0.0
+        has_series = False
+        for category in ["ReIm", "Re", "Im"]:
+            if category not in data[f"tknv_{data_type}"]:
+                continue
+            g_arr = data[f"tknv_{data_type}"][category]['g']
+            if g_arr is None or len(g_arr) == 0:
+                continue
+            has_series = True
+            y_max_value = max(y_max_value, float(np.max(g_arr)))
+            y_min_value = min(y_min_value, float(np.min(g_arr)))
+            _add_series_to_plot(
+                {'f': data[f"tknv_{data_type}"][category]['f'], 'y': g_arr},
+                y_axis,
+                category,
+            )
+
+        if has_series:
+            y_upper = y_max_value * 1.1 if y_max_value > 0 else 1.0
+            if y_upper == y_min_value:
+                y_upper = y_min_value + 1.0
+            dpg.set_axis_limits(y_axis, y_min_value, y_upper)
+            dpg.add_plot_legend()
+
+
+def _render_single_kk_residual(parent_tag, data, has_zhit_tknv):
+    subtab_tag = f"{parent_tag}_subtab"
+    if not _ensure_or_reset_tab_bar(subtab_tag, parent_tag):
+        return
+
+    _ensure_or_clear_tab(f"{parent_tag}_tab_reim", "ReIm", subtab_tag)
+    _ensure_or_clear_tab(f"{parent_tag}_tab_re", "Re", subtab_tag)
+    _ensure_or_clear_tab(f"{parent_tag}_tab_im", "Im", subtab_tag)
+    _ensure_or_clear_tab(f"{parent_tag}_tab_residual", "Residuals", subtab_tag)
+
+    # Cleanup legacy tabs kept from previous UI versions.
+    if dpg.does_item_exist(f"{parent_tag}_tab_zhit"):
+        dpg.delete_item(f"{parent_tag}_tab_zhit")
+    if dpg.does_item_exist(f"{parent_tag}_tab_zhit_residual"):
+        dpg.delete_item(f"{parent_tag}_tab_zhit_residual")
+
+    with dpg.group(parent=f"{parent_tag}_tab_reim"):
+        _update_eis_truncated_views(data, f"{parent_tag}_reim", "ReIm")
+    with dpg.group(parent=f"{parent_tag}_tab_re"):
+        _update_eis_truncated_views(data, f"{parent_tag}_re", "Re")
+    with dpg.group(parent=f"{parent_tag}_tab_im"):
+        _update_eis_truncated_views(data, f"{parent_tag}_im", "Im")
+    with dpg.group(parent=f"{parent_tag}_tab_residual"):
+        _plot_residuals(
+            f"{parent_tag}_residual",
+            data.truncated,
+            data.tknv_truncated,
+            extra_drt_data=data.tknv_zhit if has_zhit_tknv else None,
+            extra_label="ZHIT",
+            kk_smooth_data=data.smooth,
+        )
+
+
+def _render_all_gamma_distribution(parent_tag, config, data_type):
+    subtab_tag = f"{parent_tag}_{data_type}_subtab"
+    if not _ensure_or_reset_tab_bar(subtab_tag, parent_tag):
+        return
+
+    _ensure_or_clear_tab(f"{parent_tag}_{data_type}_reim", "ReIm", subtab_tag)
+    _ensure_or_clear_tab(f"{parent_tag}_{data_type}_re", "Re", subtab_tag)
+    _ensure_or_clear_tab(f"{parent_tag}_{data_type}_im", "Im", subtab_tag)
+
+    for category, tab_id in [
+        ("ReIm", f"{parent_tag}_{data_type}_reim"),
+        ("Re", f"{parent_tag}_{data_type}_re"),
+        ("Im", f"{parent_tag}_{data_type}_im"),
+    ]:
+        with dpg.group(parent=tab_id):
+            with dpg.plot(
+                tag=f"{tab_id}_plot",
+                width=-1,
+                height=-1,
+                no_menus=False,
+            ):
+                dpg.add_plot_axis(
+                    dpg.mvXAxis,
+                    label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]",
+                    log_scale=True,
+                )
+                y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
+
+                y_max_value = 0.0
+                y_min_value = 0.0
+                has_series = False
+                for file_name in config.selected_files:
+                    file_key = os.path.splitext(file_name)[0]
+                    if file_key not in config.store or 'EIS' not in config.store[file_key]:
+                        continue
+                    data = config.store[file_key]['EIS']
+                    tknv_data = data[f"tknv_{data_type}"]
+                    if tknv_data is None or category not in tknv_data:
+                        continue
+                    g_arr = tknv_data[category]['g']
+                    if g_arr is None or len(g_arr) == 0:
+                        continue
+                    has_series = True
+                    _add_series_to_plot(
+                        {'f': tknv_data[category]['f'], 'y': g_arr},
+                        y_axis,
+                        label=gui_utils.small_functions.string_abbreviation(file_key, 12, 12),
+                        is_line=True,
+                    )
+                    y_max_value = max(y_max_value, float(np.max(g_arr)))
+                    y_min_value = min(y_min_value, float(np.min(g_arr)))
+
+                if has_series:
+                    y_upper = y_max_value * 1.1 if y_max_value > 0 else 1.0
+                    if y_upper == y_min_value:
+                        y_upper = y_min_value + 1.0
+                    dpg.set_axis_limits(y_axis, y_min_value, y_upper)
+                    dpg.add_plot_legend(parent=f"{tab_id}_plot", location=dpg.mvPlot_Location_NorthEast)
+
+
+def _sanitize_lambda_curve(curve):
+    if not isinstance(curve, dict):
+        return None
+
+    lambda_values = np.asarray(curve.get('lambda_values', []), dtype=float).reshape(-1)
+    norm_res = np.asarray(curve.get('norm_res', []), dtype=float).reshape(-1)
+    norm_drt = np.asarray(curve.get('norm_drt', []), dtype=float).reshape(-1)
+    curvature = np.asarray(curve.get('curvature', []), dtype=float).reshape(-1)
+
+    n = min(len(lambda_values), len(norm_res), len(norm_drt), len(curvature))
+    if n < 2:
+        return None
+
+    lambda_values = lambda_values[:n]
+    norm_res = norm_res[:n]
+    norm_drt = norm_drt[:n]
+    curvature = curvature[:n]
+
+    # L-curve plot uses log-log axes, so x/y must be strictly positive and finite.
+    valid_l = (
+        np.isfinite(lambda_values)
+        & np.isfinite(norm_res)
+        & np.isfinite(norm_drt)
+        & (lambda_values > 0)
+        & (norm_res > 0)
+        & (norm_drt > 0)
+    )
+
+    # Curvature plot uses log x-axis only.
+    valid_c = np.isfinite(lambda_values) & np.isfinite(curvature) & (lambda_values > 0)
+
+    if np.count_nonzero(valid_l) < 2 or np.count_nonzero(valid_c) < 2:
+        return None
+
+    lam_l = lambda_values[valid_l]
+    res_l = norm_res[valid_l]
+    drt_l = norm_drt[valid_l]
+
+    lam_c = lambda_values[valid_c]
+    cur_c = curvature[valid_c]
+
+    lambda_opt = float(curve.get('lambda_optimal', np.nan))
+    if not np.isfinite(lambda_opt) or lambda_opt <= 0:
+        # Fallback to max curvature point on valid curvature series.
+        lambda_opt = float(lam_c[int(np.argmax(cur_c))])
+
+    idx_l = int(np.argmin(np.abs(np.log10(lam_l) - np.log10(lambda_opt))))
+    idx_c = int(np.argmin(np.abs(np.log10(lam_c) - np.log10(lambda_opt))))
+
+    return {
+        'lambda_opt': lambda_opt,
+        'lam_l': lam_l,
+        'res_l': res_l,
+        'drt_l': drt_l,
+        'idx_l': idx_l,
+        'lam_c': lam_c,
+        'cur_c': cur_c,
+        'idx_c': idx_c,
+    }
+
+
+def _has_lambda_curve(data):
+    if not hasattr(data, 'store') or not isinstance(data.store, dict):
+        return False
+    return _sanitize_lambda_curve(data.store.get('LambdaOPT_curve', None)) is not None
+
+
+def _render_lambda_curve_single(parent_tag, data):
+    if not dpg.does_item_exist(parent_tag):
+        print(f"-- Warning: L-curve single parent '{parent_tag}' not found.")
+        return
+
+    curve = data.store.get('LambdaOPT_curve', None) if hasattr(data, 'store') else None
+    curve_plot = _sanitize_lambda_curve(curve)
+    if curve_plot is None:
+        dpg.add_text("No L-curve data. Click 'Compute lambda' first.", parent=parent_tag)
+        return
+
+    with dpg.plot(tag=f"{parent_tag}_lcurve", width=-1, height=int(dpg.get_viewport_height() * 0.42), no_menus=False, parent=parent_tag):
+        dpg.add_plot_axis(dpg.mvXAxis, label="||A*gamma-b||", log_scale=True)
+        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="||gamma||", log_scale=True)
+        dpg.add_line_series(curve_plot['res_l'], curve_plot['drt_l'], parent=y_axis, label="L-curve")
+        dpg.add_scatter_series(
+            [curve_plot['res_l'][curve_plot['idx_l']]],
+            [curve_plot['drt_l'][curve_plot['idx_l']]],
+            parent=y_axis,
+            label=f"opt lambda={curve_plot['lambda_opt']:.3e}",
+        )
+        dpg.add_plot_legend(parent=f"{parent_tag}_lcurve")
+
+    with dpg.plot(tag=f"{parent_tag}_curvature", width=-1, height=-1, no_menus=False, parent=parent_tag):
+        dpg.add_plot_axis(dpg.mvXAxis, label="lambda", log_scale=True)
+        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Curvature")
+        dpg.add_line_series(curve_plot['lam_c'], curve_plot['cur_c'], parent=y_axis, label="k(lambda)")
+        dpg.add_scatter_series(
+            [curve_plot['lam_c'][curve_plot['idx_c']]],
+            [curve_plot['cur_c'][curve_plot['idx_c']]],
+            parent=y_axis,
+            label="selected",
+        )
+        dpg.add_plot_legend(parent=f"{parent_tag}_curvature")
+
+
+def _render_lambda_curve_all(parent_tag, config):
+    if not dpg.does_item_exist(parent_tag):
+        print(f"-- Warning: L-curve all parent '{parent_tag}' not found.")
+        return
+
+    with dpg.plot(tag=f"{parent_tag}_lcurve", width=-1, height=int(dpg.get_viewport_height() * 0.42), no_menus=False, parent=parent_tag):
+        dpg.add_plot_axis(dpg.mvXAxis, label="||A*gamma-b||", log_scale=True)
+        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="||gamma||", log_scale=True)
+        has_series = False
+        for file_name in config.selected_files:
+            file_key = os.path.splitext(file_name)[0]
+            if file_key not in config.store or 'EIS' not in config.store[file_key]:
+                continue
+            eis_data = config.store[file_key]['EIS']
+            curve = eis_data.store.get('LambdaOPT_curve', None) if hasattr(eis_data, 'store') else None
+            curve_plot = _sanitize_lambda_curve(curve)
+            if curve_plot is None:
+                continue
+            label = gui_utils.small_functions.string_abbreviation(file_key, 12, 12)
+            dpg.add_line_series(curve_plot['res_l'], curve_plot['drt_l'], parent=y_axis, label=f"L:{label}")
+            dpg.add_scatter_series(
+                [curve_plot['res_l'][curve_plot['idx_l']]],
+                [curve_plot['drt_l'][curve_plot['idx_l']]],
+                parent=y_axis,
+                label=f"opt:{label}",
+            )
+            has_series = True
+
+        if has_series:
+            dpg.add_plot_legend(parent=f"{parent_tag}_lcurve", location=dpg.mvPlot_Location_NorthEast)
+
+    with dpg.plot(tag=f"{parent_tag}_curvature", width=-1, height=-1, no_menus=False, parent=parent_tag):
+        dpg.add_plot_axis(dpg.mvXAxis, label="lambda", log_scale=True)
+        y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Curvature")
+        has_series = False
+        for file_name in config.selected_files:
+            file_key = os.path.splitext(file_name)[0]
+            if file_key not in config.store or 'EIS' not in config.store[file_key]:
+                continue
+            eis_data = config.store[file_key]['EIS']
+            curve = eis_data.store.get('LambdaOPT_curve', None) if hasattr(eis_data, 'store') else None
+            curve_plot = _sanitize_lambda_curve(curve)
+            if curve_plot is None:
+                continue
+            label = gui_utils.small_functions.string_abbreviation(file_key, 12, 12)
+            dpg.add_line_series(curve_plot['lam_c'], curve_plot['cur_c'], parent=y_axis, label=f"k:{label}")
+            dpg.add_scatter_series(
+                [curve_plot['lam_c'][curve_plot['idx_c']]],
+                [curve_plot['cur_c'][curve_plot['idx_c']]],
+                parent=y_axis,
+                label=f"sel:{label}",
+            )
+            has_series = True
+
+        if has_series:
+            dpg.add_plot_legend(parent=f"{parent_tag}_curvature", location=dpg.mvPlot_Location_NorthEast)
 
 def update_single_plots(config):
     """Update single-file DRT plots."""
@@ -104,71 +696,48 @@ def update_single_plots(config):
 
     file_key = os.path.splitext(config.display_file)[0]
     data = config.store[file_key]['EIS']
+    has_zhit_tknv = _has_zhit_tknv(data)
+    has_lcurve = _has_lambda_curve(data)
 
-    for data_type in ["truncated", "smooth", "LCcorrect", "extrapolation", "EIS_truncated"]:
-        tab_tag = f"tab_drt_{data_type}_plot_single"
-        if dpg.does_item_exist(tab_tag):
-            if data_type != "EIS_truncated":
-                dpg.delete_item(tab_tag, children_only=True)
-        else:
-            with dpg.tab(label=data_type.capitalize(), tag=tab_tag, parent="tab_bar_drt_plot_single"):
-                pass
+    for stale_tab in [
+        "tab_drt_smooth_plot_single",
+        "tab_drt_LCcorrect_plot_single",
+        "tab_drt_extrapolation_plot_single",
+    ]:
+        if dpg.does_item_exist(stale_tab):
+            dpg.delete_item(stale_tab)
 
-        if data_type != "EIS_truncated":
-            if data[f"tknv_{data_type}"]:
-                with dpg.plot(tag=f"tab_drt_{data_type}_data_plot_single", width=-1, height=-1, no_menus=False, parent=tab_tag):
-                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", log_scale=True)
-                    y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
-                    y_max_value = 0
-                    y_min_value = 0
-                    for category in ["ReIm", "Re", "Im"]:
-                        if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
-                            y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
-                        if np.min(data[f"tknv_{data_type}"][category]['g']) < y_min_value:
-                            y_min_value = np.min(data[f"tknv_{data_type}"][category]['g'])
+    # Keep top-level tabs alive (like EIS) and only refresh their children.
+    _ensure_or_clear_tab("tab_drt_truncated_plot_single", "Truncated", "tab_bar_drt_plot_single")
+    _ensure_tab_exists("tab_drt_kk_plot_single", "KK", "tab_bar_drt_plot_single")
 
-                        dpg.set_axis_limits(y_axis, y_min_value, y_max_value * 1.1)
-                        _add_series_to_plot(
-                            {'f': data[f"tknv_{data_type}"][category]['f'], 'y': data[f"tknv_{data_type}"][category]['g']},
-                            y_axis, category
-                        )
-                    dpg.add_plot_legend()
-        else:
-            tab_bar_tag = f"tab_bar_drt_{data_type}_plot_single"
-            if not dpg.does_item_exist(tab_bar_tag):
-                with dpg.tab_bar(tag=tab_bar_tag, parent=tab_tag):
-                    pass
+    if has_zhit_tknv:
+        _ensure_or_clear_tab("tab_drt_zhit_plot_single", "ZHIT", "tab_bar_drt_plot_single")
 
-            valid_tabs = set()
-            for category in ["ReIm", "Re", "Im"]:
-                category_tab_tag = f"tab_drt_{data_type}_{category}_plot_single"
-                valid_tabs.add(category_tab_tag)
-                if not dpg.does_item_exist(category_tab_tag):
-                    with dpg.tab(label=category, tag=category_tab_tag, parent=tab_bar_tag):
-                        pass
-                else:
-                    dpg.delete_item(category_tab_tag, children_only=True)
+    if has_lcurve:
+        _ensure_or_clear_tab("tab_drt_lcurve_plot_single", "L-curve", "tab_bar_drt_plot_single")
 
-                with dpg.group(parent=category_tab_tag):
-                    _update_bode_plots(data, f"tab_drt_{data_type}_{category}", category)
-                    _update_nyquist_plot(data, f"tab_drt_{data_type}_{category}", category)
+    _ensure_tab_exists("tab_drt_EIS_truncated_plot_single", "EIS_truncated", "tab_bar_drt_plot_single")
 
-            residual_tab_tag = f"tab_drt_{data_type}_residuals_plot_single"
-            valid_tabs.add(residual_tab_tag)
-            if not dpg.does_item_exist(residual_tab_tag):
-                with dpg.tab(label="Residuals", tag=residual_tab_tag, parent=tab_bar_tag):
-                    pass
-            else:
-                dpg.delete_item(residual_tab_tag, children_only=True)
+    _render_single_gamma_distribution("tab_drt_truncated_plot_single", data, "truncated")
+    if has_lcurve:
+        _render_lambda_curve_single("tab_drt_lcurve_plot_single", data)
+    _render_single_kk_residual("tab_drt_EIS_truncated_plot_single", data, has_zhit_tknv)
 
-            with dpg.group(parent=residual_tab_tag):
-                _update_residual_plots(data, f"tab_drt_{data_type}_residuals")
+    if not _ensure_or_reset_tab_bar("tab_bar_drt_kk_plot_single", "tab_drt_kk_plot_single"):
+        print("---- Skipped: KK single tab bar could not be created.")
+        return
 
-            # Cleanup stale tabs while preserving existing valid tab objects.
-            children = dpg.get_item_children(tab_bar_tag)
-            for child in children[1]:
-                if isinstance(child, str) and child.startswith(f"tab_drt_{data_type}_") and child.endswith("_plot_single") and child not in valid_tabs:
-                    dpg.delete_item(child)
+    _ensure_or_clear_tab("tab_drt_kk_smooth_plot_single", "Smooth", "tab_bar_drt_kk_plot_single")
+    _ensure_or_clear_tab("tab_drt_kk_lccorrect_plot_single", "LCcorrect", "tab_bar_drt_kk_plot_single")
+    _ensure_or_clear_tab("tab_drt_kk_extrapolation_plot_single", "Extrapolation", "tab_bar_drt_kk_plot_single")
+
+    _render_single_gamma_distribution("tab_drt_kk_smooth_plot_single", data, "smooth")
+    _render_single_gamma_distribution("tab_drt_kk_lccorrect_plot_single", data, "LCcorrect")
+    _render_single_gamma_distribution("tab_drt_kk_extrapolation_plot_single", data, "extrapolation")
+
+    if has_zhit_tknv:
+        _render_single_gamma_distribution("tab_drt_zhit_plot_single", data, "zhit")
 
     print("---- DRT single plots updated successfully.")
 
@@ -180,82 +749,58 @@ def update_all_plots(config):
         print("---- Skipped: No files selected.")
         return
 
-    # Define data types and categories
-    data_types = ["truncated", "smooth", "LCcorrect", "extrapolation"]
-    data_categories = ["ReIm", "Re", "Im"]
+    if not dpg.does_item_exist("tab_bar_drt_plot_all"):
+        print("---- Skipped: tab_bar_drt_plot_all not found.")
+        return
 
-    for data_type in data_types:
-        data_type_tab = f"tab_drt_{data_type}_plot_all"
-        if not dpg.does_item_exist(data_type_tab):
-            with dpg.tab(label=data_type.capitalize(), tag=data_type_tab, parent="tab_bar_drt_plot_all"):
-                pass
+    has_any_zhit_tknv = False
+    has_any_lcurve = False
+    for file_name in config.selected_files:
+        file_key = os.path.splitext(file_name)[0]
+        if file_key in config.store and 'EIS' in config.store[file_key]:
+            eis_data = config.store[file_key]['EIS']
+            if _has_zhit_tknv(eis_data):
+                has_any_zhit_tknv = True
+            if _has_lambda_curve(eis_data):
+                has_any_lcurve = True
 
-        category_tab_bar = f"tab_bar_{data_type}_categories_all"
-        if not dpg.does_item_exist(category_tab_bar):
-            with dpg.tab_bar(tag=category_tab_bar, parent=data_type_tab):
-                pass
+    for stale_tab in [
+        "tab_drt_smooth_plot_all",
+        "tab_drt_LCcorrect_plot_all",
+        "tab_drt_extrapolation_plot_all",
+    ]:
+        if dpg.does_item_exist(stale_tab):
+            dpg.delete_item(stale_tab)
 
-        valid_category_tabs = set()
-        for category in data_categories:
-            category_tab = f"tab_drt_{data_type}_{category}_all"
-            valid_category_tabs.add(category_tab)
-            if not dpg.does_item_exist(category_tab):
-                with dpg.tab(label=category, tag=category_tab, parent=category_tab_bar):
-                    pass
+    _ensure_or_clear_tab("tab_drt_truncated_plot_all", "Truncated", "tab_bar_drt_plot_all")
+    _ensure_or_clear_tab("tab_drt_kk_plot_all", "KK", "tab_bar_drt_plot_all")
+    if has_any_lcurve:
+        _ensure_or_clear_tab("tab_drt_lcurve_plot_all", "L-curve", "tab_bar_drt_plot_all")
+    elif dpg.does_item_exist("tab_drt_lcurve_plot_all"):
+        dpg.delete_item("tab_drt_lcurve_plot_all")
 
-            dpg.delete_item(category_tab, children_only=True)
-            with dpg.group(parent=category_tab):
-                # Create gamma distribution plot
-                with dpg.plot(
-                    tag=f"plot_gamma_{data_type}_{category}_all",
-                    width=-1,
-                    height=-1,
-                    no_menus=False
-                ):
-                    # X-axis (log scale)
-                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value('check_box_drt_tau') else "Tau [s]", log_scale=True)
+    if has_any_zhit_tknv:
+        _ensure_or_clear_tab("tab_drt_zhit_plot_all", "ZHIT", "tab_bar_drt_plot_all")
+    elif dpg.does_item_exist("tab_drt_zhit_plot_all"):
+        dpg.delete_item("tab_drt_zhit_plot_all")
 
-                    # Y-axis
-                    y_axis = dpg.add_plot_axis(
-                        dpg.mvYAxis,
-                        label="gamma [ohm·s·cm2]",
-                        tag=f"y_axis_{data_type}_{category}_all"
-                    )
+    _render_all_gamma_distribution("tab_drt_truncated_plot_all", config, "truncated")
+    if has_any_lcurve:
+        _render_lambda_curve_all("tab_drt_lcurve_plot_all", config)
 
-                    # Iterate through selected files and add data
-                    y_max_value = 0
-                    y_min_value = 0
-                    for file_name in config.selected_files:
-                        file_key = os.path.splitext(file_name)[0]
-                        if file_key in config.store and 'EIS' in config.store[file_key]:
-                            data = config.store[file_key]['EIS']
-                            if data[f"tknv_{data_type}"] is not None:
-                                _add_series_to_plot(
-                                    {
-                                        'f': data[f"tknv_{data_type}"][category]['f'],
-                                        'y': data[f"tknv_{data_type}"][category]['g']
-                                    },
-                                    y_axis,
-                                    label=gui_utils.small_functions.string_abbreviation(file_key, 12, 12),
-                                    is_line=True
-                                )
-                                if np.max(data[f"tknv_{data_type}"][category]['g']) > y_max_value:
-                                    y_max_value = np.max(data[f"tknv_{data_type}"][category]['g'])
-                                if np.min(data[f"tknv_{data_type}"][category]['g']) < y_min_value:
-                                    y_min_value = np.min(data[f"tknv_{data_type}"][category]['g'])
+    if not _ensure_or_reset_tab_bar("tab_bar_drt_kk_plot_all", "tab_drt_kk_plot_all"):
+        print("---- Skipped: KK all tab bar could not be created.")
+        return
 
-                    dpg.set_axis_limits(y_axis, y_min_value, y_max_value * 1.1)
+    _ensure_or_clear_tab("tab_drt_kk_smooth_plot_all", "Smooth", "tab_bar_drt_kk_plot_all")
+    _ensure_or_clear_tab("tab_drt_kk_lccorrect_plot_all", "LCcorrect", "tab_bar_drt_kk_plot_all")
+    _ensure_or_clear_tab("tab_drt_kk_extrapolation_plot_all", "Extrapolation", "tab_bar_drt_kk_plot_all")
 
-                    # Add legend
-                    dpg.add_plot_legend(
-                        parent=f"plot_gamma_{data_type}_{category}_all",
-                        location=dpg.mvPlot_Location_NorthEast
-                    )
+    _render_all_gamma_distribution("tab_drt_kk_smooth_plot_all", config, "smooth")
+    _render_all_gamma_distribution("tab_drt_kk_lccorrect_plot_all", config, "LCcorrect")
+    _render_all_gamma_distribution("tab_drt_kk_extrapolation_plot_all", config, "extrapolation")
 
-        # Remove stale category tabs if any legacy tabs remain.
-        children = dpg.get_item_children(category_tab_bar)
-        for child in children[1]:
-            if isinstance(child, str) and child.startswith(f"tab_drt_{data_type}_") and child.endswith("_all") and child not in valid_category_tabs:
-                dpg.delete_item(child)
+    if has_any_zhit_tknv:
+        _render_all_gamma_distribution("tab_drt_zhit_plot_all", config, "zhit")
 
     print("---- DRT gamma distribution plots updated successfully.")

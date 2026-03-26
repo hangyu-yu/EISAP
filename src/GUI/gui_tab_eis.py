@@ -199,6 +199,12 @@ def gui_tab_eis(config, EIS, CNLS):
                                 with dpg.table_row():
                                     dpg.add_text("Instrument", tag="text_instrument_type")
                                     dpg.add_input_text(tag="instrument_type", default_value=EIS.parameter["Sample"]["instrument_type"])
+                                    dpg.add_checkbox(
+                                        tag="RmNonKK",
+                                        label="Remove high KK residual data",
+                                        default_value= EIS.parameter["KK"]["RmNonKK"],
+                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
+                                        callback=lambda sender, app_data: RmNonKK_callback(sender, app_data, EIS))
                                     with dpg.file_dialog(
                                         directory_selector=False, 
                                         show=False, 
@@ -209,12 +215,6 @@ def gui_tab_eis(config, EIS, CNLS):
                                         width=700,
                                         height=400):
                                         dpg.add_file_extension(".py", color=(0, 255, 0, 255), custom_text="[Python]")
-                                    dpg.add_checkbox(
-                                        tag="RmNonKK",
-                                        label="Remove high KK residual data",
-                                        default_value= EIS.parameter["KK"]["RmNonKK"],
-                                        enabled=not EIS.parameter["ManualRemoval"]["enable"],
-                                        callback=lambda sender, app_data: RmNonKK_callback(sender, app_data, EIS))
                                 with dpg.table_row():
                                     dpg.add_text("Upper cut:", tag="text_num_cut_upper")
                                     dpg.add_input_text(
@@ -272,7 +272,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                 dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//12))
                                 dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//6))
 
-                                # Table content
+                                # Kramers-Kronig Analysis Parameters
                                 with dpg.table_row():
                                     dpg.add_text("Max. RCs")
                                     dpg.add_input_text(
@@ -297,7 +297,55 @@ def gui_tab_eis(config, EIS, CNLS):
                                     dpg.add_text("MU threshold")
                                     dpg.add_input_text(
                                         tag="mu_threshold", 
-                                        default_value=EIS.parameter["KK"]["mu_threshold"])    
+                                        default_value=EIS.parameter["KK"]["mu_threshold"])
+
+                                # EIS Preprocessing Parameters
+                                with dpg.table_row():
+                                    dpg.add_text("Smooth PPD")
+                                    dpg.add_input_text(tag="Smooth_PointsPerDecade", default_value=EIS.parameter["Smoothing"]["PointsPerDecade"])
+                                with dpg.table_row():
+                                    dpg.add_text("Ex. fmin [Hz]")
+                                    dpg.add_input_text(tag="extrapolation_fmin", default_value=EIS.parameter["Extrapolation"]["fmin"])
+                                with dpg.table_row():
+                                    dpg.add_text("Ex. fmax [Hz]")
+                                    dpg.add_input_text(tag="extrapolation_fmax", default_value=f"{EIS.parameter['Extrapolation']['fmax']:.0e}")
+                                with dpg.table_row():
+                                    dpg.add_text("Extrap. PPD")
+                                    dpg.add_input_text(tag="Extrapolation_PointsPerDecade", default_value=EIS.parameter["Extrapolation"]["PointsPerDecade"])    
+
+                        # Z-HIT parameters
+                        with dpg.tab(label="ZHIT", tag="tab_eis_parameter_ZHIT"):
+                            with dpg.table(
+                                header_row=False,
+                                borders_innerH=False,
+                                row_background=False,
+                                policy=dpg.mvTable_SizingStretchSame
+                            ):
+                                dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//12))
+                                dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//12))
+                                dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//6))
+
+                                with dpg.table_row():
+                                    dpg.add_text("Enable ZHIT")
+                                    dpg.add_checkbox(
+                                        tag="zhit_enable",
+                                        default_value=EIS.parameter["ZHIT"]["enable"]
+                                    )
+                                    dpg.add_text("Z-HIT modulus validation")
+                                with dpg.table_row():
+                                    dpg.add_text("Poly order")
+                                    dpg.add_input_text(
+                                        tag="zhit_poly_order",
+                                        default_value=EIS.parameter["ZHIT"]["poly_order"]
+                                    )
+                                    dpg.add_text("Savitzky-Golay order")
+                                with dpg.table_row():
+                                    dpg.add_text("Window fraction")
+                                    dpg.add_input_text(
+                                        tag="zhit_window_frac",
+                                        default_value=EIS.parameter["ZHIT"]["window_frac"]
+                                    )
+                                    dpg.add_text("0-1 relative SG window")
                         
                         # Manual Point Removal parameters
                         with dpg.tab(label="Manual Removal", tag="tab_eis_parameter_manual"):
@@ -355,35 +403,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                         enabled=dpg.get_value("checkbox_manual_remove_batch_points"),
                                         callback=lambda s, a: gui_utils.eis_batch_manual.reset_batch_cut(config)
                                     )
-                                    dpg.add_text("")    
-
-                        # EIS parameters
-                        with dpg.tab(label="EIS", tag="tab_eis_parameter_EIS"):
-                            with dpg.table(
-                                header_row=False,
-                                borders_innerH=False,
-                                row_background=False,
-                                policy=dpg.mvTable_SizingStretchSame
-                            ):
-                                # Define the columns
-                                dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//12))
-                                dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//12))
-                                dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width//6))
-
-                                # Table content
-                                with dpg.table_row():
-                                    dpg.add_text("Smooth PPD")
-                                    dpg.add_input_text(tag="Smooth_PointsPerDecade", default_value=EIS.parameter["Smoothing"]["PointsPerDecade"])
-                                with dpg.table_row():
-                                    dpg.add_text("Ex. fmin [Hz]")
-                                    dpg.add_input_text(tag="extrapolation_fmin", default_value=EIS.parameter["Extrapolation"]["fmin"])
-                                with dpg.table_row():
-                                    dpg.add_text("Ex. fmax [Hz]")
-                                    dpg.add_input_text(tag="extrapolation_fmax", default_value=f"{EIS.parameter['Extrapolation']['fmax']:.0e}"
-                                    )
-                                with dpg.table_row():
-                                    dpg.add_text("Extrap. PPD")
-                                    dpg.add_input_text(tag="Extrapolation_PointsPerDecade", default_value=EIS.parameter["Extrapolation"]["PointsPerDecade"])
+                                    dpg.add_text("")
 
                 # Window for the buttons
                 with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.082), horizontal_scrollbar=True, menubar=False, tag="child_window_eis_buttons"):

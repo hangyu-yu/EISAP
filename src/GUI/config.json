@@ -1,19 +1,9 @@
 {
     "font_size": 18,
-    "folder_path": "D:\\Downloads\\G8X-100_EIS_test\\Individual",
-    "file_list": [
-        "D:\\Downloads\\\u6d4b\u8bd5\\Projects\\00_Code test\\\u5982\u679c\\2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
-        "D:\\Downloads\\\u6d4b\u8bd5\\Projects\\00_Code test\\\u5982\u679c\\2024-09-02_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis02.txt",
-        "D:\\Downloads\\\u6d4b\u8bd5\\Projects\\00_Code test\\\u5982\u679c\\2024-09-03_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis03.txt",
-        "D:\\Downloads\\\u6d4b\u8bd5\\Projects\\00_Code test\\\u5982\u679c\\2024-09-04_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis04.txt"
-    ],
-    "selected_files": [
-        "2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
-        "2024-09-02_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis02.txt",
-        "2024-09-03_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis03.txt",
-        "2024-09-04_hq_sp_cu-31_durabilitiy_0846_425-75_060-120-120_780_dc5024ma_ac500ma_eis04.txt"
-    ],
+    "folder_path": "/Users/atlas/Desktop/Git/SOCEIS/Projects/00_Code test/99_eg_degradation",
+    "file_list": [],
+    "selected_files": [],
     "file_extensions": ".txt",
-    "display_file": "2024-09-01_hq_sp_cu-31_durabilitiy_1826_425-75_060-120-120_780_dc5024ma_ac500ma_eis01.txt",
-    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_general_all.py"
+    "display_file": "",
+    "data_import_function": ""
 }

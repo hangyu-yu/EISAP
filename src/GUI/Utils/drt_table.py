@@ -34,18 +34,40 @@ def table_update(config):
             dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 0, 0)    # Remove extra spacing
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 5)   # Adjust frame padding
     print("-- DRT data table updating...")
-    for data_type in ["truncated", "smooth", "LCcorrect",  "extrapolation", "Resistance_truncated"]:
-        dpg.delete_item(f"tab_drt_{data_type}_data")
-        with dpg.tab(label=data_type[0].upper()+data_type[1:], tag=f"tab_drt_{data_type}_data", parent="tab_bar_drt_data"):
-            dpg.delete_item(f"tab_bar_drt_{data_type}_data")
-            with dpg.tab_bar(label=data_type[0].upper()+data_type[1:], tag=f"tab_bar_drt_{data_type}_data", parent=f"tab_drt_{data_type}_data"):
+
+    def _safe_delete(tag, children_only=False):
+        if dpg.does_item_exist(tag):
+            dpg.delete_item(tag, children_only=children_only)
+
+    display_key = os.path.splitext(config.display_file)[0] if config.display_file not in ([], None) else None
+    display_eis = config.store.get(display_key, {}).get('EIS', None) if display_key is not None else None
+
+    data_types = ["truncated", "smooth", "LCcorrect",  "extrapolation"]
+    if (
+        display_eis is not None
+        and isinstance(getattr(display_eis, "tknv_zhit", None), dict)
+        and display_eis.tknv_zhit.get("Re", None) is not None
+        and display_eis.tknv_zhit.get("Im", None) is not None
+        and display_eis.tknv_zhit.get("ReIm", None) is not None
+    ):
+        data_types.append("zhit")
+    elif dpg.does_item_exist("tab_drt_zhit_data"):
+        _safe_delete("tab_drt_zhit_data")
+    data_types.append("Resistance_truncated")
+
+    for data_type in data_types:
+        _safe_delete(f"tab_drt_{data_type}_data")
+        tab_label = "ZHIT" if data_type == "zhit" else data_type[0].upper()+data_type[1:]
+        with dpg.tab(label=tab_label, tag=f"tab_drt_{data_type}_data", parent="tab_bar_drt_data"):
+            _safe_delete(f"tab_bar_drt_{data_type}_data")
+            with dpg.tab_bar(label=tab_label, tag=f"tab_bar_drt_{data_type}_data", parent=f"tab_drt_{data_type}_data"):
                 if data_type != "Resistance_truncated":
                     for data_category in ["ReIm", "Re", "Im"]:
-                        dpg.delete_item(f"tab_drt_{data_type}_{data_category}_data")
-                        with dpg.tab(label=f"{data_type[0].upper()+data_type[1:]}_{data_category}", tag=f"tab_drt_{data_type}_{data_category}_data", parent=f"tab_bar_drt_{data_type}_data"):
+                        _safe_delete(f"tab_drt_{data_type}_{data_category}_data")
+                        with dpg.tab(label=f"{tab_label}_{data_category}", tag=f"tab_drt_{data_type}_{data_category}_data", parent=f"tab_bar_drt_{data_type}_data"):
                             if config.display_file != [] and config.display_file is not None:
                                 # Clear existing table rows
-                                dpg.delete_item(f"tab_drt_{data_type}_{data_category}_data_table")
+                                _safe_delete(f"tab_drt_{data_type}_{data_category}_data_table")
 
                                 # Reconstruct the table with new data
                                 with dpg.table(
@@ -94,11 +116,11 @@ def table_update(config):
                             else:
                                 pass
                 else:
-                    dpg.delete_item(f"tab_drt_{data_type}_data")
+                    _safe_delete(f"tab_drt_{data_type}_data")
                     with dpg.tab(label=f"{data_type}", tag=f"tab_drt_{data_type}_data", parent="tab_bar_drt_data"):
                         if config.display_file != [] and config.display_file is not None:
                             # Clear existing table rows
-                            dpg.delete_item(f"tab_drt_{data_type}_data_table")
+                            _safe_delete(f"tab_drt_{data_type}_data_table")
 
                             # Reconstruct the table with new data
                             with dpg.table(

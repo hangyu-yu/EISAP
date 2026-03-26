@@ -40,15 +40,21 @@ def LambdaOPT(EIS_data, parameters):
         axs.append(fig.add_subplot(gs[0, 3]))
 
     lambda_values = np.logspace(np.log10(parameters['lambda_min']), np.log10(parameters['lambda_max']), parameters['n'])
+    return_data = bool(parameters.get('ReturnData', False))
 
     norm_res = []
     norm_drt = []
+
+    use_tknv_pos = bool(parameters.get('tknv_pos', False))
 
     for counter, lambda_val in enumerate(lambda_values):
         parameters_drt = parameters.copy()
         parameters_drt['lambda'] = lambda_val
 
-        drt = fn.DRT_tikhonov(EIS_data, parameters_drt)
+        if use_tknv_pos:
+            drt = fn.DRT_tknv_pos(EIS_data, parameters_drt)
+        else:
+            drt = fn.DRT_tikhonov(EIS_data, parameters_drt)
 
         norm_res.append(np.linalg.norm(drt['Re']['Residuals']))
         norm_drt.append(np.linalg.norm(drt['Re']['g']))
@@ -62,15 +68,19 @@ def LambdaOPT(EIS_data, parameters):
         axs[0].set_xlabel('f (Hz)')
         axs[0].set_ylabel(r'$\gamma\, [\Omega \cdot cm^2 \cdot s]$')
 
-    # Curvature
-    logx = np.log(np.array(norm_res) ** 2)
-    logy = np.log(np.array(norm_drt) ** 2)
+    # Curvature on log-log L-curve
+    norm_res_arr = np.asarray(norm_res, dtype=float)
+    norm_drt_arr = np.asarray(norm_drt, dtype=float)
+    eps = 1e-300
+    logx = np.log(np.clip(norm_res_arr ** 2, eps, None))
+    logy = np.log(np.clip(norm_drt_arr ** 2, eps, None))
     dlogx = np.gradient(logx)
     dlogy = np.gradient(logy)
     ddlogx = np.gradient(dlogx)
     ddlogy = np.gradient(dlogy)
 
-    k = np.abs((dlogx * ddlogy - dlogy * ddlogx)) / (dlogx ** 2 + dlogy ** 2) ** 1.5
+    denom = np.clip((dlogx ** 2 + dlogy ** 2) ** 1.5, eps, None)
+    k = np.abs((dlogx * ddlogy - dlogy * ddlogx)) / denom
 
     if parameters['PlotFig']:
         axs[1].semilogx(lambda_values, k, 'k')
@@ -78,8 +88,8 @@ def LambdaOPT(EIS_data, parameters):
         axs[1].set_xlabel(r'$\lambda$')
         axs[1].set_ylabel('curvature')
 
-    max_curvature_index = np.argmax(k)
-    lambda_optimal = lambda_values[max_curvature_index]
+    max_curvature_index = int(np.argmax(k))
+    lambda_optimal = float(lambda_values[max_curvature_index])
 
     if parameters['PlotFig']:
         axs[2].loglog(norm_res, norm_drt, 'k-')
@@ -100,5 +110,16 @@ def LambdaOPT(EIS_data, parameters):
 
         # Show plot
         #plt.show(block=False)
+
+    if return_data:
+        return {
+            'lambda_optimal': lambda_optimal,
+            'lambda_values': lambda_values,
+            'norm_res': norm_res_arr,
+            'norm_drt': norm_drt_arr,
+            'curvature': np.asarray(k, dtype=float),
+            'max_curvature_index': max_curvature_index,
+            'tknv_pos': use_tknv_pos,
+        }
 
     return lambda_optimal

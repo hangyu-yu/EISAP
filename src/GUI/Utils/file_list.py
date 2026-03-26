@@ -411,6 +411,9 @@ def display_file(sender, app_data, config):
         dpg.set_value("extrapolation_fmin", f"{float(EIS_tmp.parameter['Extrapolation']['fmin']):.0e}")
         dpg.set_value("extrapolation_fmax", f"{float(EIS_tmp.parameter['Extrapolation']['fmax']):.0e}")
         dpg.set_value("Extrapolation_PointsPerDecade", f"{float(EIS_tmp.parameter['Extrapolation']['PointsPerDecade']):.0f}")
+        dpg.set_value("zhit_enable", EIS_tmp.parameter["ZHIT"]["enable"])
+        dpg.set_value("zhit_poly_order", f"{float(EIS_tmp.parameter['ZHIT']['poly_order']):.0f}")
+        dpg.set_value("zhit_window_frac", f"{float(EIS_tmp.parameter['ZHIT']['window_frac']):.3f}")
 
         # Enable stuff
         dpg.configure_item("num_cut_upper", enabled=not EIS_tmp.parameter['ManualRemoval']['enable'])
@@ -436,10 +439,25 @@ def display_file(sender, app_data, config):
         dpg.set_value('input_text_min_lambda', EIS_tmp.parameter["LambdaOpt"]["lambda_min"])
         dpg.set_value('input_text_max_lambda', EIS_tmp.parameter["LambdaOpt"]["lambda_max"])
         dpg.set_value('input_text_lambda_points', EIS_tmp.parameter["LambdaOpt"]["n"])
+        if dpg.does_item_exist('combo_lambda_target'):
+            lambda_target_items = gui_utils.drt_functions.get_lambda_target_items(EIS_tmp)
+            dpg.configure_item('combo_lambda_target', items=lambda_target_items)
+            lambda_target = gui_utils.drt_functions.normalize_lambda_target(
+                EIS_tmp.parameter["LambdaOpt"].get("target", "truncated"),
+                EIS_tmp,
+            )
+            EIS_tmp.parameter["LambdaOpt"]["target"] = lambda_target
+            dpg.set_value('combo_lambda_target', lambda_target)
+        lambda_mode_optimal = EIS_tmp.parameter["DRT"].get("Lambda_selection", "Manual") == "Optimal"
+        if dpg.does_item_exist('check_box_lambda_mode'):
+            dpg.set_value('check_box_lambda_mode', lambda_mode_optimal)
+        if dpg.does_item_exist("input_text_lambda"):
+            dpg.configure_item("input_text_lambda", enabled=not lambda_mode_optimal)
+            dpg.set_value("input_text_lambda", "Optimal" if lambda_mode_optimal else EIS_tmp.parameter["DRT"]["lambda"])
         if dpg.does_item_exist("text_optimal_lambda") and config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt:
-            dpg.set_value('check_box_tknv_pos', True if EIS_tmp.parameter["DRT"]["Lambda_selection"] == "Optimal" else False)
-            dpg.configure_item("input_text_lambda", enabled=False if EIS_tmp.parameter["DRT"]["Lambda_selection"] == "Optimal" else True)
             dpg.set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
+        elif dpg.does_item_exist("text_optimal_lambda"):
+            dpg.set_value("text_optimal_lambda", "Non-calculated")
     except:
         if dpg.does_item_exist("text_optimal_lambda"):
             dpg.set_value("text_optimal_lambda", "Non-calculated")

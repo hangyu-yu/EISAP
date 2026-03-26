@@ -103,6 +103,20 @@ class DRT:
             'tau_RC': None              # Time constants of RC elements
         }
 
+        # Data structure for Z-HIT results
+        self.zhit_data = {
+            'f': None,                  # Frequency data [Hz]
+            'omega': None,              # Angular frequency [rad/s]
+            'Z_mod_meas': None,         # Measured impedance modulus
+            'Z_mod_zhit': None,         # Z-HIT reconstructed impedance modulus
+            'phi_deg': None,            # Measured phase [deg]
+            'phi_smooth_deg': None,     # Smoothed phase [deg]
+            'phase_integral': None,     # (2/pi) integral term
+            'correction': None,         # gamma * dphi/dln(omega)
+            'delta_lnZ': None,          # Log residual
+            'delta_lnZ_pct': None       # Log residual in percent
+        }
+
         # Data structure for tikonov methodology
         self.tknv_truncated = None
 
@@ -112,7 +126,10 @@ class DRT:
 
         self.tknv_LCcorrect = None
 
+        self.tknv_zhit = None
+
         self.lambda_opt = None
+        self.lambdaopt_curve = None
 
         # Data treatment parameters
         self.parameter = {
@@ -177,11 +194,18 @@ class DRT:
                 'fmax': 1e10,           # Maximal frequency for smoothing
                 'PointsPerDecade': 20,  # Number of points per decade for smoothing
             },
+            # Z-HIT validation
+            'ZHIT': {
+                'enable': False,        # Perform Z-HIT or not
+                'poly_order': 6,        # Savitzky-Golay polynomial order
+                'window_frac': 0.3     # Savitzky-Golay window fraction
+            },
             # Optimal lambda
             'LambdaOpt': {
                 'lambda_min': 1e-7,     # Minimal lambda value for Tikhonov regularization
                 'lambda_max': 0.2,      # Maximal lambda value for Tikhonov regularization
                 'n': 100,               # Number of lambda values to be tested
+                'target': 'truncated',  # Target dataset for LambdaOPT
                 'lampda_opt': False,     # Perform optimal lambda selection or not
                 'PlotFig': False,        # Plot the L-curve or not
             },
@@ -323,11 +347,104 @@ class DRT:
         """
         EIS_data = fn.ConvertToASR(EIS_data,parameter)
         return EIS_data
+
+    def ZHIT(self, EIS_data):
+        """
+        Perform Z-HIT validation on EIS data.
+        """
+        if EIS_data is None or EIS_data.get('f', None) is None:
+            print("[Warning] Z-HIT skipped: EIS data is empty.")
+            return
+
+        f = np.asarray(EIS_data['f'])
+        z = np.asarray(EIS_data['Z'])
+        if len(f) < 7:
+            print("[Warning] Z-HIT skipped: not enough points (need >= 7).")
+            return
+
+        z_abs = np.abs(z)
+        if np.any(z_abs <= 0):
+            print("[Warning] Z-HIT skipped: non-positive impedance modulus found.")
+            return
+
+        zhit_input = pd.DataFrame({
+            'f': f,
+            'omega': 2 * np.pi * f,
+            'Z_mod': z_abs,
+            'phi': np.degrees(np.angle(z)),
+        })
+
+        zhit_df, zhit_info = fn.Z_HIT(zhit_input, self.parameter['ZHIT'])
+        self.store['EIS_zhit'] = zhit_df
+        self.store['ZHIT_info'] = zhit_info
+
+        for key in self.zhit_data.keys():
+            self.zhit_data[key] = zhit_df[key].to_numpy() if key in zhit_df.columns else None
+
+    def get_zhit_smooth_eis_data(self):
+        """
+        Build an EIS-like dict from ZHIT reconstructed modulus/phase for DRT processing.
+        Returns None when required ZHIT fields are unavailable.
+        """
+        if self.zhit_data['f'] is None or self.zhit_data['Z_mod_zhit'] is None:
+            return None
+
+        phi_deg = self.zhit_data['phi_smooth_deg']
+        if phi_deg is None:
+            phi_deg = self.zhit_data['phi_deg']
+        if phi_deg is None:
+            return None
+
+        f = np.asarray(self.zhit_data['f'], dtype=float)
+        z_mod = np.asarray(self.zhit_data['Z_mod_zhit'], dtype=float)
+        phi_deg = np.asarray(phi_deg, dtype=float)
+        if len(f) == 0 or len(z_mod) == 0 or len(phi_deg) == 0:
+            return None
+
+        valid = np.isfinite(f) & np.isfinite(z_mod) & np.isfinite(phi_deg) & (f > 0) & (z_mod > 0)
+        if not np.any(valid):
+            return None
+
+        f = f[valid]
+        z_mod = z_mod[valid]
+        phi_deg = phi_deg[valid]
+
+        # DRT utils expect frequency from high to low.
+        sort_idx = np.argsort(f)[::-1]
+        f = f[sort_idx]
+        z_mod = z_mod[sort_idx]
+        phi_deg = phi_deg[sort_idx]
+
+        phi_rad = np.deg2rad(phi_deg)
+        re = z_mod * np.cos(phi_rad)
+        im = z_mod * np.sin(phi_rad)
+        z = re + 1j * im
+        omega = 2 * np.pi * f
+        tau = 1 / omega
+
+        return {
+            'f': f,
+            'Re': re,
+            'Im': im,
+            'Z': z,
+            'omega': omega,
+            'tau': tau,
+        }
     
     # Functions for Tiknov regularization
     def lambdaOPT(self, EIS_data):
-        parameter = self.parameter['LambdaOpt']
-        self.lambda_opt = fn.LambdaOPT(EIS_data, parameter)
+        parameter = self.parameter['LambdaOpt'].copy()
+        parameter['tknv_pos'] = bool(self.parameter.get('DRT', {}).get('tknv_pos', False))
+        parameter['ReturnData'] = True
+        lambda_result = fn.LambdaOPT(EIS_data, parameter)
+        if isinstance(lambda_result, dict):
+            self.lambda_opt = float(lambda_result.get('lambda_optimal', np.nan))
+            self.lambdaopt_curve = lambda_result
+            self.store['LambdaOPT_curve'] = lambda_result
+        else:
+            self.lambda_opt = float(lambda_result)
+            self.lambdaopt_curve = None
+            self.store['LambdaOPT_curve'] = None
         print(f"---- Optimal lambda value: {self.lambda_opt}")
 
     def tknv(self):
@@ -345,6 +462,12 @@ class DRT:
 
         # Perform Tikhonov regularization on L/C corrected data
         self.tknv_LCcorrect = fn.DRT_tikhonov(self.LCcorrect, self.parameter['DRT'])
+
+        # Perform Tikhonov regularization on ZHIT reconstructed smooth data (if available)
+        self.tknv_zhit = None
+        zhit_eis_data = self.get_zhit_smooth_eis_data()
+        if zhit_eis_data is not None:
+            self.tknv_zhit = fn.DRT_tikhonov(zhit_eis_data, self.parameter['DRT'])
 
         # Calculate and print the total execution time
         elapsed_time = time.time() - start_time
@@ -365,6 +488,12 @@ class DRT:
 
         # Perform Tikhonov regularization on L/C corrected data
         self.tknv_LCcorrect = fn.DRT_tknv_pos(self.LCcorrect, self.parameter['DRT'])
+
+        # Perform positive Tikhonov regularization on ZHIT reconstructed smooth data (if available)
+        self.tknv_zhit = None
+        zhit_eis_data = self.get_zhit_smooth_eis_data()
+        if zhit_eis_data is not None:
+            self.tknv_zhit = fn.DRT_tknv_pos(zhit_eis_data, self.parameter['DRT'])
 
         # Calculate and print the total execution time
         elapsed_time = time.time() - start_time
@@ -781,9 +910,13 @@ class DRT:
                 'fmin_extrapolation': [self.parameter['Extrapolation']['fmin']],
                 'fmax_extrapolation': [self.parameter['Extrapolation']['fmax']],
                 'PointsPerDecade_extrapolation': [self.parameter['Extrapolation']['PointsPerDecade']],
+                'ZHIT_enable': [self.parameter['ZHIT']['enable']],
+                'ZHIT_poly_order': [self.parameter['ZHIT']['poly_order']],
+                'ZHIT_window_frac': [self.parameter['ZHIT']['window_frac']],
                 'lambda_min': [self.parameter['LambdaOpt']['lambda_min']],
                 'lambda_max': [self.parameter['LambdaOpt']['lambda_max']],
                 'lambda_n': [self.parameter['LambdaOpt']['n']],
+                'lambda_target': [self.parameter['LambdaOpt']['target']],
                 'lampda_opt': [self.parameter['LambdaOpt']['lampda_opt']],
                 'PlotFig': [self.parameter['LambdaOpt']['PlotFig']],
                 'Lambda_selection': [self.parameter['DRT']['Lambda_selection']],
@@ -841,6 +974,21 @@ class DRT:
                 'Im/ohm·cm2': self.extrapolation['Im']
             }).to_excel(writer, sheet_name='Extended', index=False)
 
+            # Z-HIT data
+            if self.zhit_data['f'] is not None:
+                pd.DataFrame({
+                    'Frequency/Hz': self.zhit_data['f'],
+                    'omega/rad/s': self.zhit_data['omega'],
+                    'Z_mod_meas/ohm·cm2': self.zhit_data['Z_mod_meas'],
+                    'Z_mod_zhit/ohm·cm2': self.zhit_data['Z_mod_zhit'],
+                    'phi_deg': self.zhit_data['phi_deg'],
+                    'phi_smooth_deg': self.zhit_data['phi_smooth_deg'],
+                    'phase_integral': self.zhit_data['phase_integral'],
+                    'correction': self.zhit_data['correction'],
+                    'delta_lnZ': self.zhit_data['delta_lnZ'],
+                    'delta_lnZ_pct': self.zhit_data['delta_lnZ_pct'],
+                }).to_excel(writer, sheet_name='ZHIT', index=False)
+
             # Resistance data
             pd.DataFrame({
                 'L/H·cm2 - KK': self.KK_data['L_kk'],
@@ -888,6 +1036,7 @@ class DRT:
                 'lambda_min': [self.parameter['LambdaOpt']['lambda_min']],
                 'lambda_max': [self.parameter['LambdaOpt']['lambda_max']],
                 'lambda_n': [self.parameter['LambdaOpt']['n']],
+                'lambda_target': [self.parameter['LambdaOpt']['target']],
                 'lampda_opt': [self.parameter['LambdaOpt']['lampda_opt']],
                 'PlotFig': [self.parameter['LambdaOpt']['PlotFig']]
             }).to_excel(writer, sheet_name='DRT_Parameters', index=False)
@@ -996,18 +1145,50 @@ class DRT:
                     'Residuals': self.tknv_LCcorrect['ReIm']['Residuals']
                 }).to_excel(writer, sheet_name='Tknv_ReIm_crct', index=False)
 
-                for data_cat in ['truncated', 'smooth', 'extrapolation', 'LCcorrect']:
-                    pd.DataFrame({
-                        'L/ohm·cm2 - DRT_Re': [self['tknv_'+data_cat]['RL']['L_Re']],
-                        'Rohm/ohm·cm2 - DRT_Re': [self['tknv_'+data_cat]['RL']['Rs_Re']],
-                        'Rp/ohm·cm2 - DRT_Re': [self['tknv_'+data_cat]['RL']['Rp_Re']],
-                        'L/ohm·cm2 - DRT_Im': [self['tknv_'+data_cat]['RL']['L_Im']],
-                        'Rohm/ohm·cm2 - DRT_Im': [self['tknv_'+data_cat]['RL']['Rs_Im']],
-                        'Rp/ohm·cm2 - DRT_Im': [self['tknv_'+data_cat]['RL']['Rp_Im']],
-                        'L/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['L_ReIm']],
-                        'Rohm/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['Rs_ReIm']],
-                        'Rp/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['Rp_ReIm']]
-                    }).to_excel(writer, sheet_name='Resistance_'+data_cat, index=False)
+            # ZHIT-based Tikhonov regularization data
+            if hasattr(self, 'tknv_zhit') and self.tknv_zhit is not None:
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_zhit['Re']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_zhit['Re']['g'],
+                    'Re/ohm·cm2': self.tknv_zhit['Re']['Re'],
+                    'Im/ohm·cm2': self.tknv_zhit['Re']['Im'],
+                    'Residuals': self.tknv_zhit['Re']['Residuals']
+                }).to_excel(writer, sheet_name='Tknv_Re_z', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_zhit['Im']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_zhit['Im']['g'],
+                    'Re/ohm·cm2': self.tknv_zhit['Im']['Re'],
+                    'Im/ohm·cm2': self.tknv_zhit['Im']['Im'],
+                    'Residuals': self.tknv_zhit['Im']['Residuals']
+                }).to_excel(writer, sheet_name='Tknv_Im_z', index=False)
+
+                pd.DataFrame({
+                    'Frequency/Hz': self.tknv_zhit['ReIm']['f'],
+                    'gamma/ohm·s·cm2': self.tknv_zhit['ReIm']['g'],
+                    'Re/ohm·cm2': self.tknv_zhit['ReIm']['Re'],
+                    'Im/ohm·cm2': self.tknv_zhit['ReIm']['Im'],
+                    'Residuals': self.tknv_zhit['ReIm']['Residuals']
+                }).to_excel(writer, sheet_name='Tknv_ReIm_z', index=False)
+
+            resistance_data_cats = ['truncated', 'smooth', 'extrapolation', 'LCcorrect']
+            if hasattr(self, 'tknv_zhit') and self.tknv_zhit is not None:
+                resistance_data_cats.append('zhit')
+
+            for data_cat in resistance_data_cats:
+                if self['tknv_'+data_cat] is None:
+                    continue
+                pd.DataFrame({
+                    'L/ohm·cm2 - DRT_Re': [self['tknv_'+data_cat]['RL']['L_Re']],
+                    'Rohm/ohm·cm2 - DRT_Re': [self['tknv_'+data_cat]['RL']['Rs_Re']],
+                    'Rp/ohm·cm2 - DRT_Re': [self['tknv_'+data_cat]['RL']['Rp_Re']],
+                    'L/ohm·cm2 - DRT_Im': [self['tknv_'+data_cat]['RL']['L_Im']],
+                    'Rohm/ohm·cm2 - DRT_Im': [self['tknv_'+data_cat]['RL']['Rs_Im']],
+                    'Rp/ohm·cm2 - DRT_Im': [self['tknv_'+data_cat]['RL']['Rp_Im']],
+                    'L/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['L_ReIm']],
+                    'Rohm/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['Rs_ReIm']],
+                    'Rp/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['Rp_ReIm']]
+                }).to_excel(writer, sheet_name='Resistance_'+data_cat, index=False)
 
         print(f"-- DRT data saved for {self.filename}.")
 
@@ -1077,9 +1258,14 @@ class DRT:
                 self.parameter['Extrapolation']['fmin'] = safe_get('fmin_extrapolation', 1e-8, float)
                 self.parameter['Extrapolation']['fmax'] = safe_get('fmax_extrapolation', 1e10, float)
                 self.parameter['Extrapolation']['PointsPerDecade'] = safe_get('PointsPerDecade_extrapolation', 20, int)
+                self.parameter['ZHIT']['enable'] = safe_get('ZHIT_enable', False, bool)
+                self.parameter['ZHIT']['poly_order'] = safe_get('ZHIT_poly_order', 3, int)
+                self.parameter['ZHIT']['window_frac'] = safe_get('ZHIT_window_frac', 0.25, float)
                 self.parameter['LambdaOpt']['lambda_min'] = safe_get('lambda_min', 1e-7, float)
                 self.parameter['LambdaOpt']['lambda_max'] = safe_get('lambda_max', 0.2, float)
                 self.parameter['LambdaOpt']['n'] = safe_get('lambda_n', 100, int)
+                lambda_target = str(safe_get('lambda_target', 'truncated', str)).lower()
+                self.parameter['LambdaOpt']['target'] = lambda_target if lambda_target in {'truncated', 'lccorrect', 'smooth', 'extrapolation', 'zhit'} else 'truncated'
                 self.parameter['LambdaOpt']['lampda_opt'] = safe_get('lampda_opt', True, bool)
                 self.parameter['LambdaOpt']['PlotFig'] = safe_get('PlotFig', False, bool)
                 self.parameter['DRT']['Lambda_selection'] = safe_get('Lambda_selection', 'Manual', str)
@@ -1147,6 +1333,22 @@ class DRT:
                 self.KK_data['res_pol_kk'] = resistance_data['Rp/ohm·cm2 - KK'].values
             except Exception as e:
                 print(f"---- Failed to import resistance data: {str(e)}")
+
+            # Import Z-HIT data
+            try:
+                zhit_data = pd.read_excel(_normalize_path(eis_file), sheet_name='ZHIT')
+                self.zhit_data['f'] = zhit_data['Frequency/Hz'].values
+                self.zhit_data['omega'] = zhit_data['omega/rad/s'].values if 'omega/rad/s' in zhit_data.columns else 2 * np.pi * self.zhit_data['f']
+                self.zhit_data['Z_mod_meas'] = zhit_data['Z_mod_meas/ohm·cm2'].values
+                self.zhit_data['Z_mod_zhit'] = zhit_data['Z_mod_zhit/ohm·cm2'].values
+                self.zhit_data['phi_deg'] = zhit_data['phi_deg'].values if 'phi_deg' in zhit_data.columns else None
+                self.zhit_data['phi_smooth_deg'] = zhit_data['phi_smooth_deg'].values if 'phi_smooth_deg' in zhit_data.columns else None
+                self.zhit_data['phase_integral'] = zhit_data['phase_integral'].values if 'phase_integral' in zhit_data.columns else None
+                self.zhit_data['correction'] = zhit_data['correction'].values if 'correction' in zhit_data.columns else None
+                self.zhit_data['delta_lnZ'] = zhit_data['delta_lnZ'].values if 'delta_lnZ' in zhit_data.columns else None
+                self.zhit_data['delta_lnZ_pct'] = zhit_data['delta_lnZ_pct'].values if 'delta_lnZ_pct' in zhit_data.columns else None
+            except Exception as e:
+                print(f"---- Failed to import ZHIT data: {str(e)}")
             
             print("---- EIS data import successful!")
             return True
@@ -1181,6 +1383,7 @@ class DRT:
             self.tknv_smooth = {'RL': dict(self.tknv_truncated['RL'])}
             self.tknv_extrapolation = {'RL': dict(self.tknv_truncated['RL'])}
             self.tknv_LCcorrect = {'RL': dict(self.tknv_truncated['RL'])}
+            self.tknv_zhit = {'RL': dict(self.tknv_truncated['RL'])}
             
             # 3. Import parameter table
             try:
@@ -1204,6 +1407,8 @@ class DRT:
                 self.parameter['LambdaOpt']['lambda_min'] = safe_get('lambda_min', 1e-7, float)
                 self.parameter['LambdaOpt']['lambda_max'] = safe_get('lambda_max', 0.2, float)
                 self.parameter['LambdaOpt']['n'] = safe_get('lambda_n', 100, int)
+                lambda_target = str(safe_get('lambda_target', 'truncated', str)).lower()
+                self.parameter['LambdaOpt']['target'] = lambda_target if lambda_target in {'truncated', 'lccorrect', 'smooth', 'extrapolation', 'zhit'} else 'truncated'
                 self.parameter['LambdaOpt']['lampda_opt'] = safe_get('lampda_opt', True, bool)
                 self.parameter['LambdaOpt']['PlotFig'] = safe_get('PlotFig', False, bool)
             except Exception as e:
@@ -1222,7 +1427,10 @@ class DRT:
                 ('ReIm', 'e'): ('Tknv_ReIm_e', 'extrapolation'),
                 ('Re', 'crct'): ('Tknv_Re_crct', 'LCcorrect'),
                 ('Im', 'crct'): ('Tknv_Im_crct', 'LCcorrect'),
-                ('ReIm', 'crct'): ('Tknv_ReIm_crct', 'LCcorrect')
+                ('ReIm', 'crct'): ('Tknv_ReIm_crct', 'LCcorrect'),
+                ('Re', 'z'): ('Tknv_Re_z', 'zhit'),
+                ('Im', 'z'): ('Tknv_Im_z', 'zhit'),
+                ('ReIm', 'z'): ('Tknv_ReIm_z', 'zhit')
             }
             
             # 5. Import all data tables
@@ -1255,6 +1463,10 @@ class DRT:
                 except Exception as e:
                     print(f"---- Failed to import {sheet_name}: {str(e)}")
 
+            if isinstance(self.tknv_zhit, dict):
+                if self.tknv_zhit.get('Re', None) is None or self.tknv_zhit.get('Im', None) is None or self.tknv_zhit.get('ReIm', None) is None:
+                    self.tknv_zhit = None
+
             print("---- DRT data import successful!")
             return True
             
@@ -1281,6 +1493,8 @@ class DRT:
             return self.extrapolation
         elif key == 'KK_data':
             return self.KK_data
+        elif key == 'zhit_data':
+            return self.zhit_data
         elif key == 'tknv_truncated':
             return self.tknv_truncated
         elif key == 'tknv_smooth':
@@ -1289,6 +1503,8 @@ class DRT:
             return self.tknv_extrapolation
         elif key == 'tknv_LCcorrect':
             return self.tknv_LCcorrect
+        elif key == 'tknv_zhit':
+            return self.tknv_zhit
         elif key == 'parameter':
             return self.parameter
         else:

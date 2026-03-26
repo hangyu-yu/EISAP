@@ -72,24 +72,27 @@ def tknv_pos_callback(sender, app_data, EIS, config):
             if app_data:
                 mode = True
                 if dpg.does_item_exist("input_text_lambda"):
-                    dpg.configure_item("input_text_lambda", default_value=0.05, enabled=True)
-                    dpg.set_value("input_text_lambda", 0.05)
-                dpg.configure_item("check_box_lambda_mode", enabled=False)
-                dpg.set_value("check_box_lambda_mode", False)
-                dpg.configure_item("input_text_max_lambda", enabled=False, default_value="not available")
-                dpg.configure_item("input_text_min_lambda", enabled=False, default_value="not available")
-                dpg.configure_item("input_text_lambda_points", enabled=False, default_value="not available")
+                    # Keep lambda mode behavior consistent: manual uses numeric value, optimal shows locked text.
+                    if dpg.get_value("check_box_lambda_mode"):
+                        dpg.configure_item("input_text_lambda", enabled=False)
+                        dpg.set_value("input_text_lambda", "Optimal")
+                    else:
+                        dpg.configure_item("input_text_lambda", enabled=True)
+                        dpg.set_value("input_text_lambda", EIS_tmp.parameter["DRT"]["lambda"])
+                dpg.configure_item("check_box_lambda_mode", enabled=True)
+                dpg.configure_item("input_text_max_lambda", enabled=True, default_value=EIS_tmp.parameter["LambdaOpt"]["lambda_max"])
+                dpg.configure_item("input_text_min_lambda", enabled=True, default_value=EIS_tmp.parameter["LambdaOpt"]["lambda_min"])
+                dpg.configure_item("input_text_lambda_points", enabled=True, default_value=EIS_tmp.parameter["LambdaOpt"]["n"])
             else:
                 mode = False
-                file_name_no_ext_dis = os.path.splitext(config.display_file)[0]
                 if dpg.does_item_exist("input_text_lambda"):
-                    dpg.configure_item("input_text_lambda", default_value=0.0005, enabled=True)
-                    dpg.set_value(
-                        "input_text_lambda",
-                        0.0005,
-                    )
+                    if dpg.get_value("check_box_lambda_mode"):
+                        dpg.configure_item("input_text_lambda", enabled=False)
+                        dpg.set_value("input_text_lambda", "Optimal")
+                    else:
+                        dpg.configure_item("input_text_lambda", enabled=True)
+                        dpg.set_value("input_text_lambda", EIS_tmp.parameter["DRT"]["lambda"])
                 dpg.configure_item("check_box_lambda_mode", enabled=True)
-                dpg.set_value("check_box_lambda_mode", False)
                 dpg.configure_item("input_text_max_lambda", enabled=True, default_value=EIS_tmp.parameter["LambdaOpt"]["lambda_max"])
                 dpg.configure_item("input_text_min_lambda", enabled=True, default_value=EIS_tmp.parameter["LambdaOpt"]["lambda_min"])
                 dpg.configure_item("input_text_lambda_points", enabled=True, default_value=EIS_tmp.parameter["LambdaOpt"]["n"])
@@ -97,12 +100,23 @@ def tknv_pos_callback(sender, app_data, EIS, config):
 
     print(f"-- Tikhonov positive mode set to {mode}")
 
-def lambda_opt_callback(sender, app_data, EIS):
+
+def lambda_target_callback(sender, app_data, EIS, config):
     """
-    Callback function for the lambda optimal checkbox.
+    Callback function for selecting lambda optimization target dataset.
     """
-    EIS.parameter["LambdaOpt"]["lampda_opt"] = bool(app_data)
-    print(f"Lambda optimal set to {app_data}")
+    target = str(app_data).lower().strip() if app_data is not None else "truncated"
+    if target not in {"truncated", "lccorrect", "smooth", "extrapolation", "zhit"}:
+        target = "truncated"
+
+    for file_name in config.selected_files:
+        file_name_no_ext = os.path.splitext(file_name)[0]
+        if file_name_no_ext not in config.store.keys():
+            raise FileNotFoundError("The specified file is not loaded or EIS processing is not done.")
+        eis_obj = config.store[file_name_no_ext]["EIS"]
+        eis_obj.parameter["LambdaOpt"]["target"] = gui_utils.drt_functions.normalize_lambda_target(target, eis_obj)
+
+    print(f"-- Lambda target set to {target}")
 
 def _ensure_plot_tab_bars_exist():
     """
@@ -190,7 +204,10 @@ def gui_tab_drt(config, EIS, CNLS):
                     menubar=True,
                     tag="child_window_file_list_drt",
                 ):
-                    gui_utils.file_list.update_file_list(config, "child_window_file_list_drt", EIS, CNLS)
+                    try:
+                        gui_utils.file_list.update_file_list(config, "child_window_file_list_drt", EIS, CNLS)
+                    except Exception as e:
+                        print(f"[Warning] DRT file list init failed: {e}")
 
                 # Parameters
                 with dpg.child_window(
@@ -249,7 +266,7 @@ def gui_tab_drt(config, EIS, CNLS):
                             dpg.add_text("Min. lambda:", tag="text_min_lambda")
                             dpg.add_input_text(
                                 tag="input_text_min_lambda",
-                                default_value=EIS.parameter["LambdaOpt"]["lambda_min"] if EIS.parameter["DRT"]["tknv_pos"] is not True else "not available",
+                                default_value=EIS.parameter["LambdaOpt"]["lambda_min"],
                                 enabled=True,
                                 width=-1,
                             )
@@ -259,7 +276,7 @@ def gui_tab_drt(config, EIS, CNLS):
                             dpg.add_text("Max. lambda:", tag="text_max_lambda")
                             dpg.add_input_text(
                                 tag="input_text_max_lambda",
-                                default_value=EIS.parameter["LambdaOpt"]["lambda_max"] if EIS.parameter["DRT"]["tknv_pos"] is not True else "not available",
+                                default_value=EIS.parameter["LambdaOpt"]["lambda_max"],
                                 enabled=True,
                                 width=-1,
                             )
@@ -269,8 +286,24 @@ def gui_tab_drt(config, EIS, CNLS):
                             dpg.add_text("Lambda points:", tag="text_lambda_points")
                             dpg.add_input_text(
                                 tag="input_text_lambda_points",
-                                default_value=EIS.parameter["LambdaOpt"]["n"] if EIS.parameter["DRT"]["tknv_pos"] is not True else "not available",
+                                default_value=EIS.parameter["LambdaOpt"]["n"],
                                 enabled=True,
+                                width=-1,
+                            )
+
+                        with dpg.table_row():
+                            dpg.add_text("")
+                            dpg.add_text("Lambda target:")
+                            lambda_target_items = gui_utils.drt_functions.get_lambda_target_items(EIS)
+                            lambda_target_default = gui_utils.drt_functions.normalize_lambda_target(
+                                EIS.parameter["LambdaOpt"].get("target", "truncated"),
+                                EIS,
+                            )
+                            dpg.add_combo(
+                                tag="combo_lambda_target",
+                                items=lambda_target_items,
+                                default_value=lambda_target_default,
+                                callback=lambda sender, app_data: lambda_target_callback(sender, app_data, EIS, config),
                                 width=-1,
                             )
 
@@ -339,7 +372,10 @@ def gui_tab_drt(config, EIS, CNLS):
                     tag="child_window_drt_data",
                 ):
                     with dpg.tab_bar(tag="tab_bar_drt_data"):
-                        gui_utils.drt_table.table_update(config)
+                        try:
+                            gui_utils.drt_table.table_update(config)
+                        except Exception as e:
+                            print(f"[Warning] DRT table init failed: {e}")
 
             # Plot display
             with dpg.child_window(
@@ -353,15 +389,24 @@ def gui_tab_drt(config, EIS, CNLS):
                 with dpg.tab_bar(tag="tab_bar_drt_plot"):
                     with dpg.tab(label="Single", tag="tab_drt_plot_single"):
                         with dpg.tab_bar(tag="tab_bar_drt_plot_single"):
-                            gui_utils.drt_plots.update_single_plots(config)
+                            try:
+                                gui_utils.drt_plots.update_single_plots(config)
+                            except Exception as e:
+                                print(f"[Warning] DRT single plot init failed: {e}")
 
                     with dpg.tab(label="All", tag="tab_drt_plot_all"):
                         with dpg.tab_bar(tag="tab_bar_drt_plot_all"):
-                            gui_utils.drt_plots.update_all_plots(config)
+                            try:
+                                gui_utils.drt_plots.update_all_plots(config)
+                            except Exception as e:
+                                print(f"[Warning] DRT all plot init failed: {e}")
 
     # Select this tab
     # (tab_bar value is selected-tab tag; set_value is fine as long as tab_bar_main exists)
     if dpg.does_item_exist("tab_bar_main"):
         dpg.set_value("tab_bar_main", "tab_drt")
-    gui_utils.file_list.display_file(None, config.display_file, config)
+    try:
+        gui_utils.file_list.display_file(None, config.display_file, config)
+    except Exception as e:
+        print(f"[Warning] DRT display_file refresh failed: {e}")
     update_child_window_size()

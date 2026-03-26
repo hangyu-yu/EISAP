@@ -139,6 +139,11 @@ def load_parameters(sender, app_data, config, EIS):
             EIS_tmp.parameter["Extrapolation"]["fmax"] = float(dpg.get_value("extrapolation_fmax"))
             EIS_tmp.parameter["Extrapolation"]["PointsPerDecade"] = int(dpg.get_value("Extrapolation_PointsPerDecade"))
 
+            # Load ZHIT parameters
+            EIS_tmp.parameter["ZHIT"]["enable"] = dpg.get_value("zhit_enable")
+            EIS_tmp.parameter["ZHIT"]["poly_order"] = int(dpg.get_value("zhit_poly_order"))
+            EIS_tmp.parameter["ZHIT"]["window_frac"] = float(dpg.get_value("zhit_window_frac"))
+
             # Store the cell area
             EIS_tmp.store['cell_area_old'] = EIS_tmp.parameter["Sample"]["CellArea"]
             EIS_tmp.store['n_cell_old'] = EIS_tmp.parameter["Sample"]["n_cell"]
@@ -245,6 +250,16 @@ def process_data(sender, app_data, config, EIS):
 
         EIS_tmp.LCcorrect = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Smoothing'])
         EIS_tmp.extrapolation = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Extrapolation'])
+
+        # 4) Z-HIT validation (optional)
+        if EIS_tmp.parameter.get('ZHIT', {}).get('enable', False):
+            try:
+                EIS_tmp.ZHIT(EIS_tmp.truncated)
+            except Exception as e:
+                print(f"[Warning] Z-HIT failed for {file_name_no_ext}: {e}")
+                EIS_tmp.zhit_data = {k: None for k in EIS_tmp.zhit_data.keys()}
+        else:
+            EIS_tmp.zhit_data = {k: None for k in EIS_tmp.zhit_data.keys()}
 
         print(f"---- Data has been processed successfully for {file_name_no_ext}.")
 
