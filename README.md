@@ -13,8 +13,8 @@
 <p align="center">
   <a href="https://pypi.org/project/soceis/"><img src="https://img.shields.io/pypi/v/soceis" alt="PyPI version"/></a>
   <a href="https://pypi.org/project/soceis/"><img src="https://img.shields.io/pypi/pyversions/soceis" alt="Python versions"/></a>
-  <img src="https://img.shields.io/badge/status-beta-yellow" alt="Beta"/>
-  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue" alt="Platform"/>
+  <img src="https://img.shields.io/badge/status-alpha-orange" alt="Alpha"/>
+  <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue" alt="Platform"/>
 </p>
 
 ---
