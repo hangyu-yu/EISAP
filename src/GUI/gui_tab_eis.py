@@ -459,7 +459,7 @@ def gui_tab_eis(config, EIS, CNLS):
                         gui_utils.eis_table.table_update(config)
 
             # Window for the plot display
-            with dpg.child_window(width=-1, height=-1, horizontal_scrollbar=True, menubar=False, border=True, tag="child_window_eis_plot"):
+            with dpg.child_window(width=-1, height=-1, horizontal_scrollbar=False, menubar=False, border=True, tag="child_window_eis_plot"):
                 with dpg.tab_bar(tag="tab_bar_eis_plot"):
                     with dpg.tab(label="Single", tag="tab_eis_plot_single"):
                         with dpg.tab_bar(tag="tab_bar_eis_plot_single"):

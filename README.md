@@ -9,38 +9,63 @@
 </p>
 
 # SOCEIS - Electrochemical Impedance Spectroscopy Analysis Suite
-Under development, more features up to come.
+SOCEIS is under active development (beta stage).
 
 ## Overview
-**SOCEIS** is an advanced Python-based toolkit for comprehensive analysis of electrochemical impedance spectroscopy (EIS) data, developed by **Hangyu Yu** (EPFL-GEM, Sion, Switzerland, headed by **Prof. Jan Van Herle**) and **Guillaume Jeamonod** (Hydro-Québec, Montreal, Canada) based on the code developed by **Priscilla Caliandro** (BFH, Biel, Switzerland).. The software integrates three core methodologies:
+**SOCEIS** is a Python desktop application for electrochemical impedance spectroscopy workflows, integrating:
 
-1. **Distribution of Relaxation Time (DRT)** - Tikhonov-regularized deconvolution
-2. **Equivalent Circuit Modeling (ECM)** - Flexible circuit topology builder with constraint management
-3. **Complex Nonlinear Least Squares (CNLS) Fitting** - Advanced optimization with:
-   - Bounded parameter constraints (R, τ, α, etc.)
-   - Adjustable parameter constraints
+1. **EIS preprocessing and validation** (cutting, significance/outlier filtering, KK validation, optional Z-HIT)
+2. **DRT analysis** (regularized inversion and lambda-related tools)
+3. **CNLS / equivalent-circuit fitting** (interactive model setup and constrained fitting)
 
-## Key Features
-### ▸ Experimental Workflow Integration
-- Batch processing with ECM constraints adjustment
-- Intuitive results illustration with individual measruement analysis and multiple data analysis
-- Native support for Zahner `.txt`/`.csv` files and BioLogic `.mpt` formats
+The GUI is implemented with **DearPyGui** and organized into dedicated tabs for SOCEIS home, EIS, DRT, and CNLS analysis.
 
-## Technical Specifications
-### System Requirements
-- Python 3.8+ (64-bit)
+## What This Repository Contains
+- `SOCEIS.py`: startup script that checks dependencies and launches the GUI (`src.GUI.gui_main`)
+- `src/GUI/`: user interface, tab layouts, callbacks, plotting, and table rendering
+- `src/Methods/DRT/` and `src/Methods/CNLS/`: core analysis algorithms and fitting logic
+- `src/Functions/01_Data_read/`: instrument/file reader implementations
+- `assets/`: icons, fonts, and screenshots used by the application
 
-### Dependencies
-| Package | Version | Purpose |
-|---------|---------|---------|
-| NumPy | ≥1.20 | Core numerical operations |
-| SciPy | ≥1.7 | Optimization & signal processing |
-| Pandas | ≥1.3 | Data structure management |
-| Matplotlib | ≥3.5 | Publication-quality visualization |
-| DearPyGui | ≥1.7 | GPU-accelerated UI framework |
-| OpenPyXL | ≥3.0 | Excel report generation |
-| streamlit |  | SOCEIS Viewer |
-| plotly |  | SOCEIS Viewer |
+## Key Capabilities
+- Single-file and multi-file visualization for EIS, DRT, and CNLS results
+- Full EIS processing chain: KK test, LC correction/smoothing/extrapolation, optional Z-HIT
+- Manual and batch point removal utilities for difficult datasets
+- Folder-based project workflow with EIS/DRT/CNLS result storage and reload support
+- Integrated update/check utilities and configurable UI settings (font size, paths, display)
+
+## Supported Input Formats
+Current readers in `src/Functions/01_Data_read/` include:
+
+- BioLogic: `.mpt`
+- Gamry: `.dta`
+- Zahner: `.txt`, `.csv` (including multichannel variants)
+- General text/CSV readers for standardized frequency-Re/Im formats
+
+## Quick Start
+### Requirements
+- Python 3.8+ (64-bit recommended)
+
+### Run
+```bash
+python SOCEIS.py
+```
+
+The launcher will attempt to install missing dependencies from `src/GUI/requirements.txt` automatically.
+
+### Main dependencies (from current requirements)
+- `numpy==2.2.6`
+- `scipy`
+- `pandas`
+- `matplotlib`
+- `dearpygui`
+- `openpyxl`
+- `natsort`
+- `requests`
+- `streamlit`
+- `plotly`
+- `psutil`
+- `cvxopt`
 
 <p align="center">
   <img src="assets/images/Fig_example_main.png" width="width: 100%;">
