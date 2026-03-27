@@ -21,7 +21,7 @@
 
 ## Overview
 
-**SOCEIS** is an open-source Python desktop application for the complete analysis workflow of Electrochemical Impedance Spectroscopy (EIS) data. It is developed at the Group of Energy Materials (GEM), École Polytechnique Fédérale de Lausanne (EPFL), Switzerland, in collaboration with Hydro-Québec and the Bern University of Applied Sciences (BFH).
+**SOCEIS** is an open-source Python desktop application for the complete analysis workflow of Electrochemical Impedance Spectroscopy (EIS) data. It is developed by Dr. Hangyu Yu at the Group of Energy Materials (GEM), École Polytechnique Fédérale de Lausanne (EPFL), Switzerland, in collaboration with Hydro-Québec and the Bern University of Applied Sciences (BFH).
 
 The software integrates three tightly coupled analytical modules into a single graphical environment:
 
@@ -102,6 +102,45 @@ git pull origin main
 
 ---
 
+## Beginner's Guide (No prior Python experience needed)
+
+This section walks you through everything from zero to running SOCEIS with a double-click.
+
+**Step 1 — Install Python**
+
+Download and install Python 3.11 from the official website: https://www.python.org/downloads/
+
+> During installation on Windows, check the box **"Add Python to PATH"** before clicking Install.
+
+**Step 2 — Install SOCEIS**
+
+Open a terminal (Windows: press `Win+R`, type `cmd`, press Enter) and run:
+
+```
+pip install soceis
+```
+
+This automatically downloads SOCEIS and all its dependencies. Wait for it to finish.
+
+**Step 3 — Create a desktop shortcut (Windows)**
+
+In the same terminal, run:
+
+```
+soceis
+```
+
+SOCEIS will start and offer to create a desktop shortcut automatically. Click **Yes**. After that you can launch SOCEIS at any time by **double-clicking the desktop icon** — no terminal needed.
+
+**Step 4 — Launch SOCEIS**
+
+- **Windows:** double-click the `SOCEIS` desktop shortcut created in Step 3.
+- **macOS / Linux:** open a terminal and type `soceis`, then press Enter.
+
+> If you ever need to update to a newer version, run `pip install --upgrade soceis` in a terminal.
+
+---
+
 ## Usage
 
 ### Launching SOCEIS
@@ -118,7 +157,7 @@ git pull origin main
 
 2. **EIS tab** — Configure preprocessing parameters (frequency cuts, significance threshold, outlier window) and run the pipeline. KK residuals and optional Z-HIT reconstruction are displayed immediately. Results are exported to `<project>/EIS/`.
 
-3. **DRT tab** — Choose a spectral variant (truncated / KK-smooth / LC-corrected / extrapolated / Z-HIT), select the inversion method (Tikhonov or RBF), and set the regularisation parameter $\lambda$ manually or via automatic optimisation. DRT results are exported to `<project>/DRT/`.
+3. **DRT tab** — Choose a spectral variant (truncated / KK-smooth / LC-corrected / extrapolated / Z-HIT), select the inversion method (Tikhonov or RBF), and set the regularisation parameter lambda manually or via automatic optimisation. DRT results are exported to `<project>/DRT/`.
 
 4. **CNLS tab** — Assemble an equivalent-circuit model by adding elements from the menu (R, RC, RQ, G, fFLW, …), set parameter bounds, and run the L-BFGS-B fit. Individual element DRT contributions are computed post-fit. Results are exported to `<project>/CNLS/`.
 
@@ -143,7 +182,7 @@ SOCEIS provides dedicated file readers for the most common potentiostatic and ga
 | Zahner Thales | `.txt`, `.csv` |
 | Generic frequency-domain text | `.txt`, `.csv` |
 
-All readers convert raw instrument data to a unified internal representation containing the frequency vector $f$ [Hz], the complex impedance $Z = Z' - jZ''$ [$\Omega \cdot \text{cm}^2$], and optional per-point significance scores. Area-specific impedance (ASR) normalisation is applied when the active cell area is provided.
+All readers convert raw instrument data to a unified internal representation containing the frequency vector *f* [Hz], the complex impedance *Z = Z' − jZ''* [Ω·cm²], and optional per-point significance scores. Area-specific impedance (ASR) normalisation is applied when the active cell area is provided.
 
 **References:** [R1], [R2]
 
@@ -154,10 +193,10 @@ All readers convert raw instrument data to a unified internal representation con
 Raw spectra are subjected to a configurable, sequential preprocessing chain before any model-based analysis:
 
 1. **Frequency-range truncation** — upper and/or lower frequency limits are set manually or by significance threshold to discard artefact-prone extreme-frequency data.
-2. **Significance-based filtering** — for instruments that report a per-point quality indicator (e.g., Zahner significance score), points below a user-defined threshold $\sigma_\text{min}$ are removed.
-3. **Moving-window outlier rejection** — a sliding-window z-score algorithm identifies and removes isolated outlier points that deviate from local spectral trends.
+2. **Significance-based filtering** — for instruments that report a per-point quality indicator (e.g., Zahner significance score), points below a user-defined threshold are removed.
+3. **Moving-window outlier rejection** — a sliding-window algorithm identifies and removes isolated outlier points that deviate from local spectral trends.
 4. **Manual point removal** — individual frequency points can be excluded through the GUI.
-5. **Inductive / capacitive endpoint correction** — series inductance $L$ and parasitic capacitance $C$ contributions are estimated and subtracted to improve low-frequency DRT inversion quality.
+5. **Inductive / capacitive endpoint correction** — series inductance and parasitic capacitance contributions are estimated and subtracted to improve low-frequency DRT inversion quality.
 
 **References:** [R1], [R2], [R3]
 
@@ -165,17 +204,9 @@ Raw spectra are subjected to a configurable, sequential preprocessing chain befo
 
 ### 3. Kramers-Kronig Consistency Validation
 
-The Kramers-Kronig (KK) relations are a pair of integral transforms that any linear, causal, and time-invariant impedance response must satisfy [R4]:
+The Kramers-Kronig (KK) relations state that the real and imaginary parts of any physical impedance are mathematically linked through Hilbert transforms. Any spectrum that violates this relation is non-physical (non-linear, non-causal, or non-stationary) [R4].
 
-$$Z'(\omega) = Z'(\infty) + \frac{2}{\pi} \int_0^{\infty} \frac{\xi Z''(\xi) - \omega Z''(\omega)}{\xi^2 - \omega^2} \, \text{d}\xi$$
-
-$$Z''(\omega) = -\frac{2\omega}{\pi} \int_0^{\infty} \frac{Z'(\xi) - Z'(\omega)}{\xi^2 - \omega^2} \, \text{d}\xi$$
-
-SOCEIS implements the **linear KK test** of Boukamp [R5], which fits the measured spectrum with a Voigt circuit (series of $RC$ elements at logarithmically spaced time constants) whose elements automatically satisfy the KK relations. The fit residuals
-
-$$\Delta_\text{re}(\omega_k) = \frac{Z'_\text{meas}(\omega_k) - Z'_\text{KK}(\omega_k)}{|Z_\text{meas}(\omega_k)|}, \quad \Delta_\text{im}(\omega_k) = \frac{Z''_\text{meas}(\omega_k) - Z''_\text{KK}(\omega_k)}{|Z_\text{meas}(\omega_k)|}$$
-
-are displayed as a function of frequency. Points with $|\Delta| \gtrsim 0.5\%$ are flagged, and a residual-based automatic masking option is provided. Ohmic ($R_\Omega$) and polarisation ($R_\text{pol}$) resistances are extracted from the RC decomposition.
+SOCEIS implements the **linear KK test** of Boukamp [R5], which fits the measured spectrum with a Voigt circuit (a series of RC elements at logarithmically spaced time constants) that automatically satisfies KK by construction. The normalised fit residuals for the real and imaginary parts are plotted against frequency. Points with residuals above ~0.5% are flagged, and a residual-based automatic masking option is provided. Ohmic and polarisation resistances are extracted from the RC decomposition.
 
 **References:** [R4], [R5], [R6]
 
@@ -183,15 +214,9 @@ are displayed as a function of frequency. Points with $|\Delta| \gtrsim 0.5\%$ a
 
 ### 4. Z-HIT Modulus Reconstruction
 
-The Z-HIT algorithm [R7] reconstructs the impedance modulus from the phase angle alone, providing an independent validation channel that is particularly sensitive to instrumental drift and non-stationarity. The reconstruction is based on the approximate Hilbert-transform relation:
+The Z-HIT algorithm [R7] reconstructs the impedance modulus from the phase angle alone, providing an independent validation channel that is particularly sensitive to instrumental drift and non-stationarity. The algorithm integrates the measured phase spectrum (after Savitzky-Golay smoothing [R8]) with a trapezoidal quadrature rule, applying an exact correction factor derived from the Riemann zeta function (γ = −π/6). A scalar offset is fitted by least-squares to align the reconstruction with the measured modulus level.
 
-$$\ln|Z(\omega_0)| \approx C + \frac{2}{\pi} \int_{\omega_s}^{\omega_0} \varphi(\omega) \, \text{d}(\ln \omega) + \gamma \frac{\text{d}\varphi}{\text{d}\ln\omega}\bigg|_{\omega_0}$$
-
-where $\gamma = -\pi/6$ is the exact correction factor derived from the Riemann zeta function, and $C$ is a scalar constant fitted by least-squares to the measured modulus. The phase $\varphi(\omega)$ is first smoothed with a **Savitzky-Golay filter** [R8] of user-configurable polynomial order and window width before numerical integration (trapezoidal rule). The log residual
-
-$$\delta_{\ln Z}(\omega_k) = \ln|Z_\text{meas}(\omega_k)| - \ln|Z_\text{Z-HIT}(\omega_k)|$$
-
-is plotted against frequency. Non-zero residuals indicate relaxation phenomena outside the measured frequency window, instrument artefacts, or non-stationarity. Z-HIT-reconstructed spectra can optionally be fed into the subsequent DRT analysis in place of the raw data.
+The log-ratio between the measured and reconstructed modulus is plotted against frequency. Non-zero residuals indicate relaxation processes outside the measured frequency window, instrument artefacts, or non-stationarity. Z-HIT-reconstructed spectra can optionally be fed into the subsequent DRT analysis in place of the raw data.
 
 **References:** [R7], [R8]
 
@@ -199,37 +224,19 @@ is plotted against frequency. Non-zero residuals indicate relaxation phenomena o
 
 ### 5. Distribution of Relaxation Times (DRT)
 
-The DRT transforms the impedance spectrum into a distribution function $\gamma(\tau)$ defined by:
-
-$$Z(\omega) = R_\Omega + \int_0^{\infty} \frac{\gamma(\tau)}{1 + j\omega\tau} \, \text{d} \tau$$
-
-where $\tau = RC$ is the relaxation time. Peaks in $\gamma(\tau)$ correspond to distinct electrochemical sub-processes, enabling physically interpretable process separation without assumptions about the circuit topology.
+The DRT transforms the impedance spectrum into a distribution of electrochemical relaxation processes as a function of their characteristic time constants. Peaks in the DRT correspond to distinct sub-processes (e.g., charge transfer, gas diffusion, ionic conduction), enabling physically interpretable process separation without assuming a circuit topology in advance.
 
 SOCEIS provides **two independent DRT inversion methods**:
 
 #### 5a. Tikhonov Regularisation
 
-The discretised linear system $\mathbf{A}\mathbf{g} = \mathbf{Z}$ is solved with Tikhonov regularisation [R9]:
+The impedance data are mapped to a DRT via a regularised least-squares problem [R9]. A smoothness penalty (controlled by the regularisation parameter lambda) prevents over-fitting to noise. Non-negativity of the DRT is enforced by Non-Negative Least Squares (NNLS). The real-part-only and imaginary-part-only formulations [R3] are computed separately and can be compared as a consistency check. Inversion is performed on five spectral variants: the preprocessed truncated spectrum, the KK-smoothed spectrum, the LC-corrected spectrum, the low-frequency-extrapolated spectrum, and (optionally) the Z-HIT-reconstructed spectrum.
 
-$$\hat{\mathbf{g}} = \arg\min_{\mathbf{g} \geq 0} \left\| \mathbf{A}\mathbf{g} - \mathbf{Z} \right\|_2^2 + \lambda \left\| \mathbf{L}\mathbf{g} \right\|_2^2$$
-
-where $\lambda$ is the regularisation parameter, $\mathbf{L}$ is a finite-difference derivative matrix (1st or 2nd order), and the non-negativity constraint ($\mathbf{g} \geq 0$) is enforced by Non-Negative Least Squares (NNLS). The real-part-only and imaginary-part-only formulations [R3] are computed separately, allowing cross-validation. Inversion is performed on five spectral variants: the preprocessed truncated spectrum, the KK-smoothed spectrum, the LC-corrected spectrum, the low-frequency-extrapolated spectrum, and (optionally) the Z-HIT-reconstructed spectrum.
-
-**Regularisation parameter selection** is available in three modes:
-
-| Mode | Method |
-|------|--------|
-| Manual | Fixed $\lambda$ set by user |
-| Optimal | Golden-section search minimising a discrepancy-principle criterion over $[\lambda_\text{min},\, \lambda_\text{max}]$ |
-| Re/Im cross-validation | Minimises the deviation between Re-only and Im-only DRT solutions |
+The regularisation parameter lambda can be set in three ways: fixed manually, optimised automatically by a discrepancy-principle criterion, or chosen to minimise the deviation between the Re-only and Im-only DRT solutions.
 
 #### 5b. Radial Basis Function (RBF) DRT
 
-The RBF method [R10] expands $\gamma(\tau)$ in a set of radial basis functions centred at $M$ logarithmically spaced collocation points $\{\tau_m\}$:
-
-$$\gamma(\tau) = \sum_{m=1}^{M} c_m \, \phi\left(\frac{\ln \tau - \ln \tau_m}{\varepsilon}\right)$$
-
-The coefficient vector $\mathbf{c}$ is determined by solving a regularised linear system assembled from the inner products of the basis functions with the impedance kernel. The shape parameter $\varepsilon$ controls the width of each basis function. This formulation naturally enforces smooth solutions and imposes non-negativity through constrained optimisation (`cvxopt` QP solver).
+The RBF method [R10] represents the DRT as a sum of smooth radial basis functions centred at logarithmically spaced time constants. The expansion coefficients are determined by a regularised constrained optimisation (`cvxopt` QP solver) that enforces both smoothness and non-negativity. The shape parameter controls the width of each basis function, following the DRTtools discretisation framework [R3].
 
 **References:** [R3], [R9], [R10], [R11]
 
@@ -241,26 +248,22 @@ The coefficient vector $\mathbf{c}$ is determined by solving a regularised linea
 
 ### 6. Complex Nonlinear Least-Squares Equivalent-Circuit Fitting (CNLS)
 
-CNLS fitting optimises the parameters $\boldsymbol{\theta}$ of a user-defined equivalent circuit model $Z_\text{model}(\omega, \boldsymbol{\theta})$ by minimising the weighted residual sum of squares:
-
-$$\min_{\boldsymbol{\theta}} \sum_{k=1}^{N} w_k \left[ \left( Z'_\text{meas}(\omega_k) - Z'_\text{model}(\omega_k, \boldsymbol{\theta}) \right)^2 + \left( Z''_\text{meas}(\omega_k) - Z''_\text{model}(\omega_k, \boldsymbol{\theta}) \right)^2 \right]$$
-
-The optimisation is performed with `scipy.optimize.minimize` using the L-BFGS-B algorithm, which supports box constraints $\boldsymbol{\theta}_\text{lb} \leq \boldsymbol{\theta} \leq \boldsymbol{\theta}_\text{ub}$ and segment-level percentage constraints on resistive and time-constant parameters.
+CNLS fitting finds the parameters of a user-defined equivalent circuit model that best reproduce the measured impedance spectrum. The optimisation minimises the sum of squared differences between the measured and modelled real and imaginary parts across all frequency points. The optimiser (`scipy` L-BFGS-B) supports lower and upper bounds on all parameters and segment-level percentage constraints on resistances and time constants.
 
 #### Available circuit elements
 
-| Symbol | Element | Impedance |
-|--------|---------|-----------|
-| R | Resistor | $Z = R$ |
-| L | Inductor | $Z = j\omega L$ |
-| C | Capacitor | $Z = 1/(j\omega C)$ |
-| Q | Constant Phase Element | $Z = 1/(Q(j\omega)^n)$ |
-| RC | RC parallel | $Z = R/(1+j\omega RC)$ |
-| RQ | Randles (R∥Q) | $Z = R/(1+R \cdot Q(j\omega)^n)$ |
-| G | Gerischer | $Z = R_G/\sqrt{1+j\omega\tau_G}$ |
-| fFLW | Finite-length Warburg | $Z = R_W \tanh(\sqrt{j\omega\tau_W})/\sqrt{j\omega\tau_W}$ |
-| FLW | Semi-infinite Warburg | $Z = \sigma(1-j)/\sqrt{\omega}$ |
-| RandleC / RandleCPE | Randle circuits | Combined diffusion + kinetics |
+| Symbol | Element |
+|--------|---------|
+| R | Resistor |
+| L | Inductor |
+| C | Capacitor |
+| Q | Constant Phase Element (CPE) |
+| RC | RC parallel |
+| RQ | Randles with CPE (R∥Q) |
+| G | Gerischer element |
+| fFLW | Finite-length Warburg (porous / reflective boundary) |
+| FLW | Semi-infinite Warburg |
+| RandleC / RandleCPE | Randle circuits with ideal or CPE capacitance |
 
 #### CNLS workflow
 
@@ -312,6 +315,27 @@ SOCEIS/
 │       └── 01_Data_read/      # Instrument-specific file readers
 └── pyproject.toml
 ```
+
+---
+
+## Authors and Acknowledgements
+
+**Lead developer:**
+- Hangyu Yu — Group of Energy Materials (GEM), EPFL, Switzerland
+
+**Principal investigator:**
+- Prof. Jan Van herle — Group of Energy Materials (GEM), EPFL, Switzerland
+
+**Contributors and collaborators:**
+- Cédric Frantz, Louis Savioz, Philippe Aubin, Dante Fronterotta — GEM, EPFL
+- Christian Geipel, Hamza Moussaoui, Guillaume Jeanmonod — GEM, EPFL
+- Ligang Wang — GEM, EPFL
+
+**Special thanks:**
+- **Hydro-Québec** (Canada) — for research collaboration and financial support
+- **Bern University of Applied Sciences (BFH)** (Switzerland) — for research collaboration
+- The authors of [DRTtools](https://github.com/ciuccislab/DRTtools) (Wan, Saccoccio, Chen & Ciucci) — for the open-source RBF-DRT discretisation framework on which the DRT module is partially based
+- The authors of [DearPyGui](https://github.com/hoffstadt/DearPyGui) — for the GPU-accelerated GUI framework
 
 ---
 
