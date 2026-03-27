@@ -372,6 +372,45 @@ def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
             dpg.add_button(label="Confirm", callback=_on_confirm_add_files)
             dpg.add_button(label="Cancel", callback=lambda: dpg.delete_item(window_tag))
 
+
+def refresh_open_file_lists_on_extension_change(config, EIS=None, CNLS=None):
+    """Refresh file lists in all opened tabs when extension selector changes."""
+    source_tag = "child_window_file_list_soceis"
+    import_history = EIS is not None and CNLS is not None
+
+    if dpg.does_item_exist(source_tag):
+        update_file_list(
+            config,
+            source_tag,
+            EIS,
+            CNLS,
+            import_history=import_history,
+            show_progress=import_history,
+            run_alignment=False,
+        )
+
+    for tag in [
+        "child_window_file_list_eis",
+        "child_window_file_list_drt",
+        "child_window_file_list_cnls",
+    ]:
+        if dpg.does_item_exist(tag):
+            update_file_list(
+                config,
+                tag,
+                EIS,
+                CNLS,
+                import_history=False,
+                show_progress=False,
+                run_alignment=False,
+            )
+
+    if dpg.does_item_exist(source_tag):
+        try:
+            update_selected_files(config, source_tag)
+        except Exception:
+            pass
+
 def update_file_list(config, tag = None, EIS = None, CNLS = None, import_history=True, show_progress=False, run_alignment=True):
     """
     Update the file list based on the selected extension and default folder path.

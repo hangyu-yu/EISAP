@@ -52,13 +52,14 @@ This section maps the current implemented features to scientific/technical refer
 
 ### 5. DRT inversion (Tikhonov and RBF workflows)
 - DRT analysis includes Tikhonov-style regularization controls and an RBF-DRT route in the DRT tab.
+- The RBF implementation in `src/Methods/DRT/Utils/DRT_rbf.py` follows the DRTtools discretization framework and includes Bayesian/hierarchical Bayesian options consistent with published DRT methodology.
 - Regularization/lambda handling is integrated with single-file and batch plotting.
-- Related references: [R7], [R8]
+- Related references: [R7], [R8], [R9], [R10]
 
 ### 6. CNLS equivalent-circuit fitting
 - CNLS supports interactive element configuration, parameter bounds, and constrained optimization against selected data domains.
 - The workflow combines circuit definition, parameter initialization, fit execution, and single/all visualization.
-- Related references: [R9], [R10], [R11]
+- Related references: [R11], [R12], [R13]
 
 ### 7. Single vs all-file comparative analysis
 - All major modules (EIS, DRT, CNLS) provide `Single` and `All` views to compare one file or many selected files in the same project.
@@ -111,10 +112,12 @@ The launcher will attempt to install missing dependencies from `src/GUI/requirem
 - [R5] Schoenleber, M., Klotz, D., and Ivers-Tiffee, E. "A Method for Improving the Robustness of Linear Kramers-Kronig Validity Tests." *Electrochimica Acta* 131 (2014): 20-27.
 - [R6] Ehm, W., Goehr, H., Kaus, R., Schiller, C. A., and Strunz, W. "New Methods for Automatic Impedance Spectra Evaluation." *Electrochimica Acta* 46 (2000): 145-154.
 - [R7] Tikhonov, A. N., and Arsenin, V. Y. *Solutions of Ill-posed Problems*. Winston, 1977.
-- [R8] Saccoccio, M., Han, X., Chen, C., and Ciucci, F. "Optimal Regularization in Distribution of Relaxation Times Applied to Electrochemical Impedance Spectroscopy." *Electrochimica Acta* 147 (2014): 470-482.
-- [R9] Levenberg, K. "A Method for the Solution of Certain Non-Linear Problems in Least Squares." *Quarterly of Applied Mathematics* 2 (1944): 164-168.
-- [R10] Marquardt, D. W. "An Algorithm for Least-Squares Estimation of Nonlinear Parameters." *SIAM Journal on Applied Mathematics* 11 (1963): 431-441.
-- [R11] Boukamp, B. A. "A Nonlinear Least Squares Fit Procedure for Analysis of Immittance Data of Electrochemical Systems." *Solid State Ionics* 20 (1986): 31-44.
+- [R8] Wan, T. H., Saccoccio, M., Chen, C., and Ciucci, F. "Influence of the Discretization Methods on the Distribution of Relaxation Times Deconvolution: Implementing Radial Basis Functions with DRTtools." *Electrochimica Acta* 184 (2015): 483-499.
+- [R9] Ciucci, F., and Chen, C. "Analysis of Electrochemical Impedance Spectroscopy Data Using the Distribution of Relaxation Times: A Bayesian and Hierarchical Bayesian Approach." *Electrochimica Acta* 167 (2015): 439-454.
+- [R10] Caliandro, P., Nakajo, A., Diethelm, S., and Van herle, J. "Model-Assisted Identification of Solid Oxide Cell Elementary Processes by Electrochemical Impedance Spectroscopy Measurements." *Journal of Power Sources* 436 (2019): 226838.
+- [R11] Levenberg, K. "A Method for the Solution of Certain Non-Linear Problems in Least Squares." *Quarterly of Applied Mathematics* 2 (1944): 164-168.
+- [R12] Marquardt, D. W. "An Algorithm for Least-Squares Estimation of Nonlinear Parameters." *SIAM Journal on Applied Mathematics* 11 (1963): 431-441.
+- [R13] Boukamp, B. A. "A Nonlinear Least Squares Fit Procedure for Analysis of Immittance Data of Electrochemical Systems." *Solid State Ionics* 20 (1986): 31-44.
 
 <p align="center">
   <img src="assets/images/Fig_example_main.png" width="width: 100%;">

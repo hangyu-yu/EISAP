@@ -527,14 +527,10 @@ def gui_tab_soceis(config, EIS, CNLS):
                 items=config.supported_file_extensions,
                 tag = 'file_extension_selector',
                 default_value=config.file_extensions,
-                callback=lambda _, app_data: gui_utils.file_list.update_file_list(
+                callback=lambda _, app_data: gui_utils.file_list.refresh_open_file_lists_on_extension_change(
                     config,
-                    "child_window_file_list_soceis",
                     EIS,
                     CNLS,
-                    import_history=True,
-                    show_progress=True,
-                    run_alignment=False,
                 ),
                 width=100
             )
