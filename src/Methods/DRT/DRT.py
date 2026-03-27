@@ -131,6 +131,13 @@ class DRT:
         self.lambda_opt = None
         self.lambdaopt_curve = None
 
+        # Data structure for RBF-DRT results (parallel to tknv_*)
+        self.rbf_truncated = None
+        self.rbf_smooth = None
+        self.rbf_extrapolation = None
+        self.rbf_LCcorrect = None
+        self.rbf_zhit = None
+
         # Data treatment parameters
         self.parameter = {
             # Sample information
@@ -216,6 +223,17 @@ class DRT:
                 'lambda': 5e-4,                # Regularization parameter
                 'tknv_legend': None,           # Legend for Tikhonov regularization plot
                 'DRT_switch': True,            # Switch on Tikhonov regularization or not
+            },
+            # RBF-DRT regularization (DRTtools method, defaults from DRTtools GUI)
+            'DRT_RBF': {
+                'enabled': False,              # False = Tikhonov active; True = RBF-DRT active
+                'rbf_type': 'Gaussian',        # RBF basis function type
+                'coeff': 0.5,                  # FWHM coefficient (shape parameter)
+                'shape_control': 'FWHM Coefficient',  # 'FWHM Coefficient' or 'Shape Factor'
+                'der_used': '1st order',       # Derivative order for regularization matrix M
+                'method': 'ridge',             # 'ridge' or 'bayes'
+                'lambda': 1e-3,                # Regularization parameter for RBF
+                'fit_inductance': False,       # Fit inductance term (L) in RBF model
             },
             # Manual cut
             'ManualRemoval': {
@@ -498,6 +516,37 @@ class DRT:
         # Calculate and print the total execution time
         elapsed_time = time.time() - start_time
         print(f"---- Tikhonov positive regularization completed in {elapsed_time:.2f} seconds.")
+
+    def rbf(self):
+        """
+        Perform RBF-DRT (DRTtools method) on all available EIS datasets.
+        Results are stored in rbf_truncated, rbf_smooth, rbf_extrapolation,
+        rbf_LCcorrect, and rbf_zhit (same structure as tknv_*).
+        """
+        start_time = time.time()
+        rbf_params = self.parameter['DRT_RBF']
+
+        def _run(eis_data):
+            if eis_data is None or eis_data.get('f', None) is None:
+                return None
+            try:
+                return fn.DRT_rbf(eis_data, rbf_params)
+            except Exception as e:
+                print(f"[Warning] RBF-DRT failed: {e}")
+                return None
+
+        self.rbf_truncated   = _run(self.truncated)
+        self.rbf_smooth      = _run(self.smooth)
+        self.rbf_extrapolation = _run(self.extrapolation)
+        self.rbf_LCcorrect   = _run(self.LCcorrect)
+
+        self.rbf_zhit = None
+        zhit_eis_data = self.get_zhit_smooth_eis_data()
+        if zhit_eis_data is not None:
+            self.rbf_zhit = _run(zhit_eis_data)
+
+        elapsed_time = time.time() - start_time
+        print(f"---- RBF-DRT completed in {elapsed_time:.2f} seconds.")
     
     # Functions for data plotting
     def KK_plot(self, figure_name = ''):
@@ -1038,7 +1087,16 @@ class DRT:
                 'lambda_n': [self.parameter['LambdaOpt']['n']],
                 'lambda_target': [self.parameter['LambdaOpt']['target']],
                 'lampda_opt': [self.parameter['LambdaOpt']['lampda_opt']],
-                'PlotFig': [self.parameter['LambdaOpt']['PlotFig']]
+                'PlotFig': [self.parameter['LambdaOpt']['PlotFig']],
+                # RBF-DRT parameters
+                'rbf_enabled': [self.parameter['DRT_RBF']['enabled']],
+                'rbf_type': [self.parameter['DRT_RBF']['rbf_type']],
+                'rbf_coeff': [self.parameter['DRT_RBF']['coeff']],
+                'rbf_shape_control': [self.parameter['DRT_RBF']['shape_control']],
+                'rbf_der_used': [self.parameter['DRT_RBF']['der_used']],
+                'rbf_method': [self.parameter['DRT_RBF']['method']],
+                'rbf_lambda': [self.parameter['DRT_RBF']['lambda']],
+                'rbf_fit_inductance': [self.parameter['DRT_RBF'].get('fit_inductance', False)],
             }).to_excel(writer, sheet_name='DRT_Parameters', index=False)
 
             # Tikhonov regularization data
@@ -1189,6 +1247,56 @@ class DRT:
                     'Rohm/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['Rs_ReIm']],
                     'Rp/ohm·cm2 - DRT_ReIm': [self['tknv_'+data_cat]['RL']['Rp_ReIm']]
                 }).to_excel(writer, sheet_name='Resistance_'+data_cat, index=False)
+
+            # ── RBF-DRT results ───────────────────────────────────────────────
+            _rbf_cats = [
+                ('truncated', self.rbf_truncated, 'RBF'),
+                ('smooth',    self.rbf_smooth,    'RBF_s'),
+                ('extrapolation', self.rbf_extrapolation, 'RBF_e'),
+                ('LCcorrect', self.rbf_LCcorrect, 'RBF_crct'),
+            ]
+            if hasattr(self, 'rbf_zhit') and self.rbf_zhit is not None:
+                _rbf_cats.append(('zhit', self.rbf_zhit, 'RBF_z'))
+
+            for data_cat, rbf_result, sheet_prefix in _rbf_cats:
+                if rbf_result is None:
+                    continue
+                for mode, sheet_suffix in [('Re', '_Re'), ('Im', '_Im'), ('ReIm', '_ReIm')]:
+                    if mode not in rbf_result:
+                        continue
+                    try:
+                        mode_data = rbf_result[mode]
+                        f_gamma = mode_data.get('f_gamma', mode_data.get('f', []))
+                        pd.DataFrame({
+                            'Frequency_gamma/Hz': pd.Series(np.asarray(f_gamma).reshape(-1)),
+                            'gamma/ohm·s·cm2': pd.Series(np.asarray(mode_data.get('g', [])).reshape(-1)),
+                            'Frequency_Z/Hz': pd.Series(np.asarray(mode_data.get('f', [])).reshape(-1)),
+                            'Re/ohm·cm2': pd.Series(np.asarray(mode_data.get('Re', [])).reshape(-1)),
+                            'Im/ohm·cm2': pd.Series(np.asarray(mode_data.get('Im', [])).reshape(-1)),
+                            'Residuals': pd.Series(np.asarray(mode_data.get('Residuals', [])).reshape(-1)),
+                        }).to_excel(writer, sheet_name=f'{sheet_prefix}{sheet_suffix}', index=False)
+                    except Exception as e:
+                        print(f"[Warning] RBF save {sheet_prefix}{sheet_suffix}: {e}")
+
+                # Resistance sheet for RBF
+                try:
+                    rl = rbf_result.get('RL', {})
+                    pd.DataFrame({
+                        'L/ohm·cm2 - DRT_Re':    [rl.get('L_Re', None)],
+                        'Rohm/ohm·cm2 - DRT_Re': [rl.get('Rs_Re', None)],
+                        'Rp/ohm·cm2 - DRT_Re':   [rl.get('Rp_Re', None)],
+                        'L/ohm·cm2 - DRT_Im':    [rl.get('L_Im', None)],
+                        'Rohm/ohm·cm2 - DRT_Im': [rl.get('Rs_Im', None)],
+                        'Rp/ohm·cm2 - DRT_Im':   [rl.get('Rp_Im', None)],
+                        'L/ohm·cm2 - DRT_ReIm':    [rl.get('L_ReIm', None)],
+                        'Rohm/ohm·cm2 - DRT_ReIm': [rl.get('Rs_ReIm', None)],
+                        'Rp/ohm·cm2 - DRT_ReIm':   [rl.get('Rp_ReIm', None)],
+                        'epsilon': [rl.get('epsilon', None)],
+                        'lambda_eff': [rl.get('lambda_eff', None)],
+                        'rbf_method': [rl.get('method', None)],
+                    }).to_excel(writer, sheet_name=f'RBF_Resistance_{data_cat}', index=False)
+                except Exception as e:
+                    print(f"[Warning] RBF resistance save {data_cat}: {e}")
 
         print(f"-- DRT data saved for {self.filename}.")
 
@@ -1373,6 +1481,12 @@ class DRT:
                 print(f"[Warning] DRT file not found: {drt_file}")
 
             print(f"-- Importing DRT data from {drt_file}...")
+
+            # Load workbook once to avoid repeated open/parse overhead.
+            all_sheets = pd.read_excel(_normalize_path(drt_file), sheet_name=None)
+
+            def get_sheet(sheet_name):
+                return all_sheets.get(sheet_name, None)
             
             # 2. Initialize data structure
             self.tknv_truncated = {'RL': {
@@ -1384,10 +1498,19 @@ class DRT:
             self.tknv_extrapolation = {'RL': dict(self.tknv_truncated['RL'])}
             self.tknv_LCcorrect = {'RL': dict(self.tknv_truncated['RL'])}
             self.tknv_zhit = {'RL': dict(self.tknv_truncated['RL'])}
+
+            self.rbf_truncated = {'RL': dict(self.tknv_truncated['RL'])}
+            self.rbf_smooth = {'RL': dict(self.tknv_truncated['RL'])}
+            self.rbf_extrapolation = {'RL': dict(self.tknv_truncated['RL'])}
+            self.rbf_LCcorrect = {'RL': dict(self.tknv_truncated['RL'])}
+            self.rbf_zhit = {'RL': dict(self.tknv_truncated['RL'])}
             
             # 3. Import parameter table
             try:
-                drt_params = pd.read_excel(_normalize_path(drt_file), sheet_name='DRT_Parameters')
+                drt_params = get_sheet('DRT_Parameters')
+                if drt_params is None:
+                    raise KeyError('DRT_Parameters')
+
                 def safe_get(column_name, default_value, dtype_func):
                     try:
                         value = drt_params[column_name].values[0]
@@ -1411,6 +1534,19 @@ class DRT:
                 self.parameter['LambdaOpt']['target'] = lambda_target if lambda_target in {'truncated', 'lccorrect', 'smooth', 'extrapolation', 'zhit'} else 'truncated'
                 self.parameter['LambdaOpt']['lampda_opt'] = safe_get('lampda_opt', True, bool)
                 self.parameter['LambdaOpt']['PlotFig'] = safe_get('PlotFig', False, bool)
+                # RBF-DRT parameters
+                self.parameter['DRT_RBF']['enabled'] = safe_get('rbf_enabled', False, bool)
+                self.parameter['DRT_RBF']['rbf_type'] = safe_get('rbf_type', 'Gaussian', str)
+                self.parameter['DRT_RBF']['coeff'] = safe_get('rbf_coeff', 0.5, float)
+                self.parameter['DRT_RBF']['shape_control'] = safe_get('rbf_shape_control', 'FWHM Coefficient', str)
+                self.parameter['DRT_RBF']['der_used'] = safe_get('rbf_der_used', '1st order', str)
+                self.parameter['DRT_RBF']['method'] = safe_get('rbf_method', 'ridge', str)
+                self.parameter['DRT_RBF']['lambda'] = safe_get('rbf_lambda', 1e-3, float)
+                self.parameter['DRT_RBF']['fit_inductance'] = safe_get(
+                    'rbf_fit_inductance',
+                    False,
+                    lambda v: str(v).strip().lower() in {'1', 'true', 'yes', 'on'}
+                )
             except Exception as e:
                 print(f"---- Failed to import parameters: {str(e)}")
             
@@ -1432,6 +1568,11 @@ class DRT:
                 ('Im', 'z'): ('Tknv_Im_z', 'zhit'),
                 ('ReIm', 'z'): ('Tknv_ReIm_z', 'zhit')
             }
+
+            resistance_cache = {
+                data_cat: get_sheet(f'Resistance_{data_cat}')
+                for data_cat in ['truncated', 'smooth', 'extrapolation', 'LCcorrect', 'zhit']
+            }
             
             # 5. Import all data tables
             for (data_type, suffix), (sheet_name, data_cat) in sheet_map.items():
@@ -1440,7 +1581,9 @@ class DRT:
                     target_dict = getattr(self, f'tknv_{data_cat}')
                     
                     # Read data
-                    tknv_data = pd.read_excel(_normalize_path(drt_file), sheet_name=sheet_name)
+                    tknv_data = get_sheet(sheet_name)
+                    if tknv_data is None:
+                        raise KeyError(sheet_name)
                     
                     # Store data
                     if data_type not in target_dict:
@@ -1453,8 +1596,9 @@ class DRT:
                     target_dict[data_type]['Residuals'] = tknv_data['Residuals'].values
                     
                     # Import resistance data
-                    res_sheet = f'Resistance_{data_cat}'
-                    resistance_data = pd.read_excel(_normalize_path(drt_file), sheet_name=res_sheet)
+                    resistance_data = resistance_cache.get(data_cat)
+                    if resistance_data is None:
+                        raise KeyError(f'Resistance_{data_cat}')
                     prefix = data_type.replace('Im', 'Im').replace('ReIm', 'ReIm')
                     target_dict['RL'][f'L_{prefix}'] = resistance_data[f'L/ohm·cm2 - DRT_{prefix}'].values[0]
                     target_dict['RL'][f'Rs_{prefix}'] = resistance_data[f'Rohm/ohm·cm2 - DRT_{prefix}'].values[0]
@@ -1466,6 +1610,72 @@ class DRT:
             if isinstance(self.tknv_zhit, dict):
                 if self.tknv_zhit.get('Re', None) is None or self.tknv_zhit.get('Im', None) is None or self.tknv_zhit.get('ReIm', None) is None:
                     self.tknv_zhit = None
+
+            # 6. Import RBF sheets (if present)
+            def _read_col_as_array(df, primary, fallback=None):
+                candidate_cols = [primary]
+                if fallback is not None:
+                    candidate_cols.append(fallback)
+                for col in candidate_cols:
+                    if col in df.columns:
+                        return pd.to_numeric(df[col], errors='coerce').to_numpy()
+                return np.array([], dtype=float)
+
+            rbf_sheet_map = {
+                'truncated': 'RBF',
+                'smooth': 'RBF_s',
+                'extrapolation': 'RBF_e',
+                'LCcorrect': 'RBF_crct',
+                'zhit': 'RBF_z',
+            }
+
+            for data_cat, sheet_prefix in rbf_sheet_map.items():
+                target_dict = getattr(self, f'rbf_{data_cat}')
+
+                for mode in ['Re', 'Im', 'ReIm']:
+                    sheet_name = f'{sheet_prefix}_{mode}'
+                    try:
+                        rbf_data = get_sheet(sheet_name)
+                        if rbf_data is None:
+                            continue
+
+                        f_z = _read_col_as_array(rbf_data, 'Frequency_Z/Hz', fallback='Frequency/Hz')
+                        f_gamma = _read_col_as_array(rbf_data, 'Frequency_gamma/Hz', fallback='Frequency/Hz')
+                        if f_gamma.size == 0:
+                            f_gamma = f_z.copy()
+
+                        target_dict[mode] = {
+                            'f': f_z,
+                            'f_gamma': f_gamma,
+                            'g': _read_col_as_array(rbf_data, 'gamma/ohm·s·cm2'),
+                            'Re': _read_col_as_array(rbf_data, 'Re/ohm·cm2'),
+                            'Im': _read_col_as_array(rbf_data, 'Im/ohm·cm2'),
+                            'Residuals': _read_col_as_array(rbf_data, 'Residuals'),
+                        }
+                    except Exception:
+                        # RBF sheets may be absent in older files; keep graceful fallback.
+                        continue
+
+                try:
+                    resistance_data = get_sheet(f'RBF_Resistance_{data_cat}')
+                    if resistance_data is None:
+                        continue
+                    for mode in ['Re', 'Im', 'ReIm']:
+                        target_dict['RL'][f'L_{mode}'] = resistance_data.get(f'L/ohm·cm2 - DRT_{mode}', pd.Series([None])).values[0]
+                        target_dict['RL'][f'Rs_{mode}'] = resistance_data.get(f'Rohm/ohm·cm2 - DRT_{mode}', pd.Series([None])).values[0]
+                        target_dict['RL'][f'Rp_{mode}'] = resistance_data.get(f'Rp/ohm·cm2 - DRT_{mode}', pd.Series([None])).values[0]
+                    target_dict['RL']['epsilon'] = resistance_data.get('epsilon', pd.Series([None])).values[0]
+                    target_dict['RL']['lambda_eff'] = resistance_data.get('lambda_eff', pd.Series([None])).values[0]
+                    target_dict['RL']['method'] = resistance_data.get('rbf_method', pd.Series([None])).values[0]
+                except Exception:
+                    pass
+
+            for data_cat in ['truncated', 'smooth', 'extrapolation', 'LCcorrect', 'zhit']:
+                result_dict = getattr(self, f'rbf_{data_cat}')
+                if isinstance(result_dict, dict):
+                    has_modes = all(mode in result_dict for mode in ['Re', 'Im', 'ReIm'])
+                    if not has_modes:
+                        setattr(self, f'rbf_{data_cat}', None)
 
             print("---- DRT data import successful!")
             return True
@@ -1505,6 +1715,16 @@ class DRT:
             return self.tknv_LCcorrect
         elif key == 'tknv_zhit':
             return self.tknv_zhit
+        elif key == 'rbf_truncated':
+            return self.rbf_truncated
+        elif key == 'rbf_smooth':
+            return self.rbf_smooth
+        elif key == 'rbf_extrapolation':
+            return self.rbf_extrapolation
+        elif key == 'rbf_LCcorrect':
+            return self.rbf_LCcorrect
+        elif key == 'rbf_zhit':
+            return self.rbf_zhit
         elif key == 'parameter':
             return self.parameter
         else:

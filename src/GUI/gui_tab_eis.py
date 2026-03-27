@@ -139,8 +139,29 @@ def callback_process_data(sender, app_data, EIS, config):
 # Main tab function for EIS
 def gui_tab_eis(config, EIS, CNLS):
     config.save_config()
-    dpg.delete_item("file_dialog_eis")  # Delete the tab bar if it already exists
-    dpg.delete_item("tab_eis", children_only=False)  # Delete the tab if it already exists
+
+    # Fast path: if EIS tab already exists, just switch to it and avoid expensive rebuild.
+    if dpg.does_item_exist("tab_eis"):
+        dpg.set_value("tab_bar_main", "tab_eis")
+        try:
+            gui_utils.file_list.display_file(
+                None,
+                config.display_file,
+                config,
+                refresh_eis_tab=True,
+                refresh_drt_tab=False,
+                refresh_cnls_tab=False,
+            )
+        except Exception:
+            pass
+        update_child_window_size()
+        return
+
+    if dpg.does_item_exist("file_dialog_eis"):
+        dpg.delete_item("file_dialog_eis")
+
+    if dpg.does_item_exist("tab_eis"):
+        dpg.delete_item("tab_eis", children_only=False)
     # Initialize the configuration
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
@@ -156,7 +177,15 @@ def gui_tab_eis(config, EIS, CNLS):
             with dpg.group():
                 # Window for file list
                 with dpg.child_window(width=int(viewport_width*0.33), height=int(viewport_height*0.2), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_eis"):
-                    gui_utils.file_list.update_file_list(config, "child_window_file_list_eis", EIS, CNLS)
+                    gui_utils.file_list.update_file_list(
+                        config,
+                        "child_window_file_list_eis",
+                        EIS,
+                        CNLS,
+                        import_history=False,
+                        show_progress=False,
+                        run_alignment=False,
+                    )
 
                 # Window for the parameters
                 with dpg.child_window(width=int(viewport_width * 0.33), height=int(viewport_height * 0.285), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_eis"):
@@ -439,7 +468,14 @@ def gui_tab_eis(config, EIS, CNLS):
                         with dpg.tab_bar(tag="tab_bar_eis_plot_all"):
                             gui_utils.eis_plots.update_all_plots(config)
     # Update the child window size when the viewport is resized
-    gui_utils.file_list.display_file(None, config.display_file, config)
+    gui_utils.file_list.display_file(
+        None,
+        config.display_file,
+        config,
+        refresh_eis_tab=True,
+        refresh_drt_tab=False,
+        refresh_cnls_tab=False,
+    )
     dpg.set_value("tab_bar_main", 'tab_eis')
     update_child_window_size()
 

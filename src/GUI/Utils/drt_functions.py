@@ -121,10 +121,13 @@ def _get_lambdaopt_input_data(eis_obj):
 def load_parameters(sender, app_data, config):
     print("-- Loading DRT parameters...")
     lambda_target = "truncated"
+    drt_method = None
     if dpg.does_item_exist("combo_lambda_target"):
         target_raw = dpg.get_value("combo_lambda_target")
         if target_raw is not None:
             lambda_target = normalize_lambda_target(target_raw, None)
+    if dpg.does_item_exist("radio_drt_method"):
+        drt_method = dpg.get_value("radio_drt_method")
 
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
@@ -144,6 +147,26 @@ def load_parameters(sender, app_data, config):
             EIS_tmp.parameter["LambdaOpt"]["lambda_max"] = _read_numeric_input("input_text_max_lambda", float, 0.2)
             EIS_tmp.parameter["LambdaOpt"]["n"] = _read_numeric_input("input_text_lambda_points", int, 100)
             EIS_tmp.parameter["LambdaOpt"]["target"] = target_for_file
+
+            # Load RBF-DRT parameters
+            if dpg.does_item_exist("input_text_rbf_lambda"):
+                EIS_tmp.parameter["DRT_RBF"]["lambda"] = _read_numeric_input("input_text_rbf_lambda", float, 1e-3)
+            if dpg.does_item_exist("input_text_rbf_coeff"):
+                EIS_tmp.parameter["DRT_RBF"]["coeff"] = _read_numeric_input("input_text_rbf_coeff", float, 0.5)
+            if dpg.does_item_exist("combo_rbf_type"):
+                EIS_tmp.parameter["DRT_RBF"]["rbf_type"] = dpg.get_value("combo_rbf_type")
+            if dpg.does_item_exist("combo_rbf_shape_control"):
+                EIS_tmp.parameter["DRT_RBF"]["shape_control"] = dpg.get_value("combo_rbf_shape_control")
+            if dpg.does_item_exist("combo_rbf_der_used"):
+                EIS_tmp.parameter["DRT_RBF"]["der_used"] = dpg.get_value("combo_rbf_der_used")
+            if dpg.does_item_exist("combo_rbf_method"):
+                EIS_tmp.parameter["DRT_RBF"]["method"] = dpg.get_value("combo_rbf_method")
+            if dpg.does_item_exist("check_box_rbf_fit_inductance"):
+                EIS_tmp.parameter["DRT_RBF"]["fit_inductance"] = bool(
+                    dpg.get_value("check_box_rbf_fit_inductance")
+                )
+            if drt_method is not None:
+                EIS_tmp.parameter["DRT_RBF"]["enabled"] = (drt_method == "RBF-DRT")
 
             print(f"---- DRT parameters have been loaded successfully for {file_name_no_ext}.")
     
@@ -184,17 +207,28 @@ def lambdaopt(sender, app_data, config):
     print(f"---- Optimal lambda has been calculated successfully for all selected files.")
         
 def process_data(sender, app_data, config):
-    print("-- Processing DRT data based on tikhonov method...")
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
         if file_name_no_ext not in config.store.keys():
             raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
-            if EIS_tmp.parameter["DRT"]["tknv_pos"]:
-                EIS_tmp.tknv_pos()
+            rbf_enabled = EIS_tmp.parameter.get('DRT_RBF', {}).get('enabled', False)
+
+            if rbf_enabled:
+                print(f"-- Processing DRT data using Tikhonov + RBF-DRT for {file_name_no_ext}...")
+                # Keep Tikhonov data up-to-date even in RBF mode.
+                if EIS_tmp.parameter["DRT"]["tknv_pos"]:
+                    EIS_tmp.tknv_pos()
+                else:
+                    EIS_tmp.tknv()
+                EIS_tmp.rbf()
             else:
-                EIS_tmp.tknv()
+                print(f"-- Processing DRT data using Tikhonov method for {file_name_no_ext}...")
+                if EIS_tmp.parameter["DRT"]["tknv_pos"]:
+                    EIS_tmp.tknv_pos()
+                else:
+                    EIS_tmp.tknv()
 
             print(f"---- Data has been processed successfully for {file_name_no_ext}.")
 

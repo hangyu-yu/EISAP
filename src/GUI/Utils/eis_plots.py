@@ -700,13 +700,13 @@ def _render_kk_all(parent_tag, eis_list):
             file_name_no_ext = os.path.splitext(file_name)[0]
             if data["KK_data"]["f"] is None:
                 continue
-            dpg.add_line_series(
+            dpg.add_scatter_series(
                 data["KK_data"]["f"],
                 data["KK_data"]["delta_Re_kk"],
                 parent=y_axis,
                 label=gui_utils.small_functions.string_abbreviation(f"Re-{file_name_no_ext}", 16, 12),
             )
-            dpg.add_line_series(
+            dpg.add_scatter_series(
                 data["KK_data"]["f"],
                 data["KK_data"]["delta_Im_kk"],
                 parent=y_axis,

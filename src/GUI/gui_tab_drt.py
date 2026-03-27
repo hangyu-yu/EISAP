@@ -230,8 +230,89 @@ def plot_drt_tau_callback(sender, app_data, config):
     gui_utils.drt_plots.update_single_plots(config)
     gui_utils.drt_plots.update_all_plots(config)
 
+def _drt_method_switch_callback(sender, app_data, EIS, config):
+    """
+    Toggle between Tikhonov and RBF-DRT.
+    Updates parameter['DRT_RBF']['enabled'] for all selected files and
+    switches the active parameter tab so the correct controls are visible.
+    """
+    use_rbf = (app_data == "RBF-DRT")
+
+    target_files = list(config.selected_files) if config.selected_files else []
+    if not target_files and config.display_file:
+        target_files = [config.display_file]
+
+    for file_name in target_files:
+        key = os.path.splitext(file_name)[0]
+        if key in config.store and "EIS" in config.store[key]:
+            config.store[key]["EIS"].parameter["DRT_RBF"]["enabled"] = use_rbf
+
+    # Switch the visible parameter tab to match the selected method
+    if dpg.does_item_exist("tab_bar_drt_params"):
+        target_tab = "tab_drt_params_rbf" if use_rbf else "tab_drt_params_tknv"
+        if dpg.does_item_exist(target_tab):
+            dpg.set_value("tab_bar_drt_params", target_tab)
+
+    # Redraw plots using the selected method's result set on existing tabs.
+    try:
+        gui_utils.drt_table.table_update(config)
+    except Exception as e:
+        print(f"-- Warning: failed to refresh DRT table after method switch: {e}")
+
+    try:
+        gui_utils.drt_plots.update_single_plots(config)
+    except Exception as e:
+        print(f"-- Warning: failed to refresh single DRT plots after method switch: {e}")
+
+    try:
+        if dpg.does_item_exist("tab_bar_drt_plot_all"):
+            dpg.delete_item("tab_bar_drt_plot_all", children_only=True)
+        gui_utils.drt_plots.update_all_plots(config)
+    except Exception as e:
+        print(f"-- Warning: failed to refresh all DRT plots after method switch: {e}")
+
+    print(f"-- DRT method set to {'RBF-DRT' if use_rbf else 'Tikhonov'}")
+
+
+def _get_drt_default_eis(config, fallback_eis):
+    """Return the EIS object used to initialize DRT parameter widgets."""
+    candidate_files = []
+    if config.display_file:
+        candidate_files.append(config.display_file)
+    if config.selected_files:
+        candidate_files.extend(config.selected_files)
+
+    for file_name in candidate_files:
+        key = os.path.splitext(file_name)[0]
+        if key in config.store and "EIS" in config.store[key]:
+            return config.store[key]["EIS"]
+
+    return fallback_eis
+
+
 def gui_tab_drt(config, EIS, CNLS):
     config.save_config()
+
+    # Fast path: if DRT tab already exists, just switch to it and avoid expensive rebuild.
+    if dpg.does_item_exist("tab_drt"):
+        if dpg.does_item_exist("tab_bar_main"):
+            dpg.set_value("tab_bar_main", "tab_drt")
+        try:
+            gui_utils.file_list.display_file(
+                None,
+                config.display_file,
+                config,
+                refresh_eis_tab=False,
+                refresh_drt_tab=True,
+                refresh_cnls_tab=False,
+            )
+        except Exception:
+            pass
+        update_child_window_size()
+        return
+
+    # Initialize defaults from the currently displayed/selected file when available.
+    EIS = _get_drt_default_eis(config, EIS)
 
     # Don’t delete a tag that may not exist.
     if dpg.does_item_exist("tab_drt"):
@@ -258,7 +339,15 @@ def gui_tab_drt(config, EIS, CNLS):
                     tag="child_window_file_list_drt",
                 ):
                     try:
-                        gui_utils.file_list.update_file_list(config, "child_window_file_list_drt", EIS, CNLS)
+                        gui_utils.file_list.update_file_list(
+                            config,
+                            "child_window_file_list_drt",
+                            EIS,
+                            CNLS,
+                            import_history=False,
+                            show_progress=False,
+                            run_alignment=False,
+                        )
                     except Exception as e:
                         print(f"[Warning] DRT file list init failed: {e}")
 
@@ -279,96 +368,191 @@ def gui_tab_drt(config, EIS, CNLS):
                                 callback=lambda sender, app_data: plot_drt_tau_callback(sender, app_data, config),
                             )
 
-                    with dpg.table(
-                        header_row=False,
-                        borders_innerH=False,
-                        row_background=False,
-                        policy=dpg.mvTable_SizingStretchSame,
-                    ):
-                        dpg.add_table_column(tag="drt_parameter_column1", width_fixed=True, init_width_or_weight=int(viewport_width // 7))
-                        dpg.add_table_column(tag="drt_parameter_column2", width_stretch=True)
-                        dpg.add_table_column(tag="drt_parameter_column3", width_stretch=True)
+                    # ── Method selector ───────────────────────────────────────
+                    rbf_enabled_default = EIS.parameter.get("DRT_RBF", {}).get("enabled", False)
+                    with dpg.group(horizontal=True):
+                        dpg.add_text("Method:")
+                        dpg.add_radio_button(
+                            tag="radio_drt_method",
+                            items=["Tikhonov", "RBF-DRT"],
+                            default_value="RBF-DRT" if rbf_enabled_default else "Tikhonov",
+                            horizontal=True,
+                            callback=lambda s, a: _drt_method_switch_callback(s, a, EIS, config),
+                        )
 
-                        with dpg.table_row():
-                            dpg.add_checkbox(
-                                tag="check_box_lambda_mode",
-                                label="Optimal lambda",
-                                default_value=False,
-                                callback=lambda sender, app_data: lambda_mode_callback(sender, app_data, EIS, config),
-                            )
-                            dpg.add_text("Lambda:", tag="text_lambda")
-                            dpg.add_input_text(
-                                tag="input_text_lambda",
-                                default_value=EIS.parameter["DRT"]["lambda"],
-                                enabled=True,
-                                width=-1,
-                            )
+                    dpg.add_separator()
 
-                        with dpg.table_row():
-                            dpg.add_checkbox(
-                                tag="check_box_tknv_pos",
-                                label="Tikhonov positive",
-                                default_value=EIS.parameter["DRT"]["tknv_pos"],
-                                callback=lambda sender, app_data: tknv_pos_callback(sender, app_data, EIS, config),
-                            )
-                            dpg.add_text("Optimal lambda param.:")
-                            dpg.add_text("")
+                    # ── Parameter tab bar: Tikhonov | RBF ────────────────────
+                    drt_params_default_tab = "tab_drt_params_rbf" if rbf_enabled_default else "tab_drt_params_tknv"
+                    with dpg.tab_bar(tag="tab_bar_drt_params"):
 
-                        with dpg.table_row():
-                            dpg.add_text("")
-                            dpg.add_text("Min. lambda:", tag="text_min_lambda")
-                            dpg.add_input_text(
-                                tag="input_text_min_lambda",
-                                default_value=EIS.parameter["LambdaOpt"]["lambda_min"],
-                                enabled=True,
-                                width=-1,
-                            )
+                        # ── Tikhonov tab ──────────────────────────────────────
+                        with dpg.tab(label="Tikhonov", tag="tab_drt_params_tknv"):
+                            with dpg.table(
+                                header_row=False,
+                                borders_innerH=False,
+                                row_background=False,
+                                policy=dpg.mvTable_SizingStretchSame,
+                            ):
+                                dpg.add_table_column(tag="drt_parameter_column1", width_fixed=True, init_width_or_weight=int(viewport_width // 7))
+                                dpg.add_table_column(tag="drt_parameter_column2", width_stretch=True)
+                                dpg.add_table_column(tag="drt_parameter_column3", width_stretch=True)
 
-                        with dpg.table_row():
-                            dpg.add_text("")
-                            dpg.add_text("Max. lambda:", tag="text_max_lambda")
-                            dpg.add_input_text(
-                                tag="input_text_max_lambda",
-                                default_value=EIS.parameter["LambdaOpt"]["lambda_max"],
-                                enabled=True,
-                                width=-1,
-                            )
+                                with dpg.table_row():
+                                    dpg.add_checkbox(
+                                        tag="check_box_lambda_mode",
+                                        label="Optimal lambda",
+                                        default_value=False,
+                                        callback=lambda sender, app_data: lambda_mode_callback(sender, app_data, EIS, config),
+                                    )
+                                    dpg.add_text("Lambda:", tag="text_lambda")
+                                    dpg.add_input_text(
+                                        tag="input_text_lambda",
+                                        default_value=EIS.parameter["DRT"]["lambda"],
+                                        enabled=True,
+                                        width=-1,
+                                    )
 
-                        with dpg.table_row():
-                            dpg.add_text("")
-                            dpg.add_text("Lambda points:", tag="text_lambda_points")
-                            dpg.add_input_text(
-                                tag="input_text_lambda_points",
-                                default_value=EIS.parameter["LambdaOpt"]["n"],
-                                enabled=True,
-                                width=-1,
-                            )
+                                with dpg.table_row():
+                                    dpg.add_checkbox(
+                                        tag="check_box_tknv_pos",
+                                        label="Tikhonov positive",
+                                        default_value=EIS.parameter["DRT"]["tknv_pos"],
+                                        callback=lambda sender, app_data: tknv_pos_callback(sender, app_data, EIS, config),
+                                    )
+                                    dpg.add_text("Optimal lambda param.:")
+                                    dpg.add_text("")
 
-                        with dpg.table_row():
-                            dpg.add_text("")
-                            dpg.add_text("Lambda target:")
-                            lambda_target_items = gui_utils.drt_functions.get_lambda_target_items(EIS)
-                            lambda_target_default = gui_utils.drt_functions.normalize_lambda_target(
-                                EIS.parameter["LambdaOpt"].get("target", "truncated"),
-                                EIS,
-                            )
-                            dpg.add_combo(
-                                tag="combo_lambda_target",
-                                items=lambda_target_items,
-                                default_value=lambda_target_default,
-                                callback=lambda sender, app_data: lambda_target_callback(sender, app_data, EIS, config),
-                                width=-1,
-                            )
+                                with dpg.table_row():
+                                    dpg.add_text("")
+                                    dpg.add_text("Min. lambda:", tag="text_min_lambda")
+                                    dpg.add_input_text(
+                                        tag="input_text_min_lambda",
+                                        default_value=EIS.parameter["LambdaOpt"]["lambda_min"],
+                                        enabled=True,
+                                        width=-1,
+                                    )
 
-                        with dpg.table_row():
-                            dpg.add_text("")
-                            dpg.add_text("Optimal lambda:")
-                            dpg.add_text("Non-calculated", tag="text_optimal_lambda")
+                                with dpg.table_row():
+                                    dpg.add_text("")
+                                    dpg.add_text("Max. lambda:", tag="text_max_lambda")
+                                    dpg.add_input_text(
+                                        tag="input_text_max_lambda",
+                                        default_value=EIS.parameter["LambdaOpt"]["lambda_max"],
+                                        enabled=True,
+                                        width=-1,
+                                    )
 
-                        with dpg.table_row():
-                            dpg.add_text("")
-                            dpg.add_text("Average lambda:")
-                            dpg.add_text("Non-calculated", tag="text_average_lambda")
+                                with dpg.table_row():
+                                    dpg.add_text("")
+                                    dpg.add_text("Lambda points:", tag="text_lambda_points")
+                                    dpg.add_input_text(
+                                        tag="input_text_lambda_points",
+                                        default_value=EIS.parameter["LambdaOpt"]["n"],
+                                        enabled=True,
+                                        width=-1,
+                                    )
+
+                                with dpg.table_row():
+                                    dpg.add_text("")
+                                    dpg.add_text("Lambda target:")
+                                    lambda_target_items = gui_utils.drt_functions.get_lambda_target_items(EIS)
+                                    lambda_target_default = gui_utils.drt_functions.normalize_lambda_target(
+                                        EIS.parameter["LambdaOpt"].get("target", "truncated"),
+                                        EIS,
+                                    )
+                                    dpg.add_combo(
+                                        tag="combo_lambda_target",
+                                        items=lambda_target_items,
+                                        default_value=lambda_target_default,
+                                        callback=lambda sender, app_data: lambda_target_callback(sender, app_data, EIS, config),
+                                        width=-1,
+                                    )
+
+                                with dpg.table_row():
+                                    dpg.add_text("")
+                                    dpg.add_text("Optimal lambda:")
+                                    dpg.add_text("Non-calculated", tag="text_optimal_lambda")
+
+                                with dpg.table_row():
+                                    dpg.add_text("")
+                                    dpg.add_text("Average lambda:")
+                                    dpg.add_text("Non-calculated", tag="text_average_lambda")
+
+                        # ── RBF-DRT tab ───────────────────────────────────────
+                        with dpg.tab(label="RBF-DRT", tag="tab_drt_params_rbf"):
+                            rbf_p = EIS.parameter.get("DRT_RBF", {})
+                            with dpg.table(
+                                header_row=False,
+                                borders_innerH=False,
+                                row_background=False,
+                                policy=dpg.mvTable_SizingStretchProp,
+                            ):
+                                dpg.add_table_column(width_fixed=True, init_width_or_weight=int(viewport_width * 0.10))
+                                dpg.add_table_column(width_stretch=True)
+
+                                with dpg.table_row():
+                                    dpg.add_text("Lambda:")
+                                    dpg.add_input_text(
+                                        tag="input_text_rbf_lambda",
+                                        default_value=rbf_p.get("lambda", 1e-3),
+                                        width=-1,
+                                    )
+
+                                with dpg.table_row():
+                                    dpg.add_text("RBF type:")
+                                    dpg.add_combo(
+                                        tag="combo_rbf_type",
+                                        items=["Gaussian", "C0 Matern", "C2 Matern", "C4 Matern",
+                                               "C6 Matern", "Inverse quadratic", "Cauchy", "Piecewise linear"],
+                                        default_value=rbf_p.get("rbf_type", "Gaussian"),
+                                        width=-1,
+                                    )
+
+                                with dpg.table_row():
+                                    dpg.add_text("Coeff (FWHM):")
+                                    dpg.add_input_text(
+                                        tag="input_text_rbf_coeff",
+                                        default_value=rbf_p.get("coeff", 0.5),
+                                        width=-1,
+                                    )
+
+                                with dpg.table_row():
+                                    dpg.add_text("Shape ctrl:")
+                                    dpg.add_combo(
+                                        tag="combo_rbf_shape_control",
+                                        items=["FWHM Coefficient", "Shape Factor"],
+                                        default_value=rbf_p.get("shape_control", "FWHM Coefficient"),
+                                        width=-1,
+                                    )
+
+                                with dpg.table_row():
+                                    dpg.add_text("Derivative:")
+                                    dpg.add_combo(
+                                        tag="combo_rbf_der_used",
+                                        items=["1st order", "2nd order"],
+                                        default_value=rbf_p.get("der_used", "1st order"),
+                                        width=-1,
+                                    )
+
+                                with dpg.table_row():
+                                    dpg.add_text("Method:")
+                                    dpg.add_combo(
+                                        tag="combo_rbf_method",
+                                        items=["ridge", "bayes"],
+                                        default_value=rbf_p.get("method", "ridge"),
+                                        width=-1,
+                                    )
+
+                                with dpg.table_row():
+                                    dpg.add_text("Fit inductance:")
+                                    dpg.add_checkbox(
+                                        tag="check_box_rbf_fit_inductance",
+                                        default_value=rbf_p.get("fit_inductance", False),
+                                    )
+
+                    if dpg.does_item_exist("tab_bar_drt_params") and dpg.does_item_exist(drt_params_default_tab):
+                        dpg.set_value("tab_bar_drt_params", drt_params_default_tab)
 
                 # Buttons
                 with dpg.child_window(
@@ -459,7 +643,14 @@ def gui_tab_drt(config, EIS, CNLS):
     if dpg.does_item_exist("tab_bar_main"):
         dpg.set_value("tab_bar_main", "tab_drt")
     try:
-        gui_utils.file_list.display_file(None, config.display_file, config)
+        gui_utils.file_list.display_file(
+            None,
+            config.display_file,
+            config,
+            refresh_eis_tab=False,
+            refresh_drt_tab=True,
+            refresh_cnls_tab=False,
+        )
     except Exception as e:
         print(f"[Warning] DRT display_file refresh failed: {e}")
     update_child_window_size()

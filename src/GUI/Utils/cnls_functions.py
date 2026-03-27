@@ -4,7 +4,22 @@ import math
 import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
+import src.Methods.CNLS.Utils as CNLS_fn
 from src.Methods.CNLS.Circuit import Circuit
+
+
+def _default_cnls_elements():
+    return [
+        {'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
+        {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
+    ]
+
+
+def _ensure_store_elements(config):
+    elements = config.store.get("Elements", None)
+    if not isinstance(elements, list) or len(elements) == 0:
+        config.store["Elements"] = copy.deepcopy(_default_cnls_elements())
+    return config.store["Elements"]
 
 def _file_existence_check(config):
     """Check if the file exists in the store and contains valid CNLS data.
@@ -20,6 +35,45 @@ def _file_existence_check(config):
             config.store[file_name_no_ext] is not None and 
             config.store[file_name_no_ext].get('CNLS') is not None and 
             config.store[file_name_no_ext]['CNLS'].f_fixed is not None)
+
+
+def normalize_cnls_data_type(data_type):
+    """Public normalizer used by GUI refresh code and CNLS callbacks."""
+    return CNLS_fn.normalize_cnls_data_type(data_type)[0]
+
+
+def _resolve_cnls_reference_data(eis_data, data_type):
+    return CNLS_fn.resolve_cnls_reference(eis_data, data_type, allow_rbf_fallback=True)
+
+
+def apply_cnls_reference_data(cnls_data, eis_data):
+    """Fill CNLS reference vectors (DRTmes/Zmes/f/w) from the selected data_type."""
+    reference = _resolve_cnls_reference_data(eis_data, cnls_data.data_type)
+    if reference is None:
+        reference = _resolve_cnls_reference_data(eis_data, "truncated")
+        if reference is None:
+            raise ValueError("CNLS reference data missing: no valid DRT reference (Tikhonov/RBF).")
+        print("[Warning] CNLS reference fallback to truncated (Tikhonov): selected data unavailable.")
+
+    if reference["normalized_data_type"] != cnls_data.data_type:
+        print(
+            f"[Warning] CNLS data type '{cnls_data.data_type}' fallback to '{reference['normalized_data_type']}' "
+            f"for current file."
+        )
+        cnls_data.data_type = reference["normalized_data_type"]
+
+    cnls_data.DRTmes = reference["drt_mes"]
+    cnls_data.f = reference["z_f"]
+    cnls_data.f_drt = reference.get("drt_f", reference["z_f"])
+    cnls_data.Zmes = reference["z_mes"]
+    cnls_data.w = cnls_data.f * 2 * np.pi if cnls_data.f is not None else None
+
+    if len(cnls_data.Zmes) != len(cnls_data.f):
+        raise ValueError(
+            f"CNLS fitting axis mismatch: len(Zmes)={len(cnls_data.Zmes)} vs len(f)={len(cnls_data.f)}"
+        )
+
+    return reference
 
 def _update_peak_fixed(sender, app_data, config):
     print("-- Updating peak fixed frequency...")
@@ -119,15 +173,11 @@ def dynamic_peak_ids(sender, appdata, config):
     _update_peak_fixed(None, 0, config)
     if 'nbr_peaks' in config.store.keys():
         for i in range(config.store['nbr_peaks']):
-            dpg.delete_item(f"table_row_peak_{i}")
-        
+            if dpg.does_item_exist(f"table_row_peak_{i}"):
+                dpg.delete_item(f"table_row_peak_{i}")
+
     # Generate table rows
     for i in range(nbr_peaks):
-        existing_rows = [item for item in dpg.get_item_children("Table_cnls_parameters", 1) 
-                 if dpg.get_item_label(item).startswith("table_row_peak_")]
-        for j in range(len(existing_rows)):
-            if dpg.does_item_exist(f"table_row_peak_{j}"):
-                dpg.delete_item(f"table_row_peak_{j}")
         # Set column headers
         if i == 0:
             label = "High f [Hz]" if not dpg.get_value("check_box_cnls_tau") else "Low tau [s]"
@@ -180,12 +230,15 @@ def update_data_type(sender, appdata, config):
     """
     file_name_no_ext = os.path.splitext(config.display_file)[0]
     try:
-        config.store[file_name_no_ext]['CNLS'].data_type = appdata
+        CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+        CNLS_tmp.data_type = normalize_cnls_data_type(appdata)
+        EIS_tmp = config.store[file_name_no_ext]['EIS']
+        apply_cnls_reference_data(CNLS_tmp, EIS_tmp)
         gui_utils.cnls_plots.update_single_plots(config)
     except:
         raise ValueError("File does not exist or CNLS data is invalid.")
     
-    print(f"---- Data type updated to {appdata}.")
+    print(f"---- Data type updated to {CNLS_tmp.data_type}.")
 
 def nbr_iteration(sender, appdata, config):
     """Update the number of iterations for CNLS fitting.
@@ -289,7 +342,8 @@ def initialize_parameters(sender, appdata, config):
         config: Configuration object.
     """
     print("-- Initializing CNLS parameters...")
-    names = [elem['name'] for elem in config.store['Elements'][:]]
+    _ensure_store_elements(config)
+    names = [elem.get('name', '') for elem in config.store['Elements'][:]]
     has_randle = any('Randle' in name for name in names)
     if has_randle:
         dpg.configure_item("checkbox_cnls_segement_constraints", default_value=False, enabled=False)
@@ -303,35 +357,37 @@ def initialize_parameters(sender, appdata, config):
             raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
         else:
             EIS_tmp = config.store[file_name_no_ext]['EIS']
-            if 'CNLS' not in config.store[file_name_no_ext] or config.store[file_name_no_ext]['CNLS'].DRTmes is None:
+            cnls_existing = config.store[file_name_no_ext].get('CNLS', None)
+            need_rebuild_cnls = (
+                cnls_existing is None
+                or cnls_existing.DRTmes is None
+                or not isinstance(cnls_existing.Elements, list)
+                or len(cnls_existing.Elements) == 0
+            )
+            if need_rebuild_cnls:
                 config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(
                     file_folder=config.folder_path,
                     filename=file_name,
-                    Elements=config.store['Elements'],
+                    Elements=copy.deepcopy(config.store['Elements']),
                     EIS=EIS_tmp,
-                    data_type=dpg.get_value('combo_cnls_data_type')
+                    data_type=normalize_cnls_data_type(dpg.get_value('combo_cnls_data_type'))
                 ))
             
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
-            CNLS_tmp.DRTmes = config.store[file_name_no_ext]['EIS']['tknv_' + CNLS_tmp.data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['g']
-            CNLS_tmp.f = config.store[file_name_no_ext]['EIS']['tknv_' + CNLS_tmp.data_type.replace('_KK', '').replace('_DRT', '')]['ReIm']['f']
-            if CNLS_tmp.data_type == 'smooth_KK':
-                CNLS_tmp.Zmes = config.store[file_name_no_ext]['EIS']['smooth']['Z']
-            elif CNLS_tmp.data_type == 'smooth_DRT':
-                CNLS_tmp.DRTmes = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['g']
-                CNLS_tmp.f = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['f']
-                CNLS_tmp.Zmes = config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['Re']+1j*config.store[file_name_no_ext]['EIS']['tknv_truncated']['ReIm']['Im']
-            else:
-                CNLS_tmp.Zmes = config.store[file_name_no_ext]['EIS'][CNLS_tmp.data_type]['Z']
-            if CNLS_tmp.f is not None:
-                CNLS_tmp.w = CNLS_tmp.f * 2 * np.pi
+            if not isinstance(CNLS_tmp.Elements, list) or len(CNLS_tmp.Elements) == 0:
+                CNLS_tmp.Elements = copy.deepcopy(config.store['Elements'])
+            if not isinstance(CNLS_tmp.Elements, list) or len(CNLS_tmp.Elements) == 0:
+                raise ValueError("CNLS elements are empty. Please initialize circuit elements first.")
+
+            reference = apply_cnls_reference_data(CNLS_tmp, EIS_tmp)
+            rl_data = reference.get("drt_rl_result", {}).get("RL", {})
 
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
             # Disable RC_fit_switch if Randle elements exist
-            has_randle = any('Randle' in element.get('type', '') for element in CNLS_tmp.Elements)
+            has_randle = any('Randle' in element.get('type', '') for element in (CNLS_tmp.Elements or []))
             if has_randle:
                 CNLS_tmp.RC_fit_switch = False
             else:
@@ -339,16 +395,21 @@ def initialize_parameters(sender, appdata, config):
                 CNLS_tmp.RC_fit_switch = config.store.get("RC_fit_switch", False)
             
             R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_tmp.PeakDerivative(CNLS_tmp.f_mode, f_fixed=CNLS_tmp.f_fixed, nbr_peaks_fixed=len(CNLS_tmp.f_fixed))
-            R_est = R_est*EIS_tmp['tknv_' + CNLS_tmp.data_type.replace('_KK', '').replace('_DRT', '')]['RL']['Rp_ReIm']/np.sum(R_est)
+            R_est_sum = np.sum(R_est)
+            rp_reim = rl_data.get('Rp_ReIm', None)
+            if rp_reim is not None and R_est_sum not in [None, 0]:
+                R_est = R_est * rp_reim / R_est_sum
             param_list = list(zip(R_est, tau_est, alpha_est))
             param_list = [[float(x) for x in tup] for tup in param_list]
             
             # try:
             for idx, element in enumerate(CNLS_tmp.Elements):
                 if element['name'] == 'L1':
-                    CNLS_tmp.Elements[0]['Param'] = [float(EIS_tmp['tknv_' + CNLS_tmp.data_type.replace('_KK', '').replace('_DRT', '')]['RL']['L_ReIm'])]
+                    if rl_data.get('L_ReIm', None) is not None:
+                        CNLS_tmp.Elements[0]['Param'] = [float(rl_data['L_ReIm'])]
                 elif element['name'] == 'R2':
-                    CNLS_tmp.Elements[1]['Param'] = [float(EIS_tmp['tknv_' + CNLS_tmp.data_type.replace('_KK', '').replace('_DRT', '')]['RL']['Rs_ReIm'])]
+                    if rl_data.get('Rs_ReIm', None) is not None:
+                        CNLS_tmp.Elements[1]['Param'] = [float(rl_data['Rs_ReIm'])]
                 elif element['type'] not in ['Capacitor', 'CPE'] and not 'Randle' in element['name']:
                     CNLS_tmp.Elements[idx]['Param'] = param_list[0][:len(CNLS_tmp.Elements[idx]['Param'])]
                     param_list.remove(param_list[0])
@@ -393,7 +454,11 @@ def initialize_parameters(sender, appdata, config):
             constraint_percentage(CNLS_tmp)
             # CNLS_tmp.initialize_elements(change_UBLB = True)
             print(f"---- CNLS parameters initialized for {file_name}.")
-    config.store["Elements"] = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements
+    display_key = os.path.splitext(config.display_file)[0] if config.display_file else None
+    if display_key in config.store and 'CNLS' in config.store[display_key] and isinstance(config.store[display_key]['CNLS'].Elements, list):
+        config.store["Elements"] = config.store[display_key]['CNLS'].Elements
+    else:
+        _ensure_store_elements(config)
     gui_utils.cnls_elements.update_elements(config)
     print("[LOG] CNLS parameters initialization completed for all selected files.")
 
@@ -407,6 +472,7 @@ def load_parameters(sender, appdata, config):
         config: Configuration object.
     """
     print("-- Loading CNLS parameters...")
+    _ensure_store_elements(config)
 
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
@@ -414,6 +480,10 @@ def load_parameters(sender, appdata, config):
             raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
         else:
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+            if not isinstance(CNLS_tmp.Elements, list) or len(CNLS_tmp.Elements) == 0:
+                CNLS_tmp.Elements = copy.deepcopy(config.store['Elements'])
+            if not isinstance(CNLS_tmp.Elements, list) or len(CNLS_tmp.Elements) == 0:
+                raise ValueError("CNLS elements are empty. Please initialize circuit elements first.")
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
@@ -423,7 +493,9 @@ def load_parameters(sender, appdata, config):
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
             CNLS_tmp.ElementsNames = []
             # CNLS_tmp.Elements = config.store['Elements']
-            CNLS_tmp.data_type = dpg.get_value('combo_cnls_data_type')
+            CNLS_tmp.data_type = normalize_cnls_data_type(dpg.get_value('combo_cnls_data_type'))
+            EIS_tmp = config.store[file_name_no_ext]['EIS']
+            apply_cnls_reference_data(CNLS_tmp, EIS_tmp)
             CNLS_tmp.initialize_elements(change_UBLB = False)
             print(f"---- CNLS parameters loaded for {file_name}.")
 
@@ -436,6 +508,8 @@ def cnls_fit(sender, appdata, config):
             raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
         else:
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+            EIS_tmp = config.store[file_name_no_ext]['EIS']
+            apply_cnls_reference_data(CNLS_tmp, EIS_tmp)
             for i in range(0, CNLS_tmp.iteration):
                 print(f"---- CNLS fitting iteration {i+1}/{CNLS_tmp.iteration} for {file_name}...")
                 CNLS_tmp.FitCircuit()

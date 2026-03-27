@@ -1,5 +1,6 @@
 import os
 import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(sys.path[0])))
 import shutil
 import ctypes
@@ -20,8 +21,12 @@ from src.Methods.CNLS.Circuit import Circuit
 def _normalize_path(path_obj):
     """Handle Windows long path (260+ chars) by adding \\\\?\\ prefix."""
     path_str = str(path_obj)
-    if sys.platform == 'win32' and os.path.isabs(path_str) and not path_str.startswith('\\\\'):
-        return '\\\\?' + os.path.sep + os.path.abspath(path_str)
+    if (
+        sys.platform == "win32"
+        and os.path.isabs(path_str)
+        and not path_str.startswith("\\\\")
+    ):
+        return "\\\\?" + os.path.sep + os.path.abspath(path_str)
     return path_str
 
 
@@ -32,27 +37,31 @@ gui.gui_tab_eis = gui_tab_eis_module.gui_tab_eis
 gui.gui_tab_drt = gui_tab_drt_module.gui_tab_drt
 gui.gui_tab_cnls = gui_tab_cnls_module.gui_tab_cnls
 
+
 # 00 - Function Definitions
 # Utility function to print the sender of the callback
 def on_exit(config):
     config.save_config()
     print("[LOG] SOCEIS is shutting down, cleaning up subprocesses...")
-    if 'viewer_processes' in config.store:
-        for proc in config.store['viewer_processes']:
+    if "viewer_processes" in config.store:
+        for proc in config.store["viewer_processes"]:
             if proc.poll() is None:  # 如果进程还在运行
-                proc.terminate()      # 尝试优雅关闭
+                proc.terminate()  # 尝试优雅关闭
                 # proc.kill()        # 如果想强制关闭可以用这个
         print("[LOG] Configuration saved.")
+
 
 # 01 - Initialization
 # Set the DPI awareness to system DPI
 if platform.system() == "Windows":
     import ctypes
+
     user32 = ctypes.windll.user32
     window_width = int(user32.GetSystemMetrics(0) * 0.8)
     window_height = int(user32.GetSystemMetrics(1) * 0.8)
 elif platform.system() == "Darwin":  # macOS
     from tkinter import Tk
+
     root = Tk()
     root.withdraw()
     screen_width = root.winfo_screenwidth()
@@ -60,30 +69,55 @@ elif platform.system() == "Darwin":  # macOS
     window_width = int(screen_width * 0.8)
     window_height = int(screen_height * 0.8)
 else:
-    raise OSError("Unsupported operating system")
+    from tkinter import Tk
+
+    root = Tk()
+    root.withdraw()
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    window_width = int(screen_width * 0.8)
+    window_height = int(screen_height * 0.8)
 
 # Initialize the configuration
 config = Config()
-config.store['beacon_DRT_import'] = True
-EIS = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=12.56, n_cell=1, file_folder=config.folder_path, filename=None)
-CNLS = Circuit(file_folder=config.folder_path, filename=None, Elements = None, EIS = None, data_type = None)
+config.store["beacon_DRT_import"] = True
+EIS = DRT(
+    Re_raw=None,
+    Im_raw=None,
+    f_raw=None,
+    CellArea=12.56,
+    n_cell=1,
+    file_folder=config.folder_path,
+    filename=None,
+)
+CNLS = Circuit(
+    file_folder=config.folder_path,
+    filename=None,
+    Elements=None,
+    EIS=None,
+    data_type=None,
+)
 
 # Initialize DearPyGui
 dpg.create_context()
-dpg.create_viewport(title='SOCEIS', width=window_width, height=window_height)
+dpg.create_viewport(title="SOCEIS", width=window_width, height=window_height)
 
 base_viewport_width = window_width
 base_viewport_height = window_height
 
 # Setup the icon and fonts
 root_dir = Path(__file__).resolve().parent.parent.parent
+
+
 # Function to check if path contains special characters
 def has_special_chars(path_str):
     try:
-        path_str.encode('ascii')
+        path_str.encode("ascii")
         return False
     except UnicodeEncodeError:
         return True
+
+
 # Font handling with temporary directory only if needed
 try:
     font_path_medium = root_dir / "assets" / "fonts" / "MiSans-Medium.otf"
@@ -101,26 +135,46 @@ try:
         if has_special_chars(str(root_dir)):
             temp_dir = Path("C:/Temp/SOCEIS_Assets")
             temp_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(_normalize_path(root_dir / "assets" / "fonts" / "MiSans-Medium.otf"), _normalize_path(temp_dir / "MiSans-Medium.otf"))
-            shutil.copy2(_normalize_path(root_dir / "assets" / "fonts" / "MiSans-Light.otf"), _normalize_path(temp_dir / "MiSans-Light.otf"))
+            shutil.copy2(
+                _normalize_path(root_dir / "assets" / "fonts" / "MiSans-Medium.otf"),
+                _normalize_path(temp_dir / "MiSans-Medium.otf"),
+            )
+            shutil.copy2(
+                _normalize_path(root_dir / "assets" / "fonts" / "MiSans-Light.otf"),
+                _normalize_path(temp_dir / "MiSans-Light.otf"),
+            )
             font_path_medium = temp_dir / "MiSans-Medium.otf"
             font_path_light = temp_dir / "MiSans-Light.otf"
 
             # Always refresh icon file in temp to avoid stale/cached wrong icon.
             if icon_ico.exists():
-                shutil.copy2(_normalize_path(icon_ico), _normalize_path(temp_dir / "app_icon.ico"))
+                shutil.copy2(
+                    _normalize_path(icon_ico),
+                    _normalize_path(temp_dir / "app_icon.ico"),
+                )
                 icon_path = temp_dir / "app_icon.ico"
             elif icon_png.exists():
-                shutil.copy2(_normalize_path(icon_png), _normalize_path(temp_dir / "app_icon.png"))
+                shutil.copy2(
+                    _normalize_path(icon_png),
+                    _normalize_path(temp_dir / "app_icon.png"),
+                )
                 icon_path = temp_dir / "app_icon.png"
         else:
-            icon_path = icon_ico if icon_ico.exists() else (icon_png if icon_png.exists() else None)
+            icon_path = (
+                icon_ico
+                if icon_ico.exists()
+                else (icon_png if icon_png.exists() else None)
+            )
     elif system_name == "Linux":
         # Linux commonly works better with PNG icon.
-        icon_path = icon_png if icon_png.exists() else (icon_ico if icon_ico.exists() else None)
+        icon_path = (
+            icon_png if icon_png.exists() else (icon_ico if icon_ico.exists() else None)
+        )
     else:  # Darwin/macOS
         # macOS may ignore runtime viewport icon depending on backend/window manager.
-        icon_path = icon_png if icon_png.exists() else (icon_ico if icon_ico.exists() else None)
+        icon_path = (
+            icon_png if icon_png.exists() else (icon_ico if icon_ico.exists() else None)
+        )
 
     # Set viewport icons (best effort).
     if icon_path is not None:
@@ -130,7 +184,9 @@ try:
         except Exception as icon_err:
             print(f"[WARNING] Failed to set viewport icon from {icon_path}: {icon_err}")
     else:
-        print("[WARNING] No app icon file found (expected app_icon.ico or app_icon.png).")
+        print(
+            "[WARNING] No app icon file found (expected app_icon.ico or app_icon.png)."
+        )
 
     # Load fonts
     with dpg.font_registry():
@@ -160,12 +216,18 @@ except Exception as e:
 
 with dpg.theme() as plot_theme:
     with dpg.theme_component(dpg.mvAll):
-        dpg.add_theme_style(dpg.mvPlotStyleVar_LineWeight, 3, category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, value=[0,0,0,0], category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerWeight, 2, category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(
+            dpg.mvPlotStyleVar_LineWeight, 3, category=dpg.mvThemeCat_Plots
+        )
+        dpg.add_theme_color(
+            dpg.mvPlotCol_MarkerFill, value=[0, 0, 0, 0], category=dpg.mvThemeCat_Plots
+        )
+        dpg.add_theme_style(
+            dpg.mvPlotStyleVar_MarkerWeight, 2, category=dpg.mvThemeCat_Plots
+        )
 
 # 02 - Set up different windows
-with dpg.window(label="Main Window", tag='fullscreen'):
+with dpg.window(label="Main Window", tag="fullscreen"):
     with dpg.menu_bar():
         # with dpg.menu(label="File"):
         #     dpg.add_menu_item(label="Save", callback=print_me)
@@ -173,14 +235,29 @@ with dpg.window(label="Main Window", tag='fullscreen'):
 
         with dpg.menu(label="Settings"):
             # dpg.add_menu_item(label="Setting 1", callback=print_me, check=True)
-            dpg.add_menu_item(label="Font size", callback=lambda sender, app_data: gui_utils.small_functions.font_size_callback(sender, app_data, config, font_path_medium, font_path_light))
-            dpg.add_menu_item(label="Update from GitHub", callback=lambda sender, app_data: gui_utils.small_functions.start_online_update_callback(sender, app_data, config))
+            dpg.add_menu_item(
+                label="Font size",
+                callback=lambda sender, app_data: (
+                    gui_utils.small_functions.font_size_callback(
+                        sender, app_data, config, font_path_medium, font_path_light
+                    )
+                ),
+            )
+            dpg.add_menu_item(
+                label="Update from GitHub",
+                callback=lambda sender, app_data: (
+                    gui_utils.small_functions.start_online_update_callback(
+                        sender, app_data, config
+                    )
+                ),
+            )
 
         # dpg.add_menu_item(label="Help", callback=print_me)
         dpg.bind_theme(plot_theme)
 
     with dpg.tab_bar(tag="tab_bar_main", reorderable=True):
         gui.gui_tab_soceis(config, EIS, CNLS)
+
 
 def global_viewport_resize_callback(sender=None, app_data=None):
     """
@@ -214,12 +291,34 @@ def global_viewport_resize_callback(sender=None, app_data=None):
     except Exception:
         pass
 
+
 # 05 - Show the window
 dpg.setup_dearpygui()
 dpg.set_viewport_resize_callback(global_viewport_resize_callback)
 global_viewport_resize_callback()
 dpg.set_primary_window("fullscreen", True)
 dpg.show_viewport()
+
+
+def startup_import_callback():
+    """Run historical data import after the first frame so progress UI is visible."""
+    try:
+        gui_utils.file_list.update_file_list(
+            config,
+            "child_window_file_list_soceis",
+            EIS,
+            CNLS,
+            import_history=True,
+            show_progress=True,
+            run_alignment=False,
+        )
+        if config.selected_files:
+            config.display_file = config.selected_files[0]
+    except Exception as e:
+        print(f"[Warning] Startup data import failed: {e}")
+
+
+dpg.set_frame_callback(1, lambda: startup_import_callback())
 dpg.start_dearpygui()
 dpg.set_exit_callback(on_exit(config))
 dpg.destroy_context()

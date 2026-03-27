@@ -40,8 +40,13 @@ def table_update(config):
     # Parameter results
     file_name_no_ext = os.path.splitext(config.display_file)[0]
     print('-- Update CNLS parameter table...')
-    dpg.delete_item("tab_cnls_data_parameters")
-    with dpg.tab(label="Parameters", tag="tab_cnls_data_parameters", parent="tab_bar_cnls_data"):
+    if dpg.does_item_exist("tab_cnls_data_parameters"):
+        dpg.delete_item("tab_cnls_data_parameters", children_only=True)
+    else:
+        with dpg.tab(label="Parameters", tag="tab_cnls_data_parameters", parent="tab_bar_cnls_data"):
+            pass
+
+    with dpg.group(parent="tab_cnls_data_parameters"):
         with dpg.table(
             parent=f"tab_cnls_data_parameters",
             tag=f"table_cnls_data_parameters",
@@ -96,8 +101,13 @@ def table_update(config):
             Impedance_data_columns = CNLS_tmp.Z.columns.tolist()
             Impedance_data_columns.remove('Zmes') if 'Zmes' in Impedance_data_columns else None
             Impedance_data_columns.remove('Ztot0') if 'Ztot0' in Impedance_data_columns else None
-            dpg.delete_item(f"tab_cnls_data_impedance")
-            with dpg.tab(label="Impedance", tag="tab_cnls_data_impedance", parent="tab_bar_cnls_data"):
+            if dpg.does_item_exist("tab_cnls_data_impedance"):
+                dpg.delete_item("tab_cnls_data_impedance", children_only=True)
+            else:
+                with dpg.tab(label="Impedance", tag="tab_cnls_data_impedance", parent="tab_bar_cnls_data"):
+                    pass
+
+            with dpg.group(parent="tab_cnls_data_impedance"):
                 with dpg.tab_bar(tag=f"tab_bar_impedance_data", parent="tab_cnls_data_impedance"):
                     for element in Impedance_data_columns:
                             dpg.add_tab(label=element, tag=f"tab_impedance_data_{element}", parent=f"tab_bar_impedance_data")
@@ -133,8 +143,13 @@ def table_update(config):
 
     # DRT data
     print('-- Updating CNLS DRT data table...')
-    dpg.delete_item("tab_cnls_data_drt")
-    with dpg.tab(label="DRT", tag="tab_cnls_data_drt", parent="tab_bar_cnls_data"):
+    if dpg.does_item_exist("tab_cnls_data_drt"):
+        dpg.delete_item("tab_cnls_data_drt", children_only=True)
+    else:
+        with dpg.tab(label="DRT", tag="tab_cnls_data_drt", parent="tab_bar_cnls_data"):
+            pass
+
+    with dpg.group(parent="tab_cnls_data_drt"):
         try:
             with dpg.table(
                 parent=f"tab_cnls_data_drt",
@@ -156,25 +171,39 @@ def table_update(config):
                 if CNLS_tmp.Elements is not None:
                     for idx in range(len(CNLS_tmp.Elements)):
                         dpg.add_table_column(label=CNLS_tmp.Elements[idx]['name'], width_fixed=True)
-                    
-                    for idx in range(len(CNLS_tmp.f)):
+
+                    def _safe_at(values, idx):
+                        if values is None:
+                            return None
+                        try:
+                            if idx < len(values):
+                                return values[idx]
+                        except Exception:
+                            return None
+                        return None
+
+                    f_fit = CNLS_tmp.f if CNLS_tmp.f is not None else []
+                    f_drt = CNLS_tmp.f_drt if hasattr(CNLS_tmp, 'f_drt') and CNLS_tmp.f_drt is not None else f_fit
+                    drt_meas = CNLS_tmp.DRTmes if CNLS_tmp.DRTmes is not None else []
+                    drt_fit = CNLS_tmp.DRT['ReIm']['g'] if CNLS_tmp.DRT is not None and 'ReIm' in CNLS_tmp.DRT else []
+
+                    n_rows = max(len(f_drt), len(drt_meas), len(f_fit), len(drt_fit))
+                    for idx in range(n_rows):
                         with dpg.table_row():
-                            # Frequency column (already a scalar)
-                            freq = CNLS_tmp.f[idx]
-                            dpg.add_text(str(freq))
-                            
-                            # DRTmes data (ensure scalar)
-                            drt_mes = CNLS_tmp.DRTmes[idx]
-                            dpg.add_text(_smart_format(drt_mes) % drt_mes)
-                            
-                            # DRT["ReIm"]["g"] data (ensure scalar)
-                            drt_g = CNLS_tmp.DRT["ReIm"]["g"][idx]
-                            dpg.add_text(_smart_format(drt_g) % drt_g)
-                            
+                            freq = _safe_at(f_drt, idx)
+                            dpg.add_text(str(freq) if freq is not None else "N/A")
+
+                            drt_mes = _safe_at(drt_meas, idx)
+                            dpg.add_text(_smart_format(drt_mes) % drt_mes if drt_mes is not None else "N/A")
+
+                            drt_g = _safe_at(drt_fit, idx)
+                            dpg.add_text(_smart_format(drt_g) % drt_g if drt_g is not None else "N/A")
+
                             # Element-wise DRT data (ensure scalar)
                             for element in CNLS_tmp.Elements:
-                                element_value = CNLS_tmp.ElementDRTs[element['name']]['ReIm']['g'][idx]
-                                dpg.add_text(_smart_format(element_value) % element_value)
+                                element_series = CNLS_tmp.ElementDRTs[element['name']]['ReIm']['g'] if CNLS_tmp.ElementDRTs is not None and element['name'] in CNLS_tmp.ElementDRTs else []
+                                element_value = _safe_at(element_series, idx)
+                                dpg.add_text(_smart_format(element_value) % element_value if element_value is not None else "N/A")
                 print(f"---- CNLS DRT data table updated successfully.")
         except:
             print("[Warning] CNLS DRT data not available for the selected file, check cnls_table.py function.")

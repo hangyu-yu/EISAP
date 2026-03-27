@@ -58,23 +58,34 @@ class Circuit:
 
         if EIS is None:
             self.DRTparameters = None # DRT parameters
+            self.DRTparameters_rbf = None # RBF DRT parameters
             self.Zmes  = None # Measured impedance data
             self.DRTmes = None # Measured DRT data
             self.f = None # Frequency array
+            self.f_drt = None # DRT frequency array
             self.w = None # Angular frequency array
             print('---- DRT parameters not provided, please define f, w, DRTmes, Zmes, and DRTparameters.')
         else:
             self.DRTparameters = EIS.parameter['DRT'] # DRT parameters
-            if self.data_type == 'smooth_DRT':
-                self.Zmes  = EIS['tknv_truncated']['ReIm']['Re'] + EIS['tknv_truncated']['ReIm']['Im']*1j # Measured impedance data
-                self.DRTmes = EIS['tknv_truncated']['ReIm']['g'] # Measured DRT data
-                self.f = EIS['tknv_truncated']['ReIm']['f'] # Frequency array
-                self.w = self.f*(2*np.pi)    # Angular frequency array
-            else:
-                self.Zmes  = EIS[self.data_type.replace('_KK', '')]['Z'] # Measured impedance data
-                self.DRTmes = EIS['tknv_' + self.data_type.replace('_KK', '')]['ReIm']['g'] # Measured DRT data
-                self.f = EIS[self.data_type.replace('_KK', '')]['f'] # Frequency array
-                self.w = self.f*(2*np.pi)    # Angular frequency array
+            self.DRTparameters_rbf = EIS.parameter.get('DRT_RBF', None) if isinstance(EIS.parameter, dict) else None
+            reference = CNLS_fn.resolve_cnls_reference(EIS, self.data_type, allow_rbf_fallback=True)
+            if reference is None:
+                reference = CNLS_fn.resolve_cnls_reference(EIS, 'truncated', allow_rbf_fallback=False)
+            if reference is None:
+                raise ValueError('No valid CNLS reference data found in EIS (Tikhonov/RBF).')
+
+            if reference['normalized_data_type'] != self.data_type:
+                print(
+                    f"[Warning] CNLS Circuit data_type '{self.data_type}' fallback to "
+                    f"'{reference['normalized_data_type']}' for available reference data."
+                )
+                self.data_type = reference['normalized_data_type']
+
+            self.Zmes = reference['z_mes']
+            self.DRTmes = reference['drt_mes']
+            self.f = reference['z_f']
+            self.f_drt = reference.get('drt_f', reference['z_f'])
+            self.w = self.f*(2*np.pi) if self.f is not None else None
         self.Ztot0 = None # Initial total impedance
         self.Z0    = None # Initial impedance for each angular frequency
         self.Ztot  = None # Total impedance of the circuit
@@ -263,7 +274,14 @@ class Circuit:
         elif mode == 'fixed' and (nbr_peaks_fixed is None or f_fixed is None):
             raise ValueError("For 'fixed' mode, both nbr_peaks_fixed and f_fixed must be provided.")
         else:
-            R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_fn.PeakDerivative.peak_derivative(self.DRTmes, self.f, mode, nbr_peaks_fixed, f_fixed)
+            f_for_peak = self.f_drt if self.f_drt is not None else self.f
+            if self.DRTmes is None or f_for_peak is None:
+                raise ValueError("CNLS peak derivative input is missing (DRTmes/f_drt).")
+            if len(self.DRTmes) != len(f_for_peak):
+                raise ValueError(
+                    f"CNLS peak derivative length mismatch: len(DRTmes)={len(self.DRTmes)} vs len(f_drt)={len(f_for_peak)}."
+                )
+            R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_fn.PeakDerivative.peak_derivative(self.DRTmes, f_for_peak, mode, nbr_peaks_fixed, f_fixed)
         
         return R_est, freq_est, alpha_est, nbr_peaks, tau_est
 
@@ -346,6 +364,15 @@ class Circuit:
             - ElementsParamStandardErrors (numpy array): The standard errors of the fitted parameters, computed as the square root of the variances.
             - ElementsParamPValues (numpy array): The p-values for the fitted parameters, computed using the t-distribution, indicating the statistical significance of the fitted parameters.
         """
+
+        if self.Zmes is None or self.f is None:
+            raise ValueError("CNLS fit requires both Zmes and fitting frequency f.")
+        if len(self.Zmes) != len(self.f):
+            raise ValueError(
+                f"CNLS fit length mismatch: len(Zmes)={len(self.Zmes)} vs len(f)={len(self.f)}. "
+                "Please select a data_type whose impedance points match its frequency axis."
+            )
+        self.w = self.f * (2 * np.pi)
 
         # Define the residuals function
         def residuals(params):
@@ -624,11 +651,35 @@ class Circuit:
             'Im': np.imag(self.Ztot),
             'f': self.f,
         }
-        
-        if self.DRTparameters['tknv_pos'] is False:
-            self.DRT = DRT_fn.DRT_tikhonov(EIS_total, self.DRTparameters)
-        else:
-            self.DRT = DRT_fn.DRT_tknv_pos(EIS_total, self.DRTparameters)
+
+        def _cnls_use_rbf(data_type):
+            try:
+                _, _, use_rbf = CNLS_fn.normalize_cnls_data_type(data_type)
+                return bool(use_rbf)
+            except Exception:
+                return isinstance(data_type, str) and data_type.endswith('_RBF')
+
+        use_rbf = _cnls_use_rbf(self.data_type)
+
+        def _compute_drt_result(eis_input):
+            if use_rbf:
+                rbf_params = dict(self.DRTparameters_rbf) if isinstance(self.DRTparameters_rbf, dict) else {}
+                # DRT_rbf requires lambda as mandatory parameter.
+                if 'lambda' not in rbf_params:
+                    if isinstance(self.DRTparameters, dict) and self.DRTparameters.get('lambda', None) is not None:
+                        rbf_params['lambda'] = self.DRTparameters.get('lambda')
+                    else:
+                        rbf_params['lambda'] = 1e-3
+                try:
+                    return DRT_fn.DRT_rbf(eis_input, rbf_params)
+                except Exception as e:
+                    print(f"[Warning] CNLS RBF DRT failed, fallback to Tikhonov/tknv_pos: {e}")
+
+            if self.DRTparameters['tknv_pos'] is False:
+                return DRT_fn.DRT_tikhonov(eis_input, self.DRTparameters)
+            return DRT_fn.DRT_tknv_pos(eis_input, self.DRTparameters)
+
+        self.DRT = _compute_drt_result(EIS_total)
         
         # Compute DRT for each individual element
         self.ElementDRTs = {}
@@ -640,11 +691,8 @@ class Circuit:
                 'f': self.f,
             }
 
-            # Store the DRT for this element
-            if self.DRTparameters['tknv_pos'] is False:
-                self.ElementDRTs[element_name] = DRT_fn.DRT_tikhonov(EIS_element, self.DRTparameters)
-            else:
-                self.ElementDRTs[element_name] = DRT_fn.DRT_tknv_pos(EIS_element, self.DRTparameters)
+            # Store the DRT for this element with the same method as total DRT.
+            self.ElementDRTs[element_name] = _compute_drt_result(EIS_element)
 
     def _reconstruct_elements(self):
         """
@@ -844,7 +892,7 @@ class Circuit:
 
             # Sheet - DRT
             drt_data = {
-                "f": self.f,
+                "f": self.f_drt if self.f_drt is not None else self.f,
                 "DRTmes/ohm·s·cm2": self.DRTmes,
             }
             if self.DRT is not None:
@@ -913,72 +961,82 @@ class Circuit:
                     return default_value
             return value
 
-        # Read the Excel file
-        with pd.ExcelFile(_normalize_path(import_file)) as xls:
-            for sheet_name in xls.sheet_names:
-                df = pd.read_excel(xls, sheet_name)
-                if sheet_name == "Summary":
-                    # Convert the Summary sheet to a dictionary
-                    self.data_type = safe_get(df, "data_type", self.data_type, str)
-                    self.constraint_type = safe_get(df, "constraint_type", self.constraint_type, str)
-                    self.f_mode = safe_get(df, "f_mode", self.f_mode, str)
-                    self.SumNormResiduals = safe_get(df, "SumNormResiduals", None, float)
-                    self.dof = safe_get(df, "dof", None, int)
-                    self.ElementsNames = safe_literal(safe_get(df, "ElementsNames", self.ElementsNames, str), self.ElementsNames)
-                    self.ElementsType = safe_literal(safe_get(df, "ElementsType", self.ElementsType, str), self.ElementsType)
-                    self.f_fixed = safe_literal(safe_get(df, "fixed_frequencies", None, str), None)
-                    self.ElementsEndIndex = safe_literal(safe_get(df, "ElementsEndIndex", self.ElementsEndIndex, str), self.ElementsEndIndex)
-                    self.ElementsStartIndex = safe_literal(safe_get(df, "ElementsStartIndex", self.ElementsStartIndex, str), self.ElementsStartIndex)
-                    self.ElementsNparam = safe_literal(safe_get(df, "ElementsNparam", self.ElementsNparam, str), self.ElementsNparam)
-                    self.RC_fit_switch = safe_get(df, "RC_fit_switch", self.RC_fit_switch, bool)
-                    self.R_cons= safe_get(df, "R_cons", self.R_cons, float)
-                    self.Tau_cons= safe_get(df, "Tau_cons", self.Tau_cons, float)
+        # Read workbook once and parse required sheets from memory.
+        all_sheets = pd.read_excel(_normalize_path(import_file), sheet_name=None)
 
-                elif sheet_name == "Elements":
-                    # Extract elements-related data
-                    self.ElementsParamNames = safe_list_get(df, "ElementsParamNames")
-                    self.ElementsParamValues = safe_list_get(df, "ElementsParamValues")
-                    self.UpperBound = safe_list_get(df, "UpperBound")
-                    self.LowerBound = safe_list_get(df, "LowerBound")
-                    self.ElementsParamVariance = safe_list_get(df, "ElementsParamVariance")
-                    self.ElementsParamStandardErrors = safe_list_get(df, "ElementsParamStandardErrors")
-                    self.ElementsParamPValues = safe_list_get(df, "ElementsParamPValues")
-                elif sheet_name == "Z":
-                    # Extract impedance-related data
-                    self.f = df["Frequency/Hz"].to_numpy() if "Frequency/Hz" in df.columns else None
-                    if "Zmes_Re/ohm·cm2" in df.columns and "Zmes_Im/ohm·cm2" in df.columns:
-                        self.Zmes = df["Zmes_Re/ohm·cm2"].to_numpy() + 1j * df["Zmes_Im/ohm·cm2"].to_numpy()
-                    else:
-                        self.Zmes = None
-                    if "Ztot_Re/ohm·cm2" in df.columns and "Ztot_Im/ohm·cm2" in df.columns:
-                        self.Ztot = df["Ztot_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot_Im/ohm·cm2"].to_numpy()
-                    else:
-                        self.Ztot = None
-                    if "Ztot0_Re/ohm·cm2" in df.columns and "Ztot0_Im/ohm·cm2" in df.columns:
-                        self.Ztot0 = df["Ztot0_Re/ohm·cm2"].to_numpy() + 1j * df["Ztot0_Im/ohm·cm2"].to_numpy()
-                    else:
-                        self.Ztot0 = None
-                    self.ResidualsReal = df["Residuals_Re"].to_numpy() if "Residuals_Re" in df.columns else None
-                    self.ResidualsImag = df["Residuals_Im"].to_numpy() if "Residuals_Im" in df.columns else None
-                    # Extract individual element impedances
-                    self.Z = pd.DataFrame()
-                    for col in df.columns:
-                        if "_Re/ohm·cm2" in col:
-                            element_name = col.split("_Re")[0]
-                            imag_col = element_name + "_Im/ohm·cm2"
-                            if imag_col in df.columns:
-                                self.Z[element_name] = df[col].to_numpy() + 1j * df[imag_col].to_numpy()
-                elif sheet_name == "DRT":
-                    # Extract DRT-related data
-                    self.DRTmes = df["DRTmes/ohm·s·cm2"].to_numpy() if "DRTmes/ohm·s·cm2" in df.columns else None
-                    if "DRT" in df.columns:
-                        self.DRT = {"ReIm": {"g": df["DRT"].to_numpy()}}
-                    # Extract individual element DRTs
-                    self.ElementDRTs = {}
-                    for col in df.columns:
-                        if "DRT" in col and col != "DRT":
-                            element_name = col.replace("DRT", "").replace("/ohm·s·cm2", "")
-                            self.ElementDRTs[element_name] = {"ReIm": {"g": df[col].to_numpy()}}
+        summary_df = all_sheets.get("Summary", None)
+        if summary_df is not None:
+            self.data_type = safe_get(summary_df, "data_type", self.data_type, str)
+            self.constraint_type = safe_get(summary_df, "constraint_type", self.constraint_type, str)
+            self.f_mode = safe_get(summary_df, "f_mode", self.f_mode, str)
+            self.SumNormResiduals = safe_get(summary_df, "SumNormResiduals", None, float)
+            self.dof = safe_get(summary_df, "dof", None, int)
+            self.ElementsNames = safe_literal(safe_get(summary_df, "ElementsNames", self.ElementsNames, str), self.ElementsNames)
+            self.ElementsType = safe_literal(safe_get(summary_df, "ElementsType", self.ElementsType, str), self.ElementsType)
+            self.f_fixed = safe_literal(safe_get(summary_df, "fixed_frequencies", None, str), None)
+            self.ElementsEndIndex = safe_literal(safe_get(summary_df, "ElementsEndIndex", self.ElementsEndIndex, str), self.ElementsEndIndex)
+            self.ElementsStartIndex = safe_literal(safe_get(summary_df, "ElementsStartIndex", self.ElementsStartIndex, str), self.ElementsStartIndex)
+            self.ElementsNparam = safe_literal(safe_get(summary_df, "ElementsNparam", self.ElementsNparam, str), self.ElementsNparam)
+            self.RC_fit_switch = safe_get(summary_df, "RC_fit_switch", self.RC_fit_switch, bool)
+            self.R_cons = safe_get(summary_df, "R_cons", self.R_cons, float)
+            self.Tau_cons = safe_get(summary_df, "Tau_cons", self.Tau_cons, float)
+
+        elements_df = all_sheets.get("Elements", None)
+        if elements_df is not None:
+            self.ElementsParamNames = safe_list_get(elements_df, "ElementsParamNames")
+            self.ElementsParamValues = safe_list_get(elements_df, "ElementsParamValues")
+            self.UpperBound = safe_list_get(elements_df, "UpperBound")
+            self.LowerBound = safe_list_get(elements_df, "LowerBound")
+            self.ElementsParamVariance = safe_list_get(elements_df, "ElementsParamVariance")
+            self.ElementsParamStandardErrors = safe_list_get(elements_df, "ElementsParamStandardErrors")
+            self.ElementsParamPValues = safe_list_get(elements_df, "ElementsParamPValues")
+
+        z_df = all_sheets.get("Z", None)
+        if z_df is not None:
+            self.f = z_df["Frequency/Hz"].to_numpy() if "Frequency/Hz" in z_df.columns else None
+            if "Zmes_Re/ohm·cm2" in z_df.columns and "Zmes_Im/ohm·cm2" in z_df.columns:
+                self.Zmes = z_df["Zmes_Re/ohm·cm2"].to_numpy() + 1j * z_df["Zmes_Im/ohm·cm2"].to_numpy()
+            else:
+                self.Zmes = None
+            if "Ztot_Re/ohm·cm2" in z_df.columns and "Ztot_Im/ohm·cm2" in z_df.columns:
+                self.Ztot = z_df["Ztot_Re/ohm·cm2"].to_numpy() + 1j * z_df["Ztot_Im/ohm·cm2"].to_numpy()
+            else:
+                self.Ztot = None
+            if "Ztot0_Re/ohm·cm2" in z_df.columns and "Ztot0_Im/ohm·cm2" in z_df.columns:
+                self.Ztot0 = z_df["Ztot0_Re/ohm·cm2"].to_numpy() + 1j * z_df["Ztot0_Im/ohm·cm2"].to_numpy()
+            else:
+                self.Ztot0 = None
+            self.ResidualsReal = z_df["Residuals_Re"].to_numpy() if "Residuals_Re" in z_df.columns else None
+            self.ResidualsImag = z_df["Residuals_Im"].to_numpy() if "Residuals_Im" in z_df.columns else None
+
+            # Extract individual element impedances.
+            self.Z = pd.DataFrame()
+            for col in z_df.columns:
+                if "_Re/ohm·cm2" in col:
+                    element_name = col.split("_Re")[0]
+                    imag_col = element_name + "_Im/ohm·cm2"
+                    if imag_col in z_df.columns:
+                        self.Z[element_name] = z_df[col].to_numpy() + 1j * z_df[imag_col].to_numpy()
+
+        drt_df = all_sheets.get("DRT", None)
+        if drt_df is not None:
+            self.f_drt = drt_df["f"].to_numpy() if "f" in drt_df.columns else self.f
+            self.DRTmes = drt_df["DRTmes/ohm·s·cm2"].to_numpy() if "DRTmes/ohm·s·cm2" in drt_df.columns else None
+            if "DRT" in drt_df.columns:
+                self.DRT = {"ReIm": {"g": drt_df["DRT"].to_numpy(), "f": self.f_drt if self.f_drt is not None else self.f}}
+
+            self.ElementDRTs = {}
+            for col in drt_df.columns:
+                if "DRT" in col and col != "DRT":
+                    element_name = col.replace("DRT", "").replace("/ohm·s·cm2", "")
+                    self.ElementDRTs[element_name] = {
+                        "ReIm": {
+                            "g": drt_df[col].to_numpy(),
+                            "f": self.f_drt if self.f_drt is not None else self.f,
+                        }
+                    }
+        elif self.f is not None:
+            self.f_drt = self.f
         self.Elements = self._reconstruct_elements()
         print(f"-- Circuit data imported successfully")
 

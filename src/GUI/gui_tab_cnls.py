@@ -3,6 +3,7 @@ import copy
 import numpy as np
 import pandas as pd
 import src.GUI.Utils as gui_utils
+import src.Methods.CNLS.Utils as CNLS_fn
 import dearpygui.dearpygui as dpg
 
 # Callback function to handle the options
@@ -81,7 +82,27 @@ def fix_all_plots_callback(sender, app_data, config):
 # Main tab function for EIS
 def gui_tab_cnls(config, EIS, CNLS):
     config.save_config()
-    dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab content if it exists
+
+    # Fast path: if CNLS tab already exists, just switch to it and avoid expensive rebuild.
+    if dpg.does_item_exist("tab_cnls"):
+        if dpg.does_item_exist("tab_bar_main"):
+            dpg.set_value("tab_bar_main", "tab_cnls")
+        try:
+            gui_utils.file_list.display_file(
+                None,
+                config.display_file,
+                config,
+                refresh_eis_tab=False,
+                refresh_drt_tab=False,
+                refresh_cnls_tab=True,
+            )
+        except Exception:
+            pass
+        update_child_window_size()
+        return
+
+    if dpg.does_item_exist("tab_cnls"):
+        dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab content if it exists
     # Initialize the configuration
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
@@ -99,7 +120,15 @@ def gui_tab_cnls(config, EIS, CNLS):
             with dpg.group():
                 # Window for file list
                 with dpg.child_window(width=int(viewport_width * 0.45), height=int(viewport_height*0.15), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_cnls"):
-                    gui_utils.file_list.update_file_list(config, "child_window_file_list_cnls", EIS, CNLS)
+                    gui_utils.file_list.update_file_list(
+                        config,
+                        "child_window_file_list_cnls",
+                        EIS,
+                        CNLS,
+                        import_history=False,
+                        show_progress=False,
+                        run_alignment=False,
+                    )
 
                 # Window for the parameters
                 with dpg.child_window(width=int(viewport_width * 0.45), height=int(viewport_height * 0.35), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_cnls"):
@@ -192,11 +221,15 @@ def gui_tab_cnls(config, EIS, CNLS):
                                     )
                                 with dpg.table_row():
                                     dpg.add_text("Data_type:")
+                                    cnls_data_type_items = CNLS_fn.get_cnls_data_type_items()
+                                    cnls_data_type_default = CNLS_fn.normalize_cnls_data_type(CNLS.data_type)[0]
+                                    if cnls_data_type_default not in cnls_data_type_items:
+                                        cnls_data_type_default = "truncated"
                                     dpg.add_combo(
                                         tag="combo_cnls_data_type",
-                                        default_value = CNLS.data_type,
+                                        default_value = cnls_data_type_default,
                                         width = -1,
-                                        items = ["truncated", "smooth_KK", "smooth_DRT", "extrapolation", "LCcorrect"],
+                                        items = cnls_data_type_items,
                                         callback=lambda s, a: gui_utils.cnls_functions.update_data_type(s, a, config)
                                     )
                                 with dpg.table_row():
@@ -267,7 +300,14 @@ def gui_tab_cnls(config, EIS, CNLS):
                                 gui_utils.cnls_plots.update_all_plots(config)
                             
     # Update the child window size when the viewport is resized
-    gui_utils.file_list.display_file(None, config.display_file, config)
+    gui_utils.file_list.display_file(
+        None,
+        config.display_file,
+        config,
+        refresh_eis_tab=False,
+        refresh_drt_tab=False,
+        refresh_cnls_tab=True,
+    )
     dpg.set_value("tab_bar_main", 'tab_cnls')
     update_child_window_size()
                             

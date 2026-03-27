@@ -206,15 +206,22 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
     print("---- Backup of EIS, DRT, CNLS folders completed. Starting initialization with new folder path.")
     new_folder = os.path.abspath(app_data['file_path_name'])
     if config.folder_path != new_folder:
-        dpg.delete_item("file_dialog_eis")  # Delete the tab bar if it already exists
-        dpg.delete_item("tab_eis", children_only=False)  # Delete the tab if it already exists
-        dpg.delete_item("tab_drt", children_only=False)  # Clear the tab content if it exists
-        dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab content if it exists
+        if dpg.does_item_exist("file_dialog_eis"):
+            dpg.delete_item("file_dialog_eis")
+        if dpg.does_item_exist("tab_eis"):
+            dpg.delete_item("tab_eis", children_only=False)
+        if dpg.does_item_exist("tab_drt"):
+            dpg.delete_item("tab_drt", children_only=False)
+        if dpg.does_item_exist("tab_cnls"):
+            dpg.delete_item("tab_cnls", children_only=False)
     if not config.use_project_folder(new_folder, load_existing=True):
         print(f"[Warning] Invalid folder path: {new_folder}")
         return
     initialize_eis_cnls(EIS, CNLS, config.folder_path)
     config.store['beacon_DRT_import'] = True
+    # Reset stale selection state from previous folder; it can block first-file fallback.
+    config.selected_files = []
+    config.display_file = None
     print("Folder path:", config.folder_path)
     past_file_names = list(config.store.keys())
     for item in past_file_names:
@@ -225,16 +232,28 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
                                   {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]}]
     dpg.set_value("selected_directory", config.folder_path)
 
-    gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
+    gui_utils.file_list.update_file_list(
+        config,
+        "child_window_file_list_soceis",
+        EIS,
+        CNLS,
+        import_history=True,
+        show_progress=True,
+        run_alignment=False,
+    )
     config.display_file = config.selected_files[0] if config.selected_files else None
     gui_utils.file_list.display_file(None, config.display_file, config)
 
     if 'folder_path_old' in config.store.keys():
         if config.folder_path_old != config.folder_path:
-            dpg.delete_item("file_dialog_eis")  # Delete the tab bar if it already exists
-            dpg.delete_item("tab_eis", children_only=False)  # Delete the tab if it already exists
-            dpg.delete_item("tab_drt", children_only=False)  # Clear the tab content if it exists
-            dpg.delete_item("tab_cnls", children_only=False)  # Clear the tab
+            if dpg.does_item_exist("file_dialog_eis"):
+                dpg.delete_item("file_dialog_eis")
+            if dpg.does_item_exist("tab_eis"):
+                dpg.delete_item("tab_eis", children_only=False)
+            if dpg.does_item_exist("tab_drt"):
+                dpg.delete_item("tab_drt", children_only=False)
+            if dpg.does_item_exist("tab_cnls"):
+                dpg.delete_item("tab_cnls", children_only=False)
     config.store['folder_path_old'] = config.folder_path
     if dpg.does_item_exist("file_dialog_soceis"):
         dpg.configure_item("file_dialog_soceis", default_path=config.folder_path)
@@ -460,7 +479,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width*0.45), tag="version_spacer")
-                    dpg.add_text("(/so.sis/) V1.02", tag="version_text")
+                    dpg.add_text("(/so.sis/) V1.03", tag="version_text")
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer_1")
@@ -510,7 +529,15 @@ def gui_tab_soceis(config, EIS, CNLS):
                 items=config.supported_file_extensions,
                 tag = 'file_extension_selector',
                 default_value=config.file_extensions,
-                callback=lambda _, app_data: gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS),
+                callback=lambda _, app_data: gui_utils.file_list.update_file_list(
+                    config,
+                    "child_window_file_list_soceis",
+                    EIS,
+                    CNLS,
+                    import_history=True,
+                    show_progress=True,
+                    run_alignment=False,
+                ),
                 width=100
             )
 
@@ -519,7 +546,15 @@ def gui_tab_soceis(config, EIS, CNLS):
         with dpg.group(horizontal=True, horizontal_spacing=20):
             dpg.add_spacer(width=int(viewport_width * 0.25), tag="file_list_spacer")
             with dpg.child_window(width=int(viewport_width*0.5), height=int(viewport_height*0.2), horizontal_scrollbar=True, menubar=True, tag="child_window_file_list_soceis"):
-                gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
+                gui_utils.file_list.update_file_list(
+                    config,
+                    "child_window_file_list_soceis",
+                    EIS,
+                    CNLS,
+                    import_history=False,
+                    show_progress=False,
+                    run_alignment=False,
+                )
 
         # Add the buttons
         with dpg.group(horizontal=True, horizontal_spacing=20):
