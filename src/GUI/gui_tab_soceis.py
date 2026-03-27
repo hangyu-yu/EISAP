@@ -197,15 +197,12 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
     """
     Callback function when directory is selected in file dialog.
     """
-    print('OK was clicked.')
-    print("Sender: ", sender)
-    print("App Data: ", app_data)
     EIS.backup_folder_to_temp_zip('EIS', 'EIS_backup.zip')
     EIS.backup_folder_to_temp_zip('DRT', 'DRT_backup.zip')
     CNLS.backup_folder_to_temp_zip('CNLS', 'CNLS_backup.zip')
-    print("---- Backup of EIS, DRT, CNLS folders completed. Starting initialization with new folder path.")
     new_folder = os.path.abspath(app_data['file_path_name'])
-    if config.folder_path != new_folder:
+    folder_changed = config.folder_path != new_folder
+    if folder_changed:
         if dpg.does_item_exist("file_dialog_eis"):
             dpg.delete_item("file_dialog_eis")
         if dpg.does_item_exist("tab_eis"):
@@ -219,7 +216,6 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
         return
     initialize_eis_cnls(EIS, CNLS, config.folder_path)
     config.store['beacon_DRT_import'] = True
-    print("Folder path:", config.folder_path)
     past_file_names = list(config.store.keys())
     for item in past_file_names:
         config.store.pop(item) if item not in ['element_list', 'peak_fixed_frequencies', 'Elements', 'segment_constraints', 'beacon_DRT_import', 'nbr_peaks'] else None
@@ -238,6 +234,10 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
         show_progress=True,
         run_alignment=False,
     )
+    # Always refresh EIS / DRT / CNLS file lists too (even when same folder).
+    for _tag in ["child_window_file_list_eis", "child_window_file_list_drt", "child_window_file_list_cnls"]:
+        if dpg.does_item_exist(_tag):
+            gui_utils.file_list.update_file_list(config, _tag, EIS, CNLS, import_history=False, show_progress=False, run_alignment=False)
     if config.display_file not in (config.selected_files or []):
         config.display_file = config.selected_files[0] if config.selected_files else None
     gui_utils.file_list.display_file(None, config.display_file, config)
@@ -257,12 +257,7 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
         dpg.configure_item("file_dialog_soceis", default_path=config.folder_path)
 
 def folder_selector_cancel_callback(sender, app_data):
-    """
-    Callback function when file dialog is cancelled.
-    """
-    print('Cancel was clicked.')
-    print("Sender: ", sender)
-    print("App Data: ", app_data)
+    pass
 
 
 def choose_project_folder_callback(config, EIS, CNLS):
@@ -477,7 +472,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                 # Version text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width*0.45), tag="version_spacer")
-                    dpg.add_text("(/so.sis/) V1.03", tag="version_text")
+                    dpg.add_text("(/so.sis/) V1.04", tag="version_text")
                 # Welcome text with original spacer
                 with dpg.group(horizontal=True, horizontal_spacing=20):
                     dpg.add_spacer(width=int(viewport_width * 0.25), tag="welcome_spacer_1")

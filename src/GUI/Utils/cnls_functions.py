@@ -334,14 +334,12 @@ def _apply_rc_fit_initialization(CNLS_tmp):
     
 # Initialize the CNLS element parameters
 def initialize_parameters(sender, appdata, config):
-    """Initialize the CNLS element parameters.
-    
-    Args:
-        sender: Sender of the callback.
-        appdata: Application data.
-        config: Configuration object.
-    """
-    print("-- Initializing CNLS parameters...")
+    """Initialize the CNLS element parameters."""
+    import src.GUI.Utils.progress_modal as _pm
+    progress = _pm.open_progress(
+        "CNLS — Initialize Parameters", "Initializing CNLS parameters...",
+        max(1, len(config.selected_files)),
+    )
     _ensure_store_elements(config)
     names = [elem.get('name', '') for elem in config.store['Elements'][:]]
     has_randle = any('Randle' in name for name in names)
@@ -351,12 +349,17 @@ def initialize_parameters(sender, appdata, config):
         print('---- Segment constraints set to free due to the presence of Randle elements.')
     
     # Load all the parameters from the CNLS setup
-    for file_name in config.selected_files:
-        file_name_no_ext = os.path.splitext(file_name)[0]
-        if file_name_no_ext not in config.store.keys():
-            raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
-        else:
-            EIS_tmp = config.store[file_name_no_ext]['EIS']
+    _success = False
+    _current_file = ""
+    try:
+        for i, file_name in enumerate(config.selected_files):
+            _current_file = file_name
+            _pm.update_progress(progress, i, file_name)
+            file_name_no_ext = os.path.splitext(file_name)[0]
+            if file_name_no_ext not in config.store.keys():
+                raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
+            else:
+                EIS_tmp = config.store[file_name_no_ext]['EIS']
             cnls_existing = config.store[file_name_no_ext].get('CNLS', None)
             need_rebuild_cnls = (
                 cnls_existing is None
@@ -446,39 +449,45 @@ def initialize_parameters(sender, appdata, config):
             
             CNLS_tmp.initialize_elements()
             if CNLS_tmp.RC_fit_switch:
-                print(f"[LOG] RC pre-fit initialization started for {file_name_no_ext}...")
                 CNLS_tmp = _apply_rc_fit_initialization(CNLS_tmp)
                 config.store["elements"] = CNLS_tmp.Elements
-                print(f"[LOG] RC pre-fit initialization applied for {file_name_no_ext}.")
 
             constraint_percentage(CNLS_tmp)
-            # CNLS_tmp.initialize_elements(change_UBLB = True)
-            print(f"---- CNLS parameters initialized for {file_name}.")
+            _pm.update_progress(progress, i + 1, file_name)
+        _success = True
+    except Exception as _e:
+        import traceback as _tb
+        print(f"[Error] CNLS initialize_parameters:\n{_tb.format_exc()}")
+        _pm.close_progress(progress); progress = None
+        _pm.show_error_dialog("CNLS — Initialize Parameters Error", f"{type(_e).__name__}: {_e}", file_hint=_current_file)
+    finally:
+        _pm.close_progress(progress)
+    if not _success:
+        return
     display_key = os.path.splitext(config.display_file)[0] if config.display_file else None
     if display_key in config.store and 'CNLS' in config.store[display_key] and isinstance(config.store[display_key]['CNLS'].Elements, list):
         config.store["Elements"] = config.store[display_key]['CNLS'].Elements
     else:
         _ensure_store_elements(config)
     gui_utils.cnls_elements.update_elements(config)
-    print("[LOG] CNLS parameters initialization completed for all selected files.")
 
 # Load the parameters for the CNLS fitting
 def load_parameters(sender, appdata, config):
-    """Load the parameters for CNLS fitting.
-    
-    Args:
-        sender: Sender of the callback.
-        appdata: Application data.
-        config: Configuration object.
-    """
-    print("-- Loading CNLS parameters...")
+    """Load the parameters for CNLS fitting."""
+    import src.GUI.Utils.progress_modal as _pm
+    progress = _pm.open_progress(
+        "CNLS — Load Parameters", "Loading CNLS parameters...",
+        max(1, len(config.selected_files)),
+    )
     _ensure_store_elements(config)
-
-    for file_name in config.selected_files:
-        file_name_no_ext = os.path.splitext(file_name)[0]
-        if file_name_no_ext not in config.store.keys():
-            raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
-        else:
+    _current_file = ""
+    try:
+        for i, file_name in enumerate(config.selected_files):
+            _current_file = file_name
+            _pm.update_progress(progress, i, file_name)
+            file_name_no_ext = os.path.splitext(file_name)[0]
+            if file_name_no_ext not in config.store.keys():
+                raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
             if not isinstance(CNLS_tmp.Elements, list) or len(CNLS_tmp.Elements) == 0:
                 CNLS_tmp.Elements = copy.deepcopy(config.store['Elements'])
@@ -492,54 +501,96 @@ def load_parameters(sender, appdata, config):
             CNLS_tmp.Tau_cons = None if not dpg.get_value("checkbox_cnls_Tau_percentage") else dpg.get_value("input_constraints_Tau_percentage")
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
             CNLS_tmp.ElementsNames = []
-            # CNLS_tmp.Elements = config.store['Elements']
             CNLS_tmp.data_type = normalize_cnls_data_type(dpg.get_value('combo_cnls_data_type'))
             EIS_tmp = config.store[file_name_no_ext]['EIS']
             apply_cnls_reference_data(CNLS_tmp, EIS_tmp)
-            CNLS_tmp.initialize_elements(change_UBLB = False)
-            print(f"---- CNLS parameters loaded for {file_name}.")
+            CNLS_tmp.initialize_elements(change_UBLB=False)
+            _pm.update_progress(progress, i + 1, file_name)
+    except Exception as _e:
+        import traceback as _tb
+        print(f"[Error] CNLS load_parameters:\n{_tb.format_exc()}")
+        _pm.close_progress(progress); progress = None
+        _pm.show_error_dialog("CNLS — Load Parameters Error", f"{type(_e).__name__}: {_e}", file_hint=_current_file)
+    finally:
+        _pm.close_progress(progress)
 
 # Run the CNLS fitting
 def cnls_fit(sender, appdata, config):
-    print(f"-- CNLS fit onging...")
-    for file_name in config.selected_files:
-        file_name_no_ext = os.path.splitext(file_name)[0]
-        if file_name_no_ext not in config.store.keys():
-            raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
-        else:
+    import src.GUI.Utils.progress_modal as _pm
+    total_iters = sum(
+        config.store[os.path.splitext(f)[0]]['CNLS'].iteration
+        for f in config.selected_files
+        if os.path.splitext(f)[0] in config.store
+        and 'CNLS' in config.store[os.path.splitext(f)[0]]
+    ) or max(1, len(config.selected_files))
+    progress = _pm.open_progress(
+        "CNLS — Fit", "Running CNLS fit...", total_iters,
+    )
+    step = 0
+    _success = False
+    _current_file = ""
+    try:
+        for file_name in config.selected_files:
+            _current_file = file_name
+            file_name_no_ext = os.path.splitext(file_name)[0]
+            if file_name_no_ext not in config.store.keys():
+                raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
             EIS_tmp = config.store[file_name_no_ext]['EIS']
             apply_cnls_reference_data(CNLS_tmp, EIS_tmp)
-            for i in range(0, CNLS_tmp.iteration):
-                print(f"---- CNLS fitting iteration {i+1}/{CNLS_tmp.iteration} for {file_name}...")
+            for iter_i in range(CNLS_tmp.iteration):
+                _pm.update_progress(progress, step, f"{file_name_no_ext}  iter {iter_i + 1}/{CNLS_tmp.iteration}")
                 CNLS_tmp.FitCircuit()
+                step += 1
+                _pm.update_progress(progress, step, f"{file_name_no_ext}  iter {iter_i + 1}/{CNLS_tmp.iteration}")
             CNLS_tmp.EvaluateCircuitDRT()
+        _success = True
+    except Exception as _e:
+        import traceback as _tb
+        print(f"[Error] CNLS cnls_fit:\n{_tb.format_exc()}")
+        _pm.close_progress(progress); progress = None
+        _pm.show_error_dialog("CNLS — Fit Error", f"{type(_e).__name__}: {_e}", file_hint=_current_file)
+    finally:
+        _pm.close_progress(progress)
+    if not _success:
+        return
     try:
         gui_utils.cnls_table.table_update(config)
         gui_utils.cnls_plots.update_single_plots(config)
         gui_utils.cnls_plots.update_all_plots(config)
-    except:
-        print("[Warning] CNLS table and plots all or partial update failed. Please check the CNLS fitting results, or enter cnls_functions.py.")
+    except Exception as _ep:
+        import traceback as _tb
+        print(f"[Warning] CNLS post-fit update failed:\n{_tb.format_exc()}")
+        _pm.show_error_dialog("CNLS — Post-Fit Update Warning", f"{type(_ep).__name__}: {_ep}")
 
 # Save the CNLS fitting results
 def save_cnls(sender, appdata, config, CNLS):
-    """Save the CNLS fitting results.
-    
-    Args:
-        sender: Sender of the callback.
-        appdata: Application data.
-        config: Configuration object.
-    """
-    print(f"-- Saving CNLS fitting results...")
-    CNLS.backup_folder_to_temp_zip('CNLS', 'CNLS_backup.zip')
-    for file_name in config.selected_files:
-        file_name_no_ext = os.path.splitext(file_name)[0]
-        if file_name_no_ext not in config.store.keys():
-            raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
-        else:
+    """Save the CNLS fitting results."""
+    import src.GUI.Utils.progress_modal as _pm
+    n = len(config.selected_files) if config.selected_files else 0
+    progress = _pm.open_progress(
+        "CNLS — Save", "Saving CNLS results...", max(1, n),
+    )
+    try:
+        CNLS.backup_folder_to_temp_zip('CNLS', 'CNLS_backup.zip')
+        _current_file = ""
+        for i, file_name in enumerate(config.selected_files):
+            _current_file = file_name
+            _pm.update_progress(progress, i, file_name)
+            file_name_no_ext = os.path.splitext(file_name)[0]
+            if file_name_no_ext not in config.store.keys():
+                raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
             try:
-                CNLS_tmp = config.store[file_name_no_ext]['CNLS']
-                CNLS_tmp.ExportCircuit()
-                print(f"---- CNLS fitting results saved for {file_name}.")
-            except Exception as e:
-                print(f"[Warning] CNLS-save: File {file_name} is empty")
+                config.store[file_name_no_ext]['CNLS'].ExportCircuit()
+            except Exception as _ei:
+                import traceback as _tb
+                print(f"[Warning] CNLS-save failed for {file_name}: {_ei}\n{_tb.format_exc()}")
+                _pm.show_error_dialog("CNLS — Save Warning", f"'{file_name}' could not be saved:\n{_ei}")
+            _pm.update_progress(progress, i + 1, file_name)
+    except Exception as _e:
+        import traceback as _tb
+        print(f"[Error] CNLS save_cnls:\n{_tb.format_exc()}")
+        _pm.close_progress(progress); progress = None
+        _pm.show_error_dialog("CNLS — Save Error", f"{type(_e).__name__}: {_e}", file_hint=_current_file)
+    finally:
+        _pm.close_progress(progress)

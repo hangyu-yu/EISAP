@@ -35,11 +35,16 @@ def table_update(config):
     - CNLS: CNLS object containing the latest data.
     - data_type: Type of data to be displayed in the table.
     """
-    print("-- CNLS data table updating...")
+    if config.store.get("verbose_logs", False):
+        print("-- CNLS data table updating...")
+
+    if not config.display_file:
+        return
 
     # Parameter results
     file_name_no_ext = os.path.splitext(config.display_file)[0]
-    print('-- Update CNLS parameter table...')
+    if config.store.get("verbose_logs", False):
+        print('-- Update CNLS parameter table...')
     if dpg.does_item_exist("tab_cnls_data_parameters"):
         dpg.delete_item("tab_cnls_data_parameters", children_only=True)
     else:
@@ -90,13 +95,16 @@ def table_update(config):
                             dpg.add_text(_smart_format(CNLS_tmp.ElementsParamVariance[idx]) % CNLS_tmp.ElementsParamVariance[idx])
                             dpg.add_text(_smart_format(CNLS_tmp.ElementsParamStandardErrors[idx]) % CNLS_tmp.ElementsParamStandardErrors[idx])
                             dpg.add_text(_smart_format(CNLS_tmp.ElementsParamPValues[idx]) % CNLS_tmp.ElementsParamPValues[idx])
-                print(f"---- CNLS data table updated successfully.")
+                if config.store.get("verbose_logs", False):
+                    print(f"---- CNLS data table updated successfully.")
             except:
-                print("[Warning] CNLS data not available for the selected file, check cnls_table.py function.")
+                if config.store.get("verbose_logs", False):
+                    print("[Warning] CNLS data not available for the selected file, check cnls_table.py function.")
     
     # Impedance data
     try:
-        print('-- Updating CNLS impedance data table...')
+        if config.store.get("verbose_logs", False):
+            print('-- Updating CNLS impedance data table...')
         if CNLS_tmp.Z is not None:
             Impedance_data_columns = CNLS_tmp.Z.columns.tolist()
             Impedance_data_columns.remove('Zmes') if 'Zmes' in Impedance_data_columns else None
@@ -137,12 +145,14 @@ def table_update(config):
                                         dpg.add_text(_smart_format(np.imag(CNLS_tmp.Z[element][idx])) % np.imag(CNLS_tmp.Z[element][idx]))
                                         dpg.add_text(_smart_format(np.abs(CNLS_tmp.Z[element][idx])) % np.abs(CNLS_tmp.Z[element][idx]))
                                         dpg.add_text(_smart_format(np.angle(CNLS_tmp.Z[element][idx], deg=True)) % np.angle(CNLS_tmp.Z[element][idx], deg=True))
-        print(f"---- CNLS impedance data table updated successfully.")
+        if config.store.get("verbose_logs", False):
+            print(f"---- CNLS impedance data table updated successfully.")
     except:
-        print("[Warning] CNLS impedance data not available for the selected file, check cnls_table.py function.")
+        if config.store.get("verbose_logs", False):
+            print("[Warning] CNLS impedance data not available for the selected file, check cnls_table.py function.")
 
-    # DRT data
-    print('-- Updating CNLS DRT data table...')
+    if config.store.get("verbose_logs", False):
+        print('-- Updating CNLS DRT data table...')
     if dpg.does_item_exist("tab_cnls_data_drt"):
         dpg.delete_item("tab_cnls_data_drt", children_only=True)
     else:
@@ -204,11 +214,14 @@ def table_update(config):
                                 element_series = CNLS_tmp.ElementDRTs[element['name']]['ReIm']['g'] if CNLS_tmp.ElementDRTs is not None and element['name'] in CNLS_tmp.ElementDRTs else []
                                 element_value = _safe_at(element_series, idx)
                                 dpg.add_text(_smart_format(element_value) % element_value if element_value is not None else "N/A")
-                print(f"---- CNLS DRT data table updated successfully.")
+                if config.store.get("verbose_logs", False):
+                    print(f"---- CNLS DRT data table updated successfully.")
         except:
-            print("[Warning] CNLS DRT data not available for the selected file, check cnls_table.py function.")
+            if config.store.get("verbose_logs", False):
+                print("[Warning] CNLS DRT data not available for the selected file, check cnls_table.py function.")
 
-    if config.display_file != [] and config.display_file is not None:
-        print(f"---- CNLS data table updated successfully.")
-    else:
-        print("---- Continue. The specified file does not exist, maybe check 'cnls_table.py' file.")
+    if config.store.get("verbose_logs", False):
+        if config.display_file not in ([], None):
+            print(f"---- CNLS data table updated successfully.")
+        else:
+            print("---- Continue. The specified file does not exist, maybe check 'cnls_table.py' file.")

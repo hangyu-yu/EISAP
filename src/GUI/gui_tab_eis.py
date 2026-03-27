@@ -67,19 +67,11 @@ def KK_type_callback(sender, app_data, EIS):
     print(f"Checkbox State: {checkbox_value}, KK_type: {EIS.parameter['KK']['KK_type']}")
 
 def RmNonKK_callback(sender, app_data, EIS):
-    # Get the current value of the checkbox
     EIS.parameter["KK"]["RmNonKK"] = dpg.get_value(sender)
-    
-    # Print the updated value for debugging
-    print(f"RmNonKK: {EIS.parameter['KK']['RmNonKK']}")
 
 def manual_removal_callback(sender, app_data, config, EIS):
-    # Get the current value of the checkbox
     EIS.parameter["ManualRemoval"]["Enable"] = dpg.get_value(sender)
-    
-    # Print the updated value for debugging
     if app_data:
-        print(f"---- Manual removal enabled: {EIS.parameter['ManualRemoval']['enable']}, set the autocut to not working.")
         dpg.configure_item("num_cut_upper", enabled=False)
         dpg.configure_item("num_cut_lower", enabled=False)
         dpg.configure_item("sig_threshold", enabled=False)
@@ -93,7 +85,7 @@ def manual_removal_callback(sender, app_data, config, EIS):
         dpg.configure_item("button_manual_cut_batch", enabled=True)
         dpg.configure_item("button_manual_cut_batch_reset", enabled=True)
     else:
-        print(f"---- Manual removal disabled: {EIS.parameter['ManualRemoval']['enable']}, set the autocut to working.")
+
         dpg.configure_item("num_cut_upper", enabled=True)
         dpg.configure_item("num_cut_lower", enabled=True)
         dpg.configure_item("sig_threshold", enabled=True)
@@ -112,29 +104,26 @@ def file_selector_ok_callback(sender, app_data, config):
     """
     Callback function when directory is selected in file dialog.
     """
-    print('OK was clicked.')
-    print("Sender: ", sender)
-    print("App Data: ", app_data)
     config.data_import_function = app_data['file_path_name']
-    print("Import function path:", config.data_import_function)
     dpg.set_value("function_import", os.path.basename(config.data_import_function))
 
 def file_selector_cancel_callback(sender, app_data):
-    """
-    Callback function when file dialog is cancelled.
-    """
-    print('Cancel was clicked.')
-    print("Sender: ", sender)
-    print("App Data: ", app_data)
+    pass
 
 def callback_process_data(sender, app_data, EIS, config):
     """
     Callback function to process and update EIS data in the GUI.
     """
-    gui_utils.eis_functions.process_data(sender, app_data, config, EIS)
-    gui_utils.eis_table.table_update(config)
-    gui_utils.eis_plots.update_single_plots(config)
-    gui_utils.eis_plots.update_all_plots(config)
+    import src.GUI.Utils.progress_modal as _pm
+    try:
+        gui_utils.eis_functions.process_data(sender, app_data, config, EIS)
+        gui_utils.eis_table.table_update(config)
+        gui_utils.eis_plots.update_single_plots(config)
+        gui_utils.eis_plots.update_all_plots(config)
+    except Exception as _e:
+        import traceback as _tb
+        print(f"[Error] EIS callback_process_data:\n{_tb.format_exc()}")
+        _pm.show_error_dialog("EIS — Process Data Error", f"{type(_e).__name__}: {_e}", file_hint=config.display_file)
 
 # Main tab function for EIS
 def gui_tab_eis(config, EIS, CNLS):

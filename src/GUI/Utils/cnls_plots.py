@@ -102,8 +102,21 @@ def update_single_plots(config):
     """Update single-file DRT plots."""
     print("-- Updating DRT single plots...")
     try:
-        if config.display_file is None or os.path.splitext(config.display_file)[0] not in config.store:
-            print("---- Skipped: No valid file selected.")
+        _no_data = (
+            config.display_file is None
+            or os.path.splitext(config.display_file)[0] not in config.store
+            or 'CNLS' not in config.store[os.path.splitext(config.display_file)[0]]
+        )
+        if _no_data:
+            for _tag in [
+                "tab_cnls_drt_plot_single",
+                "tab_cnls_residual_plot_single",
+                "tab_cnls_fit_plot_single",
+                "tab_cnls_element_plot_single",
+            ]:
+                if dpg.does_item_exist(_tag):
+                    dpg.delete_item(_tag, children_only=True)
+            print("---- Continue. The specified file does not exist or not processed.")
             return
     except:
         print("---- Skipped: No valid file selected.")

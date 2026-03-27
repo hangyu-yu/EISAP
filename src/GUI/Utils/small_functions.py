@@ -339,7 +339,12 @@ def separate_multichannel_zahner(config, EIS, CNLS, output_layout="flat"):
             gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
             
         except Exception as e:
-            print(f"Error processing file {data_file}: {str(e)}")
+            import traceback as _tb
+            _msg = f"{type(e).__name__}: {e}\n\n{_tb.format_exc()}"
+            print(f"[Error] Zahner separation failed for {data_file}:\n{_msg}")
+            if hasattr(dpg, 'is_dearpygui_running') and dpg.is_dearpygui_running():
+                import src.GUI.Utils.progress_modal as _pm
+                _pm.show_error_dialog("Zahner Separation Error", f"File '{data_file}':\n{e}")
 
 def separate_multichannel_biologic(config, EIS, CNLS, output_layout="flat"):
     """
@@ -485,7 +490,12 @@ def separate_multichannel_biologic(config, EIS, CNLS, output_layout="flat"):
             gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
             
         except Exception as e:
-            print(f"Error processing file {data_file}: {str(e)}")
+            import traceback as _tb
+            _msg = f"{type(e).__name__}: {e}\n\n{_tb.format_exc()}"
+            print(f"[Error] BioLogic separation failed for {data_file}:\n{_msg}")
+            if hasattr(dpg, 'is_dearpygui_running') and dpg.is_dearpygui_running():
+                import src.GUI.Utils.progress_modal as _pm
+                _pm.show_error_dialog("BioLogic Separation Error", f"File '{data_file}':\n{e}")
 
 def separate_multichannel_fcd(config, EIS, CNLS, output_layout="flat"):
     """
@@ -712,9 +722,12 @@ def separate_multichannel_fcd(config, EIS, CNLS, output_layout="flat"):
             gui_utils.file_list.update_file_list(config, "child_window_file_list_soceis", EIS, CNLS)
             
         except Exception as e:
-            print(f"Error processing file {data_file}: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            import traceback as _tb
+            _msg = f"{type(e).__name__}: {e}\n\n{_tb.format_exc()}"
+            print(f"[Error] FCD separation failed for {data_file}:\n{_msg}")
+            if hasattr(dpg, 'is_dearpygui_running') and dpg.is_dearpygui_running():
+                import src.GUI.Utils.progress_modal as _pm
+                _pm.show_error_dialog("FCD Separation Error", f"File '{data_file}':\n{e}")
 
 def font_size_confirm_callback(sender, app_data, config, font_path_medium, font_path_light):
     config.font_size = dpg.get_value("input_text_font_size")

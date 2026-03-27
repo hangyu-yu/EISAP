@@ -23,7 +23,8 @@ def table_update(config):
             dpg.add_theme_style(dpg.mvStyleVar_ItemSpacing, 0, 0)
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 5)
 
-    print("-- DRT data table updating...")
+    if config.store.get("verbose_logs", False):
+        print("-- DRT data table updating...")
 
     if not dpg.does_item_exist("tab_bar_drt_data"):
         print("---- Skip table update: tab_bar_drt_data does not exist.")
@@ -186,7 +187,8 @@ def table_update(config):
 
             dpg.bind_item_theme(f"tab_drt_{data_type}_{data_category}_data_table", table_theme)
 
-    if config.display_file not in ([], None):
-        print(f"---- DRT data table updated successfully using {method_name} data.")
-    else:
-        print("---- Continue. No display file selected for DRT table.")
+    if config.store.get("verbose_logs", False):
+        if config.display_file not in ([], None):
+            print(f"---- DRT data table updated successfully using {method_name} data.")
+        else:
+            print("---- Continue. No display file selected for DRT table.")

@@ -3,6 +3,7 @@ import copy
 import numpy as np
 import pandas as pd
 import src.GUI.Utils as gui_utils
+import src.GUI.Utils.progress_modal as _pm
 import src.Methods.CNLS.Utils as CNLS_fn
 import dearpygui.dearpygui as dpg
 
@@ -32,16 +33,21 @@ def update_child_window_size():
     safe_configure("Button_Save_CNLS", width=-1)
 
 def _initialization_cnls(config, CNLS):
+    """Initialize CNLS for each selected file that has processed EIS data.
+    Returns a list of filenames that were skipped (no EIS data in store).
+    """
+    skipped = []
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
-        if file_name_no_ext not in config.store.keys():
-            raise FileNotFoundError('The specified file is not loaded or EIS/DRT processing is not done.')
-        elif 'CNLS' not in config.store[file_name_no_ext].keys():
+        if file_name_no_ext not in config.store:
+            skipped.append(file_name)
+        elif 'CNLS' not in config.store[file_name_no_ext]:
             config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(CNLS)
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
             CNLS_tmp.file_folder = config.folder_path
             CNLS_tmp.filename = os.path.basename(file_name)
             print(f"---- CNLS data initialized from {file_name} successfully.")
+    return skipped
 
 def plot_cnls_tau_callback(sender, app_data, config):
     num_peaks = range(dpg.get_value("input_nbr_peaks"))
@@ -85,6 +91,15 @@ def gui_tab_cnls(config, EIS, CNLS):
 
     # Fast path: if CNLS tab already exists, just switch to it and avoid expensive rebuild.
     if dpg.does_item_exist("tab_cnls"):
+        # Run init to pick up any newly-selected files and warn about those without data.
+        _skipped = _initialization_cnls(config, CNLS)
+        if _skipped:
+            _pm.show_warning_dialog(
+                "CNLS — Missing Data",
+                "The following selected files have no EIS/DRT processed data "
+                "and will be skipped in CNLS fitting:\n\n"
+                + "\n".join(f"  • {f}" for f in _skipped)
+            )
         if dpg.does_item_exist("tab_bar_main"):
             dpg.set_value("tab_bar_main", "tab_cnls")
         try:
@@ -106,8 +121,31 @@ def gui_tab_cnls(config, EIS, CNLS):
     # Initialize the configuration
     viewport_width = dpg.get_viewport_width()
     viewport_height = dpg.get_viewport_height()
-    
-    _initialization_cnls(config, CNLS)
+
+    _skipped = _initialization_cnls(config, CNLS)
+    if _skipped:
+        _pm.show_warning_dialog(
+            "CNLS — Missing Data",
+            "The following selected files have no EIS/DRT processed data "
+            "and will be skipped in CNLS fitting:\n\n"
+            + "\n".join(f"  \u2022 {f}" for f in _skipped)
+        )
+
+    # Ensure display_file points to a file with valid CNLS data before building the tab body.
+    # If no valid file exists, show an error and abort tab creation.
+    _valid_display = next(
+        (_f for _f in config.selected_files
+         if os.path.splitext(_f)[0] in config.store and 'CNLS' in config.store[os.path.splitext(_f)[0]]),
+        None
+    )
+    if _valid_display is None:
+        _pm.show_error_dialog(
+            "CNLS — No Data",
+            "None of the selected files have processed EIS/DRT data.\n"
+            "Please import and process the data first before opening CNLS."
+        )
+        return
+    config.display_file = _valid_display
 
     # Set the theme for different widgets
     with dpg.theme() as blue_button_theme:

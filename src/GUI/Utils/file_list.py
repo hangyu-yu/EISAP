@@ -18,58 +18,24 @@ def _normalize_path(path_obj):
 
 
 def _open_import_progress(total_steps):
-    """Create and show a small progress window for historical data import."""
-    if not hasattr(dpg, "is_dearpygui_running") or not dpg.is_dearpygui_running():
-        return None
-
-    window_tag = "window_data_import_progress"
-    bar_tag = "progress_data_import"
-    text_tag = "text_data_import_progress"
-
-    if dpg.does_item_exist(window_tag):
-        dpg.delete_item(window_tag)
-
-    viewport_width = dpg.get_viewport_width()
-    viewport_height = dpg.get_viewport_height()
-    width = 360
-    height = 120
-
-    with dpg.window(
-        label="Data Import",
-        tag=window_tag,
-        modal=True,
-        no_close=True,
-        no_collapse=True,
-        no_resize=True,
-        no_move=True,
-        width=width,
-        height=height,
-        pos=(max(10, (viewport_width - width) // 2), max(10, (viewport_height - height) // 2)),
-    ):
-        dpg.add_text("Importing historical data...")
-        dpg.add_progress_bar(default_value=0.0, tag=bar_tag, width=-1)
-        dpg.add_text("0%", tag=text_tag)
-
-    dpg.split_frame()
-    return {"window": window_tag, "bar": bar_tag, "text": text_tag, "total": max(1, int(total_steps))}
+    """Thin wrapper: open a progress window for historical data import."""
+    import src.GUI.Utils.progress_modal as _pm
+    return _pm.open_progress(
+        "Data Import",
+        "Importing historical data...",
+        total_steps,
+        window_tag="window_data_import_progress",
+    )
 
 
 def _update_import_progress(progress_ctx, current_step, current_name=""):
-    if not progress_ctx:
-        return
-    ratio = min(1.0, max(0.0, float(current_step) / float(progress_ctx["total"])))
-    if dpg.does_item_exist(progress_ctx["bar"]):
-        dpg.set_value(progress_ctx["bar"], ratio)
-    if dpg.does_item_exist(progress_ctx["text"]):
-        dpg.set_value(progress_ctx["text"], f"{int(ratio * 100)}%  ({current_step}/{progress_ctx['total']})  {current_name}")
-    dpg.split_frame()
+    import src.GUI.Utils.progress_modal as _pm
+    _pm.update_progress(progress_ctx, current_step, current_name)
 
 
 def _close_import_progress(progress_ctx):
-    if not progress_ctx:
-        return
-    if dpg.does_item_exist(progress_ctx["window"]):
-        dpg.delete_item(progress_ctx["window"])
+    import src.GUI.Utils.progress_modal as _pm
+    _pm.close_progress(progress_ctx)
 
 def select_files(config, tag):
     """
@@ -146,11 +112,14 @@ def update_selected_files(config, tag=None):
         sync_file_list_checkboxes(config, "child_window_file_list_cnls")
         sync_file_list_checkboxes(config, "child_window_file_list_soceis")
 
-        # If selection and display target are both unchanged, skip expensive redraw paths.
-        if previous_selected == list(config.selected_files or []) and previous_display == config.display_file:
+        # Nothing changed at all — skip everything.
+        selection_changed = previous_selected != list(config.selected_files or [])
+        display_changed = previous_display != config.display_file
+
+        if not selection_changed and not display_changed:
             return
 
-        # Update display combos in analysis tabs.
+        # Update display combos in analysis tabs whenever selection or display changed.
         if dpg.does_item_exist("group_eis_display_file"):
             gui_utils.file_list.update_file_list_and_display(0, 0, config, "combo_eis_plot_file", "group_eis_display_file")
         if dpg.does_item_exist("group_drt_display_file"):
@@ -158,30 +127,43 @@ def update_selected_files(config, tag=None):
         if dpg.does_item_exist("group_cnls_display_file"):
             gui_utils.file_list.update_file_list_and_display(0, 0, config, "combo_display_file_cnls", "group_cnls_display_file")
 
-        # Restore cross-tab linkage: refresh all opened analysis tabs.
-        try:
-            if dpg.does_item_exist("tab_bar_eis_plot_all"):
-                gui_utils.eis_plots.update_all_plots(config)
-            if dpg.does_item_exist("tab_bar_drt_plot_all"):
-                gui_utils.drt_plots.update_all_plots(config)
-            if dpg.does_item_exist("tab_bar_cnls_plot_all"):
-                gui_utils.cnls_plots.update_all_plots(config)
-        except Exception:
-            print("[Warning] Cross-tab plot update failed during file selection.")
+        # Rebuild "all" overlay plots only when the selection set itself changed.
+        if selection_changed:
+            try:
+                if dpg.does_item_exist("tab_bar_eis_plot_all"):
+                    gui_utils.eis_plots.update_all_plots(config)
+                if dpg.does_item_exist("tab_bar_drt_plot_all"):
+                    gui_utils.drt_plots.update_all_plots(config)
+                if dpg.does_item_exist("tab_bar_cnls_plot_all"):
+                    gui_utils.cnls_plots.update_all_plots(config)
+            except Exception:
+                pass
+            # Refresh resistance tables (which list ALL selected files).
+            # Only when display_file didn't change to avoid double-update
+            # (display_file() already calls table_update when display changes).
+            if not display_changed:
+                try:
+                    if dpg.does_item_exist("tab_eis"):
+                        gui_utils.eis_table.table_update(config)
+                    if dpg.does_item_exist("tab_drt"):
+                        gui_utils.drt_table.table_update(config)
+                except Exception:
+                    pass
 
-        # Refresh single-file detail panels for all opened analysis tabs.
-        try:
-            if config.display_file is not None:
-                gui_utils.file_list.display_file(
-                    None,
-                    config.display_file,
-                    config,
-                    refresh_eis_tab=dpg.does_item_exist("tab_eis"),
-                    refresh_drt_tab=dpg.does_item_exist("tab_drt"),
-                    refresh_cnls_tab=dpg.does_item_exist("tab_cnls"),
-                )
-        except Exception:
-            print("---- Tab not open.")
+        # Refresh single-file detail panels only when the displayed file changed.
+        if display_changed:
+            try:
+                if config.display_file is not None:
+                    gui_utils.file_list.display_file(
+                        None,
+                        config.display_file,
+                        config,
+                        refresh_eis_tab=dpg.does_item_exist("tab_eis"),
+                        refresh_drt_tab=dpg.does_item_exist("tab_drt"),
+                        refresh_cnls_tab=dpg.does_item_exist("tab_cnls"),
+                    )
+            except Exception:
+                pass
     finally:
         config.store["_file_selection_updating"] = False
     
@@ -326,10 +308,12 @@ def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
 
         _update_temp_selected_from_window()
 
-    viewport_width = dpg.get_viewport_client_width() if hasattr(dpg, "get_viewport_client_width") else dpg.get_viewport_width()
-    viewport_height = dpg.get_viewport_client_height() if hasattr(dpg, "get_viewport_client_height") else dpg.get_viewport_height()
-    win_width = max(900, int(viewport_width * 0.75))
-    win_height = max(620, int(viewport_height * 0.75))
+    vp_w = dpg.get_viewport_client_width() if hasattr(dpg, "get_viewport_client_width") else dpg.get_viewport_width()
+    vp_h = dpg.get_viewport_client_height() if hasattr(dpg, "get_viewport_client_height") else dpg.get_viewport_height()
+    win_width  = max(480, int(vp_w * 0.9))
+    win_height = max(360, int(vp_h * 0.9))
+    # Bottom panel holds: spacer + index row + select-all row + spacer + separator + confirm row + inner padding
+    _bottom_h = 125
 
     with dpg.window(
         label="Large File Selector",
@@ -339,10 +323,12 @@ def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
         height=win_height,
         no_resize=False,
         no_collapse=True,
+        pos=(max(0, (vp_w - win_width) // 2), max(0, (vp_h - win_height) // 2)),
     ):
         dpg.add_text("Select files from current available list, then confirm to apply.")
         dpg.add_separator()
-        with dpg.child_window(tag=list_child_tag, width=-1, height=int(win_height * 0.78), horizontal_scrollbar=True):
+        # ── Scrollable file list ──────────────────────────────────────
+        with dpg.child_window(tag=list_child_tag, width=-1, height=-_bottom_h, horizontal_scrollbar=True):
             for filename in current_file_names:
                 default_checked = filename in (config.selected_files or [])
                 dpg.add_checkbox(
@@ -351,26 +337,30 @@ def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
                     default_value=default_checked,
                     callback=lambda s, a: _update_temp_selected_from_window()
                 )
-        dpg.add_spacer(height=8)
-        with dpg.group(horizontal=True):
-            dpg.add_text("Index")
-            dpg.add_input_text(
-                tag=index_input_tag,
-                hint="e.g. 1,3,5-8",
-                width=220,
-                on_enter=True,
-                callback=lambda s, a: _apply_index_selection(),
-            )
-            dpg.add_button(label="Apply Index", callback=lambda: _apply_index_selection())
-        _update_temp_selected_from_window()
-        dpg.add_spacer(height=6)
-        with dpg.group(horizontal=True):
-            dpg.add_button(label="Select all", callback=lambda: [dpg.set_value(f"checkbox_large_selector_{tag}_{name}", True) for name in current_file_names if dpg.does_item_exist(f"checkbox_large_selector_{tag}_{name}")] or _update_temp_selected_from_window())
-            dpg.add_button(label="Unselect all", callback=lambda: [dpg.set_value(f"checkbox_large_selector_{tag}_{name}", False) for name in current_file_names if dpg.does_item_exist(f"checkbox_large_selector_{tag}_{name}")] or _update_temp_selected_from_window())
-        dpg.add_spacer(height=6)
-        with dpg.group(horizontal=True):
-            dpg.add_button(label="Confirm", callback=_on_confirm_add_files)
-            dpg.add_button(label="Cancel", callback=lambda: dpg.delete_item(window_tag))
+        # ── Fixed bottom controls panel ───────────────────────────────
+        with dpg.child_window(width=-1, height=_bottom_h, no_scrollbar=True, border=True):
+            dpg.add_spacer(height=4)
+            with dpg.group(horizontal=True):
+                dpg.add_text("Index")
+                dpg.add_input_text(
+                    tag=index_input_tag,
+                    hint="e.g. 1,3,5-8",
+                    width=220,
+                    on_enter=True,
+                    callback=lambda s, a: _apply_index_selection(),
+                )
+                dpg.add_button(label="Apply Index", callback=lambda: _apply_index_selection())
+            _update_temp_selected_from_window()
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Select all", callback=lambda: [dpg.set_value(f"checkbox_large_selector_{tag}_{name}", True) for name in current_file_names if dpg.does_item_exist(f"checkbox_large_selector_{tag}_{name}")] or _update_temp_selected_from_window())
+                dpg.add_button(label="Unselect all", callback=lambda: [dpg.set_value(f"checkbox_large_selector_{tag}_{name}", False) for name in current_file_names if dpg.does_item_exist(f"checkbox_large_selector_{tag}_{name}")] or _update_temp_selected_from_window())
+            dpg.add_spacer(height=6)
+            dpg.add_separator()
+            dpg.add_spacer(height=6)
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="  Confirm  ", callback=_on_confirm_add_files)
+                dpg.add_spacer(width=8)
+                dpg.add_button(label="  Cancel  ", callback=lambda: dpg.delete_item(window_tag))
 
 
 def refresh_open_file_lists_on_extension_change(config, EIS=None, CNLS=None):
@@ -563,6 +553,20 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None, import_history
     finally:
         _close_import_progress(progress_ctx)
 
+    if show_progress:
+        import src.GUI.Utils.progress_modal as _pm
+        _no_data_files = [
+            f for f in config.selected_files
+            if os.path.splitext(f)[0] not in config.store
+        ]
+        if _no_data_files:
+            _pm.show_warning_dialog(
+                "Import — Missing Saved Data",
+                "The following selected files have no saved EIS/DRT data "
+                "and cannot be used until they are processed:\n\n"
+                + "\n".join(f"  \u2022 {f}" for f in _no_data_files)
+            )
+
     if run_alignment:
         file_alignment(config)
 
@@ -575,6 +579,11 @@ def display_file(sender, app_data, config, refresh_eis_tab=True, refresh_drt_tab
         config.display_file = dpg.get_value(sender)
     else:
         config.display_file = app_data if app_data is not None else None
+
+    # Sync all display-file combo widgets so every tab reflects the new selection
+    for _combo_tag in ("combo_eis_plot_file", "combo_drt_plot_file", "combo_display_file_cnls"):
+        if dpg.does_item_exist(_combo_tag):
+            dpg.configure_item(_combo_tag, default_value=config.display_file)
 
     EIS_tmp = config.store[os.path.splitext(config.display_file)[0]]['EIS'] if config.display_file and os.path.splitext(config.display_file)[0] in config.store.keys() and 'EIS' in config.store[os.path.splitext(config.display_file)[0]].keys() else None
     
@@ -700,27 +709,31 @@ def display_file(sender, app_data, config, refresh_eis_tab=True, refresh_drt_tab
         pass
 
     # Update the CNLS table and plots
-    try:    
+    try:
         if refresh_cnls_tab and dpg.does_item_exist("tab_cnls"):
-            cnls_data_type = gui_utils.cnls_functions.normalize_cnls_data_type(
-                config.store[os.path.splitext(config.display_file)[0]]['CNLS'].data_type
-            )
-            dpg.configure_item("combo_cnls_data_type", default_value = cnls_data_type)
-            config.store[os.path.splitext(config.display_file)[0]]['CNLS'].data_type = cnls_data_type
-            dpg.configure_item("combo_peak_ID", default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].f_mode)
-            dpg.configure_item("input_nbr_iters", default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].iteration)
-            dpg.configure_item("input_nbr_peaks", default_value = len(config.store[os.path.splitext(config.display_file)[0]]['CNLS'].f_fixed)) if config.store[os.path.splitext(config.display_file)[0]]['CNLS'].f_fixed is not None else 6
-            gui_utils.cnls_functions.dynamic_peak_ids(0, 0, config)
+            _file_key = os.path.splitext(config.display_file)[0] if config.display_file else None
+            _has_cnls = _file_key is not None and _file_key in config.store and 'CNLS' in config.store[_file_key]
+            if _has_cnls:
+                cnls_data_type = gui_utils.cnls_functions.normalize_cnls_data_type(
+                    config.store[_file_key]['CNLS'].data_type
+                )
+                dpg.configure_item("combo_cnls_data_type", default_value=cnls_data_type)
+                config.store[_file_key]['CNLS'].data_type = cnls_data_type
+                dpg.configure_item("combo_peak_ID", default_value=config.store[_file_key]['CNLS'].f_mode)
+                dpg.configure_item("input_nbr_iters", default_value=config.store[_file_key]['CNLS'].iteration)
+                dpg.configure_item("input_nbr_peaks", default_value=len(config.store[_file_key]['CNLS'].f_fixed)) if config.store[_file_key]['CNLS'].f_fixed is not None else 6
+                gui_utils.cnls_functions.dynamic_peak_ids(0, 0, config)
 
-            if config.store["Elements"] is None or config.store["Elements"] == []:
-                config.store["Elements"] = [
-                            {'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
-                            {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
-                        ]
-            if config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements is not None:
-                config.store["Elements"] = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].Elements
+                if config.store["Elements"] is None or config.store["Elements"] == []:
+                    config.store["Elements"] = [
+                        {'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
+                        {'name': 'R2', 'type': 'Resistor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
+                    ]
+                if config.store[_file_key]['CNLS'].Elements is not None:
+                    config.store["Elements"] = config.store[_file_key]['CNLS'].Elements
 
-            gui_utils.cnls_elements.update_elements(config)
+                gui_utils.cnls_elements.update_elements(config)
+            # Always refresh table + plots so they clear when file has no CNLS data
             gui_utils.cnls_table.table_update(config)
             gui_utils.cnls_plots.update_single_plots(config)
     except:
@@ -747,42 +760,34 @@ def file_alignment(config):
     Align the file list and display file in the GUI.
     """
     # Iterate through the file list and check for alignment
-    print("-- File alignment check:")
     if '[Error]' not in config.file_list[0]:
-        # Check files in EIS folder for alignment with config.file_list
-        eis_folder = os.path.join(config.folder_path, "EIS")
-        if os.path.isdir(eis_folder):
-            for existing_file in glob.glob(os.path.join(eis_folder, "*.xlsx")):
-                file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
-                if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
-                    print(f"[Warning] unaligned file in EIS: {existing_file}")
-
-        # Check files in DRT folder for alignment with config.file_list
-        drt_folder = os.path.join(config.folder_path, "DRT")
-        if os.path.isdir(drt_folder):
-            for existing_file in glob.glob(os.path.join(drt_folder, "*.xlsx")):
-                file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
-                if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
-                    print(f"[Warning] unaligned file in DRT: {existing_file}")
-
-        # Check files in CNLS folder for alignment with config.file_list
-        cnls_folder = os.path.join(config.folder_path, "CNLS")
-        if os.path.isdir(cnls_folder):
-            for existing_file in glob.glob(os.path.join(cnls_folder, "*.xlsx")):
-                file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
-                if file_name_no_ext not in [os.path.splitext(os.path.basename(f))[0] for f in config.file_list]:
-                    print(f"[Warning] unaligned file in CNLS: {existing_file}")
-
-        # Ensure all files in config.selected_files exist in the target folders
-        aligned_selected_files = []
         file_list_base_names = [os.path.basename(file) for file in config.file_list]
+        file_list_no_ext = {os.path.splitext(n)[0] for n in file_list_base_names}
+        verbose = config.store.get("verbose_logs", False)
 
+        if verbose:
+            print("-- File alignment check:")
+
+        # Check files in EIS/DRT/CNLS folders for alignment with config.file_list
+        for sub in ("EIS", "DRT", "CNLS"):
+            sub_folder = os.path.join(config.folder_path, sub)
+            if os.path.isdir(sub_folder):
+                for existing_file in glob.glob(os.path.join(sub_folder, "*.xlsx")):
+                    file_name_no_ext = os.path.splitext(os.path.basename(existing_file))[0]
+                    if file_name_no_ext not in file_list_no_ext:
+                        if verbose:
+                            print(f"[Warning] unaligned file in {sub}: {existing_file}")
+
+        # Ensure all files in config.selected_files exist in the current file list
+        aligned_selected_files = []
         for file_name in config.selected_files:
             if file_name in file_list_base_names:
                 aligned_selected_files.append(file_name)
-            else:
+            elif verbose:
                 print(f"[Warning] unaligned file in selected_files: {file_name}")
 
         # Update config.selected_files with the aligned list
         config.selected_files = aligned_selected_files
-    print("---- File alignment finished.")
+
+        if verbose:
+            print("---- File alignment finished.")

@@ -211,17 +211,19 @@ def callback_process_data(sender, app_data, config):
     Key fix: before calling update_all_plots, we guarantee tab_bar_drt_plot_all exists
     and we clear its children so update_all_plots can safely re-add tabs every time.
     """
-    gui_utils.drt_functions.process_data(sender, app_data, config)
-    gui_utils.drt_table.table_update(config)
-    gui_utils.drt_plots.update_single_plots(config)
+    import src.GUI.Utils.progress_modal as _pm
+    try:
+        gui_utils.drt_functions.process_data(sender, app_data, config)
+        gui_utils.drt_table.table_update(config)
+        gui_utils.drt_plots.update_single_plots(config)
 
-    # ---- SAFETY FIX FOR YOUR ERROR ----
-    if _ensure_plot_tab_bars_exist():
-        # Clear existing dynamic tabs so update_all_plots can recreate them without collisions.
-        # This also prevents "Parent could not be deduced" when previous UI got deleted/rebuilt.
-        dpg.delete_item("tab_bar_drt_plot_all", children_only=True)
-        gui_utils.drt_plots.update_all_plots(config)
-    # -----------------------------------
+        if _ensure_plot_tab_bars_exist():
+            dpg.delete_item("tab_bar_drt_plot_all", children_only=True)
+            gui_utils.drt_plots.update_all_plots(config)
+    except Exception as _e:
+        import traceback as _tb
+        print(f"[Error] DRT callback_process_data:\n{_tb.format_exc()}")
+        _pm.show_error_dialog("DRT — Process Data Error", f"{type(_e).__name__}: {_e}", file_hint=config.display_file)
 
 def plot_drt_tau_callback(sender, app_data, config):
     """

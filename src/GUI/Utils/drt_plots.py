@@ -1014,7 +1014,17 @@ def update_single_plots(config):
             return
         file_key = os.path.splitext(config.display_file)[0]
         if file_key not in config.store or "EIS" not in config.store[file_key]:
-            print("---- Skipped: No valid file selected.")
+            # Clear existing plot tab contents so stale data is not displayed
+            for _tag in [
+                "tab_drt_truncated_plot_single",
+                "tab_drt_kk_plot_single",
+                "tab_drt_zhit_plot_single",
+                "tab_drt_lcurve_plot_single",
+                "tab_drt_EIS_truncated_plot_single",
+            ]:
+                if dpg.does_item_exist(_tag):
+                    dpg.delete_item(_tag, children_only=True)
+            print("---- Continue. The specified file does not exist or not processed.")
             return
     except:
         print("---- Skipped: No valid file selected.")

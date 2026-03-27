@@ -182,12 +182,19 @@ DEFAULT_NYQUIST = ["Original", "Truncated"]
 
 BODE_TYPES = NYQUIST_TYPES
 
-DRT_TYPES = ["Truncated", "Smooth", "LCcorrect", "Extrapolation"]
+DRT_TYPES = ["Truncated", "Smooth", "LCcorrect", "Extrapolation", "Z-HIT",
+             "RBF", "RBF Smooth", "RBF LCcorrect", "RBF Extrapolation", "RBF Z-HIT"]
 DRT_SHEET_MAP = {
     "Truncated": "Tknv_ReIm",
     "Smooth": "Tknv_ReIm_s",
     "LCcorrect": "Tknv_ReIm_crct",
     "Extrapolation": "Tknv_ReIm_e",
+    "Z-HIT": "Tknv_ReIm_z",
+    "RBF": "RBF_ReIm",
+    "RBF Smooth": "RBF_s_ReIm",
+    "RBF LCcorrect": "RBF_crct_ReIm",
+    "RBF Extrapolation": "RBF_e_ReIm",
+    "RBF Z-HIT": "RBF_z_ReIm",
 }
 
 # CNLS
@@ -307,7 +314,10 @@ EIS_PARAM_ORDER = [
     ("Max. KK res. [%]", "kk_threshold"),
     ("Remove high KK resid.", "RmNonKK"),
     ("Remove outliers", "Rmoutliers"),
+    ("Manual removal enabled", "ManualRemoval"),
     ("Manual removed indices", "ManualRemoval_Indices"),
+    ("Rm significance", "rm_significance"),
+    ("Z-HIT enabled", "ZHIT_enable"),
 ]
 
 
@@ -551,7 +561,7 @@ def extract_eis_parameters(xls: pd.ExcelFile, fname: str) -> Dict:
         if key in df.columns:
             val = df[key].iloc[0]
 
-            if key in ("RmNonKK", "Rmoutliers"):
+            if key in ("RmNonKK", "Rmoutliers", "ManualRemoval", "rm_significance", "ZHIT_enable"):
                 val = yes_no(val)
 
             if key == "ManualRemoval_Indices":
@@ -600,10 +610,13 @@ def extract_drt_lambda(drt_xls: pd.ExcelFile, fname: str) -> Optional[Dict]:
     else:
         tknv_pos = False
 
+    rbf_enabled = bool(df["rbf_enabled"].iloc[0]) if "rbf_enabled" in df.columns else False
+
     return {
         "File": fname,
         "lambda": lam,
-        "tknv_pos": tknv_pos
+        "tknv_pos": tknv_pos,
+        "rbf_enabled": rbf_enabled,
     }
 
 def _drt_ymax_from_datasets(datasets) -> float:
@@ -868,6 +881,85 @@ def bode_plotly(datasets, title, real=True):
         yaxis_title="Z′ [Ω·cm²]" if real else "−Z″ [Ω·cm²]",
         template="plotly_dark",
     )
+    return fig
+
+
+def zhit_plotly(datasets, mode: str = "modulus"):
+    """
+    Plot Z-HIT results.
+    mode: "modulus"  → |Z| measured (markers) vs Z-HIT reconstructed (line)
+          "phase"    → φ measured (markers) vs φ smoothed (dashed line)
+          "delta"    → Δln|Z| deviation [%] per frequency
+    ZHIT sheet columns:
+      0 Frequency/Hz, 1 omega/rad/s, 2 Z_mod_meas/ohm·cm2,
+      3 Z_mod_zhit/ohm·cm2, 4 phi_deg, 5 phi_smooth_deg,
+      6 phase_integral, 7 correction, 8 delta_lnZ, 9 delta_lnZ_pct
+    """
+    fig = go.Figure()
+    for i, (name, df) in enumerate(datasets):
+        color = COLOR_PALETTE[i % len(COLOR_PALETTE)]
+        freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+
+        if mode == "modulus":
+            y_meas = pd.to_numeric(df.iloc[:, 2], errors="coerce")
+            y_zhit = pd.to_numeric(df.iloc[:, 3], errors="coerce")
+            fig.add_scatter(
+                x=freq, y=y_meas, mode="markers",
+                name=f"{name} – meas",
+                legendgroup=name,
+                marker=dict(size=4, color=color, opacity=0.6),
+            )
+            fig.add_scatter(
+                x=freq, y=y_zhit, mode="lines",
+                name=f"{name} – Z-HIT",
+                legendgroup=name,
+                line=dict(color=color, width=2),
+            )
+        elif mode == "phase":
+            phi_meas   = pd.to_numeric(df.iloc[:, 4], errors="coerce")
+            phi_smooth = pd.to_numeric(df.iloc[:, 5], errors="coerce")
+            fig.add_scatter(
+                x=freq, y=phi_meas, mode="markers",
+                name=f"{name} – φ meas",
+                legendgroup=name,
+                marker=dict(size=4, color=color, opacity=0.6),
+            )
+            fig.add_scatter(
+                x=freq, y=phi_smooth, mode="lines",
+                name=f"{name} – φ smooth",
+                legendgroup=name,
+                line=dict(color=color, width=2, dash="dash"),
+            )
+        elif mode == "delta":
+            delta_pct = pd.to_numeric(df.iloc[:, 9], errors="coerce")
+            fig.add_scatter(
+                x=freq, y=delta_pct, mode="lines+markers",
+                name=name,
+                line=dict(color=color, width=2),
+                marker=dict(size=4, color=color),
+            )
+
+    if mode == "modulus":
+        fig.update_layout(
+            title="Z-HIT – |Z| comparison",
+            xaxis=dict(title="Frequency [Hz]", type="log"),
+            yaxis=dict(title="|Z| [Ω·cm²]", type="log"),
+            template="plotly_dark",
+        )
+    elif mode == "phase":
+        fig.update_layout(
+            title="Z-HIT – Phase",
+            xaxis=dict(title="Frequency [Hz]", type="log"),
+            yaxis=dict(title="φ [°]"),
+            template="plotly_dark",
+        )
+    elif mode == "delta":
+        fig.update_layout(
+            title="Z-HIT – ln|Z| deviation [%]",
+            xaxis=dict(title="Frequency [Hz]", type="log"),
+            yaxis=dict(title="Δln|Z| [%]"),
+            template="plotly_dark",
+        )
     return fig
 
 
@@ -3060,6 +3152,7 @@ with st.sidebar:
 
     st.header("Bode")
     bode_selected = st.multiselect("Bode types", BODE_TYPES, default=[])
+    zhit_show = st.checkbox("Z-HIT", value=False, key="zhit_show")
 
     st.header("DRT")
     drt_selected = st.multiselect("DRT types", DRT_TYPES, default=[])
@@ -3228,6 +3321,7 @@ cnls_rows: List[Dict] = []
 nyquist_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in nyquist_selected}
 bode_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in bode_selected}
 drt_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in drt_selected}
+zhit_data: List[Tuple[str, pd.DataFrame]] = []
 
 for eis_file in files_to_process:
     fname = eis_file.name
@@ -3251,6 +3345,13 @@ for eis_file in files_to_process:
             if df.shape[1] >= 3:
                 label = display_name_map.get(fname, fname)
                 bode_data[p].append((latex_label(label), df))
+
+    # Z-HIT
+    if zhit_show and "ZHIT" in xls.sheet_names:
+        df_zhit = pd.read_excel(xls, "ZHIT")
+        if df_zhit.shape[1] >= 6:
+            label = display_name_map.get(fname, fname)
+            zhit_data.append((latex_label(label), df_zhit))
 
     # DRT from sibling DRT file
     drt_file = sibling_file(eis_file, "DRT")
@@ -3359,7 +3460,13 @@ if bode_selected:
                 width="stretch",
                 key=f"bode_{p}_imag"
             )
-    
+
+if zhit_show and zhit_data:
+    st.subheader("Z-HIT")
+    st.plotly_chart(zhit_plotly(zhit_data, mode="modulus"), width="stretch", key="zhit_modulus")
+    st.plotly_chart(zhit_plotly(zhit_data, mode="phase"),   width="stretch", key="zhit_phase")
+    st.plotly_chart(zhit_plotly(zhit_data, mode="delta"),   width="stretch", key="zhit_delta")
+
 if drt_show_params and drt_param_rows:
     st.subheader("DRT")
     df_drt_params = pd.DataFrame(drt_param_rows)
@@ -3371,7 +3478,11 @@ if drt_show_params and drt_param_rows:
             "tknv_pos": st.column_config.CheckboxColumn(
                 "Tikhonov positive definite",
                 help="True if positivity constraint enabled"
-            )
+            ),
+            "rbf_enabled": st.column_config.CheckboxColumn(
+                "RBF-DRT enabled",
+                help="True if RBF-DRT was computed"
+            ),
         },
         disabled=True,
         hide_index=False,
