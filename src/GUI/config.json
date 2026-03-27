@@ -1,9 +1,13 @@
 {
     "font_size": 18,
-    "folder_path": "/Users/atlas/Desktop/Git/SOCEIS/Projects/00_Code test/99_eg_degradation",
-    "file_list": [],
-    "selected_files": [],
+    "folder_path": "C:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\Projects\\00_Code test\\99_eg_degradation",
+    "file_list": [
+        "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\GUI\\requirements.txt"
+    ],
+    "selected_files": [
+        "requirements.txt"
+    ],
     "file_extensions": ".txt",
-    "display_file": "",
-    "data_import_function": ""
+    "display_file": "requirements.txt",
+    "data_import_function": "c:\\Users\\hayu\\Desktop\\Git\\SOCEIS\\src\\Functions\\01_Data_read\\read_general_all.py"
 }

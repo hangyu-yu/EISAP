@@ -559,7 +559,9 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None, import_history
             f for f in config.selected_files
             if os.path.splitext(f)[0] not in config.store
         ]
-        if _no_data_files:
+        _is_default_dir = os.path.exists(os.path.join(config.folder_path, "requirements.txt"))
+        _has_processed_data = os.path.isdir(os.path.join(config.folder_path, "EIS"))
+        if _no_data_files and not _is_default_dir and _has_processed_data:
             _pm.show_warning_dialog(
                 "Import — Missing Saved Data",
                 "The following selected files have no saved EIS/DRT data "

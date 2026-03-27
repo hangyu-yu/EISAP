@@ -146,7 +146,7 @@ def show_error_dialog(title: str, message: str, file_hint: str = "") -> None:
     _bottom_h  = 52
 
     with dpg.window(
-        label=f"⚠  {title}",
+        label=title,
         tag=tag,
         modal=True,
         no_collapse=True,
@@ -159,7 +159,7 @@ def show_error_dialog(title: str, message: str, file_hint: str = "") -> None:
         with dpg.child_window(width=-1, height=_header_h, no_scrollbar=True, border=False):
             if file_hint:
                 dpg.add_text(f"File:  {file_hint}", color=(255, 200, 80))
-            dpg.add_text("⚠  Error", color=(255, 80, 80))
+            dpg.add_text("Error", color=(255, 80, 80))
         dpg.add_separator()
         # ── Middle: scrollable message ───────────────────────────────
         with dpg.child_window(width=-1, height=-_bottom_h, horizontal_scrollbar=True):
@@ -202,7 +202,7 @@ def show_warning_dialog(title: str, message: str) -> None:
     _bottom_h  = 52
 
     with dpg.window(
-        label=f"⚑  {title}",
+        label=title,
         tag=tag,
         modal=True,
         no_collapse=True,
@@ -213,7 +213,7 @@ def show_warning_dialog(title: str, message: str) -> None:
     ):
         # ── Top: warning header ──────────────────────────────────────
         with dpg.child_window(width=-1, height=_header_h, no_scrollbar=True, border=False):
-            dpg.add_text("⚑  Warning", color=(255, 180, 0))
+            dpg.add_text("Warning", color=(255, 180, 0))
         dpg.add_separator()
         # ── Middle: scrollable message ───────────────────────────────
         with dpg.child_window(width=-1, height=-_bottom_h, horizontal_scrollbar=True):

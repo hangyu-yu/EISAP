@@ -208,7 +208,7 @@ def _create_windows_shortcut() -> None:
                 pass
 
 
-
+if __name__ == '__main__':
     # 1. Check and install dependencies
     check_and_install_dependencies(upgrade=False)
 
