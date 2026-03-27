@@ -106,7 +106,15 @@ base_viewport_width = window_width
 base_viewport_height = window_height
 
 # Setup the icon and fonts
-root_dir = Path(__file__).resolve().parent.parent.parent
+def _find_assets_root() -> Path:
+    """Return the directory whose 'assets/' sub-folder exists.
+    Assets live exclusively in soceis/assets/.  Both layouts resolve identically:
+      - Dev:      <project-root>/src/GUI/../../.. -> <project-root>/soceis/
+      - Pip:      <site-packages>/src/GUI/../../.. -> <site-packages>/soceis/
+    """
+    return Path(__file__).resolve().parent.parent.parent / 'soceis'
+
+root_dir = _find_assets_root()
 
 
 # Function to check if path contains special characters

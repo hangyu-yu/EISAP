@@ -412,13 +412,17 @@ def gui_tab_soceis(config, EIS, CNLS):
             return False
         except UnicodeEncodeError:
             return True
+    def _find_assets_root_tab() -> Path:
+        """Assets live exclusively in soceis/assets/."""
+        return Path(__file__).resolve().parent.parent.parent / 'soceis'
+
     if platform.system() in ('Darwin', 'Linux'):
         # Direct loading for macOS/Linux
-        root_dir = Path(__file__).resolve().parent.parent.parent
+        root_dir = _find_assets_root_tab()
         icon_path = root_dir / "assets" / "icons"
     else:
         # Windows - check if we need temp directory
-        root_dir = Path(__file__).resolve().parent.parent.parent
+        root_dir = _find_assets_root_tab()
         original_path = str(root_dir)
         
         if has_special_chars(original_path):

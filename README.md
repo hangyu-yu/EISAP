@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="assets/icons/app_icon.png" alt="SOCEIS Logo" width="150"/>
+  <img src="soceis/assets/icons/app_icon.png" alt="SOCEIS Logo" width="150"/>
 </p>
 <p align="center">
-  <img src="assets/images/EPFL.png" alt="EPFL" height="70" hspace="20"/>
-  <img src="assets/images/GEM.png" alt="GEM" height="70" hspace="20"/>
-  <img src="assets/images/HydroQuebec.png" alt="Hydro-Québec" height="70" hspace="20"/>
-  <img src="assets/images/BFH.png" alt="BFH" height="70" hspace="20"/>
+  <img src="soceis/assets/images/EPFL.png" alt="EPFL" height="70" hspace="20"/>
+  <img src="soceis/assets/images/GEM.png" alt="GEM" height="70" hspace="20"/>
+  <img src="soceis/assets/images/HydroQuebec.png" alt="Hydro-Québec" height="70" hspace="20"/>
+  <img src="soceis/assets/images/BFH.png" alt="BFH" height="70" hspace="20"/>
 </p>
 
 # SOCEIS - Electrochemical Impedance Spectroscopy Analysis Suite
@@ -25,7 +25,7 @@ The GUI is implemented with **DearPyGui** and organized into dedicated tabs for 
 - `src/GUI/`: user interface, tab layouts, callbacks, plotting, and table rendering
 - `src/Methods/DRT/` and `src/Methods/CNLS/`: core analysis algorithms and fitting logic
 - `src/Functions/01_Data_read/`: instrument/file reader implementations
-- `assets/`: icons, fonts, and screenshots used by the application
+- `soceis/assets/`: icons, fonts, and screenshots used by the application
 
 ## Key Capabilities
 This section maps the current implemented features to scientific/technical references.
@@ -120,10 +120,10 @@ The launcher will attempt to install missing dependencies from `src/GUI/requirem
 - [R13] Boukamp, B. A. "A Nonlinear Least Squares Fit Procedure for Analysis of Immittance Data of Electrochemical Systems." *Solid State Ionics* 20 (1986): 31-44.
 
 <p align="center">
-  <img src="assets/images/Fig_example_main.png" width="width: 100%;">
-  <img src="assets/images/Fig_example_EIS.png" width="width: 100%;">
-  <img src="assets/images/Fig_example_DRT.png" width="width: 100%;">
-  <img src="assets/images/Fig_example_CNLS.png" width="width: 100%;">
+  <img src="soceis/assets/images/Fig_example_main.png" width="width: 100%;">
+  <img src="soceis/assets/images/Fig_example_EIS.png" width="width: 100%;">
+  <img src="soceis/assets/images/Fig_example_DRT.png" width="width: 100%;">
+  <img src="soceis/assets/images/Fig_example_CNLS.png" width="width: 100%;">
 </p>
 
 # Citing SOCEIS

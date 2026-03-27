@@ -15,8 +15,14 @@ def _normalize_path(path_obj):
 
 class Config:
     def __init__(self, config_file="config.json"):
-        self.project_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        self.bootstrap_config_file = os.path.join(self.project_path, 'src', 'GUI', config_file)
+        _gui_dir  = os.path.dirname(os.path.abspath(__file__))  # …/src/GUI/
+        _src_dir  = os.path.dirname(_gui_dir)                   # …/src/
+        _root_dir = os.path.dirname(_src_dir)                   # project root / site-packages
+        # Assets now live exclusively in <root>/soceis/assets/.
+        # project_path is the parent of both src/ and soceis/.
+        self.project_path = _root_dir
+        self._src_dir = _src_dir  # stable path to the src/ package, used internally
+        self.bootstrap_config_file = os.path.join(_src_dir, 'GUI', config_file)
         self.config_file = self.bootstrap_config_file
         self.temp_folder_name = "temp"
         self.supported_file_extensions = [".txt", ".mpt", ".csv", ".xlsx", ".dta", ".z", ".fcd"]
@@ -180,11 +186,11 @@ class Config:
         return normalized
 
     def _is_under_software_dirs(self, folder_path):
-        """Do not create temp under software directories src/assets and their descendants."""
+        """Do not create temp under software directories src/ and soceis/assets/."""
         target = os.path.abspath(folder_path)
         restricted_roots = [
-            os.path.abspath(os.path.join(self.project_path, "src")),
-            os.path.abspath(os.path.join(self.project_path, "assets")),
+            os.path.abspath(self._src_dir),
+            os.path.abspath(os.path.join(os.path.dirname(self._src_dir), "soceis", "assets")),
         ]
 
         for root in restricted_roots:

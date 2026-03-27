@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Project metadata
+# ─────────────────────────────────────────────────────────────────────────────
+[project]
+name = "soceis"
+version = "0.1.0b0"
+description = "SOCEIS – Electrochemical Impedance Spectroscopy Analysis Suite"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9"
+keywords = ["electrochemistry", "EIS", "DRT", "CNLS", "impedance spectroscopy"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Environment :: X11 Applications",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X",
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "matplotlib",
+    "dearpygui",
+    "openpyxl",
+    "natsort",
+    "requests",
+    "streamlit",
+    "plotly",
+    "psutil",
+    "cvxopt",
+]
+
+[project.scripts]
+# `soceis` command launches the GUI
+soceis = "soceis.__main__:main"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Package discovery
+# ─────────────────────────────────────────────────────────────────────────────
+[tool.setuptools.packages.find]
+# Find all packages from the project root: src.* and soceis.*
+include = ["src*", "soceis*"]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Non-Python data files bundled with the package
+# ─────────────────────────────────────────────────────────────────────────────
+[tool.setuptools.package-data]
+"soceis" = [
+    # All assets live exclusively in soceis/assets/
+    "assets/fonts/*",
+    "assets/icons/*",
+    "assets/images/*",
+]
+"src" = [
+    # GUI runtime files
+    "GUI/config.json",
+    "GUI/requirements.txt",
+    # Data-read scripts
+    "Functions/01_Data_read/*.py",
+]

@@ -147,7 +147,7 @@ def _create_windows_shortcut() -> None:
 
     script_dir  = os.path.dirname(os.path.abspath(__file__))
     script_path = os.path.abspath(__file__)
-    icon_path   = os.path.join(script_dir, 'assets', 'icons', 'app_icon.ico')
+    icon_path   = os.path.join(script_dir, 'soceis', 'assets', 'icons', 'app_icon.ico')
     working_dir = script_dir
 
     python_exe = sys.executable

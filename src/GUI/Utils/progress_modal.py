@@ -155,7 +155,7 @@ def show_error_dialog(title: str, message: str, file_hint: str = "") -> None:
         height=win_height,
         pos=(max(10, (vp_w - win_width) // 2), max(10, (vp_h - win_height) // 2)),
     ):
-        # ── Top: header / file hint ──────────────────────────────────
+        # ── Top: header / file hint ──────────────────────────────────────
         with dpg.child_window(width=-1, height=_header_h, no_scrollbar=True, border=False):
             if file_hint:
                 dpg.add_text(f"File:  {file_hint}", color=(255, 200, 80))
@@ -211,7 +211,7 @@ def show_warning_dialog(title: str, message: str) -> None:
         height=win_height,
         pos=(max(10, (vp_w - win_width) // 2), max(10, (vp_h - win_height) // 2)),
     ):
-        # ── Top: warning header ──────────────────────────────────────
+        # ── Top: warning header ──────────────────────────────────────────
         with dpg.child_window(width=-1, height=_header_h, no_scrollbar=True, border=False):
             dpg.add_text("Warning", color=(255, 180, 0))
         dpg.add_separator()
