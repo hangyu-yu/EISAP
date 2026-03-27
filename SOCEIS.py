@@ -2,6 +2,7 @@ import importlib
 import subprocess
 import sys
 import os
+import tempfile
 from typing import List, Optional
 
 def check_and_install_dependencies(requirements_file: str = None, 
@@ -91,11 +92,130 @@ def run_main_program(module_path: str, function_name: Optional[str] = None) -> N
         print(f"[Initialization] Failed to import GUI module: {e}")
         sys.exit(1)
 
-if __name__ == "__main__":
+
+# ─────────────────────────────────────────────────────────────────────────────
+# First-run Windows desktop shortcut
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _prompt_windows_desktop_shortcut() -> None:
+    """On first run under Windows, ask the user whether to create a desktop shortcut.
+
+    The prompt appears exactly once: a sentinel file in %APPDATA%\\SOCEIS is
+    written before the dialog is shown so repeated crashes do not re-prompt.
+    """
+    if sys.platform != 'win32':
+        return
+
+    # Sentinel stored in AppData — survives re-installations of the source tree.
+    appdata   = os.environ.get('APPDATA', os.path.expanduser('~'))
+    soc_dir   = os.path.join(appdata, 'SOCEIS')
+    sentinel  = os.path.join(soc_dir, '.shortcut_prompted')
+
+    if os.path.exists(sentinel):
+        return  # already asked — skip
+
+    # Write sentinel immediately; worst-case we never ask again if something fails
+    try:
+        os.makedirs(soc_dir, exist_ok=True)
+        open(sentinel, 'w').close()
+    except Exception:
+        pass  # non-fatal
+
+    # Ask via tkinter (DearPyGui is not yet running at this point)
+    try:
+        import tkinter as tk
+        from tkinter import messagebox
+        _root = tk.Tk()
+        _root.withdraw()
+        _root.attributes('-topmost', True)
+        answer = messagebox.askyesno(
+            "SOCEIS — Desktop Shortcut",
+            "Would you like to add a SOCEIS shortcut to your desktop?\n\n"
+            "(This prompt only appears once.)",
+        )
+        _root.destroy()
+    except Exception:
+        return  # tkinter unavailable — skip silently
+
+    if answer:
+        _create_windows_shortcut()
+
+
+def _create_windows_shortcut() -> None:
+    """Create SOCEIS.lnk on the Windows desktop via a temporary PowerShell script."""
+    import ctypes
+
+    script_dir  = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.abspath(__file__)
+    icon_path   = os.path.join(script_dir, 'assets', 'icons', 'app_icon.ico')
+    working_dir = script_dir
+
+    python_exe = sys.executable
+
+    # Use shell API for reliable Desktop path even when OneDrive redirects it
+    try:
+        buf = ctypes.create_unicode_buffer(512)
+        ctypes.windll.shell32.SHGetFolderPathW(0, 0x0010, 0, 0, buf)  # CSIDL_DESKTOPDIRECTORY
+        desktop = buf.value if buf.value else os.path.join(os.path.expanduser('~'), 'Desktop')
+    except Exception:
+        desktop = os.path.join(os.path.expanduser('~'), 'Desktop')
+
+    shortcut_path = os.path.join(desktop, 'SOCEIS.lnk')
+
+    # Escape single quotes for PowerShell single-quoted string literals
+    def _esc(p: str) -> str:
+        return p.replace("'", "''")
+
+    # Write the script to a temp file to avoid any shell-quoting issues
+    ps_content = (
+        "$ws = New-Object -ComObject WScript.Shell\n"
+        f"$s = $ws.CreateShortcut('{_esc(shortcut_path)}')\n"
+        f"$s.TargetPath       = '{_esc(python_exe)}'\n"
+        # Arguments: the script path wrapped in double quotes (handles spaces)
+        f"$s.Arguments        = '\"{_esc(script_path)}\"'\n"
+        f"$s.WorkingDirectory = '{_esc(working_dir)}'\n"
+        f"$s.IconLocation     = '{_esc(icon_path)}'\n"
+        "$s.WindowStyle       = 1\n"
+        "$s.Save()\n"
+    )
+
+    tmp_ps1 = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode='w', suffix='.ps1', delete=False, encoding='utf-8'
+        ) as f:
+            f.write(ps_content)
+            tmp_ps1 = f.name
+
+        result = subprocess.run(
+            ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+             '-File', tmp_ps1],
+            capture_output=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            print("[Setup] Desktop shortcut 'SOCEIS' created successfully.")
+        else:
+            err = result.stderr.decode(errors='replace').strip()
+            print(f"[Setup] Shortcut creation failed: {err}")
+    except Exception as e:
+        print(f"[Setup] Could not create desktop shortcut: {e}")
+    finally:
+        if tmp_ps1 and os.path.exists(tmp_ps1):
+            try:
+                os.unlink(tmp_ps1)
+            except Exception:
+                pass
+
+
+
     # 1. Check and install dependencies
     check_and_install_dependencies(upgrade=False)
-    
-    # 2. Run the main GUI program
+
+    # 2. First-run setup: offer a desktop shortcut on Windows
+    _prompt_windows_desktop_shortcut()
+
+    # 3. Run the main GUI program
     run_main_program(
         module_path="src.GUI.gui_main",  # Python module path notation
         function_name=None  # Will auto-detect main(), run(), or start()
