@@ -28,11 +28,47 @@ The GUI is implemented with **DearPyGui** and organized into dedicated tabs for 
 - `assets/`: icons, fonts, and screenshots used by the application
 
 ## Key Capabilities
-- Single-file and multi-file visualization for EIS, DRT, and CNLS results
-- Full EIS processing chain: KK test, LC correction/smoothing/extrapolation, optional Z-HIT
-- Manual and batch point removal utilities for difficult datasets
-- Folder-based project workflow with EIS/DRT/CNLS result storage and reload support
-- Integrated update/check utilities and configurable UI settings (font size, paths, display)
+This section maps the current implemented features to scientific/technical references.
+
+### 1. Data import and instrument adaptation
+- Multi-format file ingestion for BioLogic, Gamry, Zahner, and generic text/CSV readers in `src/Functions/01_Data_read/`.
+- Unified conversion to internal impedance arrays (`f`, `Re`, `Im`, `Z`) and sample-area normalization for consistent downstream analysis.
+- Related references: [R1], [R2]
+
+### 2. EIS preprocessing workflow (EIS tab)
+- Upper/lower frequency cutting, low-significance filtering, optional outlier removal, and manual point removal are integrated in the `process_data` pipeline.
+- The preprocessing sequence is designed to improve data consistency before model-based validation/fitting.
+- Related references: [R1], [R3]
+
+### 3. Kramers-Kronig (KK) consistency validation
+- Linear/nonlinear KK-related testing and residual-based point rejection are used to evaluate physical consistency of spectra.
+- KK-derived residual views and fitted-vs-measured overlays are available in plotting tabs.
+- Related references: [R4], [R5]
+
+### 4. Z-HIT modulus/phase validation
+- Optional Z-HIT processing is exposed in the EIS parameter tab (`ZHIT`) and plotted against measured/KK results.
+- Residual and smooth-comparison views support practical quality control of low-frequency behavior.
+- Related references: [R1], [R6]
+
+### 5. DRT inversion (Tikhonov and RBF workflows)
+- DRT analysis includes Tikhonov-style regularization controls and an RBF-DRT route in the DRT tab.
+- Regularization/lambda handling is integrated with single-file and batch plotting.
+- Related references: [R7], [R8]
+
+### 6. CNLS equivalent-circuit fitting
+- CNLS supports interactive element configuration, parameter bounds, and constrained optimization against selected data domains.
+- The workflow combines circuit definition, parameter initialization, fit execution, and single/all visualization.
+- Related references: [R9], [R10], [R11]
+
+### 7. Single vs all-file comparative analysis
+- All major modules (EIS, DRT, CNLS) provide `Single` and `All` views to compare one file or many selected files in the same project.
+- This supports trend analysis for degradation and operating-condition studies.
+- Related references: [R1], [R2]
+
+### 8. Batch-oriented project management
+- Folder-oriented persistence for EIS/DRT/CNLS outputs, startup reloading, and backup-oriented operations are implemented for long campaigns.
+- This design targets practical lab/industrial pipelines with repeated measurements.
+- Related references: [R1], [R2]
 
 ## Supported Input Formats
 Current readers in `src/Functions/01_Data_read/` include:
@@ -66,6 +102,19 @@ The launcher will attempt to install missing dependencies from `src/GUI/requirem
 - `plotly`
 - `psutil`
 - `cvxopt`
+
+## Method References
+- [R1] Orazem, M. E., and Tribollet, B. *Electrochemical Impedance Spectroscopy*. 2nd ed., Wiley, 2017.
+- [R2] Lasia, A. *Electrochemical Impedance Spectroscopy and its Applications*. Springer, 2014.
+- [R3] Savitzky, A., and Golay, M. J. E. "Smoothing and Differentiation of Data by Simplified Least Squares Procedures." *Analytical Chemistry* 36 (1964): 1627-1639.
+- [R4] Boukamp, B. A. "A Linear Kronig-Kramers Transform Test for Immittance Data Validation." *Journal of The Electrochemical Society* 142 (1995): 1885-1894.
+- [R5] Schoenleber, M., Klotz, D., and Ivers-Tiffee, E. "A Method for Improving the Robustness of Linear Kramers-Kronig Validity Tests." *Electrochimica Acta* 131 (2014): 20-27.
+- [R6] Ehm, W., Goehr, H., Kaus, R., Schiller, C. A., and Strunz, W. "New Methods for Automatic Impedance Spectra Evaluation." *Electrochimica Acta* 46 (2000): 145-154.
+- [R7] Tikhonov, A. N., and Arsenin, V. Y. *Solutions of Ill-posed Problems*. Winston, 1977.
+- [R8] Saccoccio, M., Han, X., Chen, C., and Ciucci, F. "Optimal Regularization in Distribution of Relaxation Times Applied to Electrochemical Impedance Spectroscopy." *Electrochimica Acta* 147 (2014): 470-482.
+- [R9] Levenberg, K. "A Method for the Solution of Certain Non-Linear Problems in Least Squares." *Quarterly of Applied Mathematics* 2 (1944): 164-168.
+- [R10] Marquardt, D. W. "An Algorithm for Least-Squares Estimation of Nonlinear Parameters." *SIAM Journal on Applied Mathematics* 11 (1963): 431-441.
+- [R11] Boukamp, B. A. "A Nonlinear Least Squares Fit Procedure for Analysis of Immittance Data of Electrochemical Systems." *Solid State Ionics* 20 (1986): 31-44.
 
 <p align="center">
   <img src="assets/images/Fig_example_main.png" width="width: 100%;">
