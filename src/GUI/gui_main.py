@@ -312,13 +312,13 @@ def startup_import_callback():
             show_progress=True,
             run_alignment=False,
         )
-        if config.selected_files:
-            config.display_file = config.selected_files[0]
+        if config.display_file not in (config.selected_files or []):
+            config.display_file = config.selected_files[0] if config.selected_files else None
     except Exception as e:
         print(f"[Warning] Startup data import failed: {e}")
 
 
 dpg.set_frame_callback(1, lambda: startup_import_callback())
+dpg.set_exit_callback(lambda: on_exit(config))
 dpg.start_dearpygui()
-dpg.set_exit_callback(on_exit(config))
 dpg.destroy_context()

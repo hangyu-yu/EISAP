@@ -100,6 +100,10 @@ class Config:
         data = raw_data if isinstance(raw_data, dict) else {}
         defaults = self._default_config_dict(folder_override or self.folder_path)
 
+        def _normalize_filename(value):
+            text = str(value).strip()
+            return os.path.basename(text) if text else ""
+
         # font_size: tolerate string/float inputs
         font_size_raw = data.get("font_size", defaults["font_size"])
         try:
@@ -111,7 +115,13 @@ class Config:
         folder_path = folder_override or self._coerce_existing_dir(data.get("folder_path")) or defaults["folder_path"]
 
         file_list = self._coerce_list_of_strings(data.get("file_list", defaults["file_list"]))
-        selected_files = self._coerce_list_of_strings(data.get("selected_files", defaults["selected_files"]))
+
+        selected_files_raw = self._coerce_list_of_strings(data.get("selected_files", defaults["selected_files"]))
+        selected_files = []
+        for item in selected_files_raw:
+            filename = _normalize_filename(item)
+            if filename and filename not in selected_files:
+                selected_files.append(filename)
 
         file_ext_raw = data.get("file_extensions", defaults["file_extensions"])
         if isinstance(file_ext_raw, str) and file_ext_raw.strip():
@@ -125,9 +135,9 @@ class Config:
 
         display_raw = data.get("display_file", defaults["display_file"])
         if isinstance(display_raw, str):
-            display_file = display_raw
+            display_file = _normalize_filename(display_raw)
         elif isinstance(display_raw, (list, tuple)) and display_raw:
-            display_file = str(display_raw[0])
+            display_file = _normalize_filename(display_raw[0])
         else:
             display_file = ""
 

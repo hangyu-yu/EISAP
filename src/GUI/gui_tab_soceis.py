@@ -219,9 +219,6 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
         return
     initialize_eis_cnls(EIS, CNLS, config.folder_path)
     config.store['beacon_DRT_import'] = True
-    # Reset stale selection state from previous folder; it can block first-file fallback.
-    config.selected_files = []
-    config.display_file = None
     print("Folder path:", config.folder_path)
     past_file_names = list(config.store.keys())
     for item in past_file_names:
@@ -241,7 +238,8 @@ def folder_selector_ok_callback(sender, app_data, config, EIS, CNLS):
         show_progress=True,
         run_alignment=False,
     )
-    config.display_file = config.selected_files[0] if config.selected_files else None
+    if config.display_file not in (config.selected_files or []):
+        config.display_file = config.selected_files[0] if config.selected_files else None
     gui_utils.file_list.display_file(None, config.display_file, config)
 
     if 'folder_path_old' in config.store.keys():

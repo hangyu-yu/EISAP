@@ -63,6 +63,12 @@ def _ensure_tab_bar_exists(tab_bar_tag, parent_tag):
 
 
 def _plot_single_three_views(parent_tag, data, data_category, compare_category):
+    # Defensive cleanup for single-view refresh to avoid overlay/ghosting.
+    for suffix in ("re", "im", "nyquist"):
+        plot_tag = f"{parent_tag}_{data_category}_single_{suffix}"
+        if dpg.does_item_exist(plot_tag):
+            dpg.delete_item(plot_tag)
+
     with dpg.plot(
         tag=f"{parent_tag}_{data_category}_single_re",
         width=-1,
@@ -231,8 +237,12 @@ def _plot_single_modulus_phase_comparison(
     measured_label,
     fit_label,
 ):
+    plot_tag = f"{parent_tag}_{suffix}_single_mod_phase"
+    if dpg.does_item_exist(plot_tag):
+        dpg.delete_item(plot_tag)
+
     with dpg.plot(
-        tag=f"{parent_tag}_{suffix}_single_mod_phase",
+        tag=plot_tag,
         width=-1,
         height=-1,
         no_menus=False,
@@ -1015,7 +1025,7 @@ def update_single_plots(config):
         return
 
     _ensure_or_clear_tab("tab_eis_truncated_plot_single", "Truncated", "tab_bar_eis_plot_single")
-    _ensure_tab_exists("tab_eis_kk_plot_single", "KK", "tab_bar_eis_plot_single")
+    _ensure_or_clear_tab("tab_eis_kk_plot_single", "KK", "tab_bar_eis_plot_single")
 
     if has_zhit_data:
         _ensure_tab_exists("tab_eis_zhit_plot_single", "ZHIT", "tab_bar_eis_plot_single")

@@ -212,8 +212,19 @@ def unselect_all_files(config, tag=None):
 def _sync_selected_files_with_current_list(config):
     """Keep selected files valid after refreshing current folder-based file list."""
     valid_basenames = {os.path.basename(file) for file in config.file_list if "[Error]" not in file}
-    config.selected_files = [name for name in (config.selected_files or []) if name in valid_basenames]
-    config.display_file = config.selected_files[0] if config.selected_files else None
+
+    normalized_selected = []
+    for item in (config.selected_files or []):
+        filename = os.path.basename(str(item))
+        if filename in valid_basenames and filename not in normalized_selected:
+            normalized_selected.append(filename)
+    config.selected_files = normalized_selected
+
+    display_candidate = os.path.basename(str(config.display_file)) if config.display_file else None
+    if display_candidate in config.selected_files:
+        config.display_file = display_candidate
+    else:
+        config.display_file = config.selected_files[0] if config.selected_files else None
 
 def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
     """Open a dedicated, larger window for selecting from current available file list."""
