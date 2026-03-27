@@ -8,3 +8,9 @@
 src/GUI/config.json
 Projects/
 .streamlit/
+
+# Python packaging build artifacts
+dist/
+build/
+*.egg-info/
+*.egg
