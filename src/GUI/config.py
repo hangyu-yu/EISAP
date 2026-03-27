@@ -45,7 +45,7 @@ class Config:
         self.fix_all_plots_CNLS = False
         # Store
         self.store = {}
-        self.store['element_list'] = {"Resistor": "R", "Inductor": "L", "Inductor_a": "La", "Capacitor": "C", "CPE": "Q", "RC": "RC", "RQ": "RQ", "Gerisher": "G", "fFLW": "fFLW", "FLW": "FLW", "RandleC": "RandleC", "RandleCPE": "RandleCPE", "RandleCPEfFLW": "RandleCPEfFLW", "RandleCfFLW": "RandleCfFLW"}
+        self.store['element_list'] = {"Resistor": "R", "Inductor": "L", "Inductor_a": "La", "Capacitor": "C", "CPE": "Q", "RC": "RC", "RQ": "RQ", "Gerisher": "G", "fFLW": "fFLW", "FLW": "FLW", "Warburg": "W", "RandleC": "RandleC", "RandleCPE": "RandleCPE", "RandleCPEfFLW": "RandleCPEfFLW", "RandleCfFLW": "RandleCfFLW"}
         self.store["peak_fixed_frequencies"] = []
         self.store["Elements"] = [
             {'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
@@ -148,7 +148,10 @@ class Config:
             display_file = ""
 
         data_import_raw = data.get("data_import_function", defaults["data_import_function"])
-        data_import_function = data_import_raw if isinstance(data_import_raw, str) and data_import_raw.strip() else defaults["data_import_function"]
+        if isinstance(data_import_raw, str) and data_import_raw.strip() and os.path.isfile(_normalize_path(data_import_raw.strip())):
+            data_import_function = data_import_raw.strip()
+        else:
+            data_import_function = defaults["data_import_function"]
 
         return {
             "font_size": font_size,

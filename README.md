@@ -263,6 +263,7 @@ CNLS fitting finds the parameters of a user-defined equivalent circuit model tha
 | G | Gerischer element |
 | fFLW | Finite-length Warburg (porous / reflective boundary) |
 | FLW | Semi-infinite Warburg |
+| W | Semi-infinite (pure) Warburg — single parameter σ (Warburg coefficient); **no tau → not subject to segment constraint** |
 | RandleC / RandleCPE | Randle circuits with ideal or CPE capacitance |
 
 #### CNLS workflow
@@ -321,21 +322,17 @@ SOCEIS/
 ## Authors and Acknowledgements
 
 **Lead developer:**
-- Hangyu Yu — Group of Energy Materials (GEM), EPFL, Switzerland
+- Dr. Hangyu Yu — Group of Energy Materials (GEM), EPFL, Switzerland
 
 **Principal investigator:**
-- Prof. Jan Van herle — Group of Energy Materials (GEM), EPFL, Switzerland
-
-**Contributors and collaborators:**
-- Cédric Frantz, Louis Savioz, Philippe Aubin, Dante Fronterotta — GEM, EPFL
-- Christian Geipel, Hamza Moussaoui, Guillaume Jeanmonod — GEM, EPFL
-- Ligang Wang — GEM, EPFL
+- Mer Dr. Jan Van herle — Group of Energy Materials (GEM), EPFL, Switzerland
+- Prof. Priscilla Caliandro - Bern University of Applied Sciences (BFH), Switzerland
+- Dr. Guillaume Jeanmonod - Hydro-Québec, Canada
 
 **Special thanks:**
-- **Hydro-Québec** (Canada) — for research collaboration and financial support
-- **Bern University of Applied Sciences (BFH)** (Switzerland) — for research collaboration
 - The authors of [DRTtools](https://github.com/ciuccislab/DRTtools) (Wan, Saccoccio, Chen & Ciucci) — for the open-source RBF-DRT discretisation framework on which the DRT module is partially based
 - The authors of [DearPyGui](https://github.com/hoffstadt/DearPyGui) — for the GPU-accelerated GUI framework
+- Dante Fronterotta for the Dataviewer and Cédric Frantz for all the support.
 
 ---
 

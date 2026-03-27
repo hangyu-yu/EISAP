@@ -145,7 +145,8 @@ class Circuit:
             'RandleC': ['_R', '_C', '_R_W', '_tau0_W'],
             'RandleCPE': ['_R', '_Q', '_alpha_Q', '_R_W', '_tau0_W'],
             'RandleCPEfFLW': ['_R', '_Q', '_alpha_Q', '_R_W', '_tau0_W', 'alpha_W'],
-            'RandleCfFLW': ['_R', '_C', '_R_W', '_tau0_W', 'alpha_W']
+            'RandleCfFLW': ['_R', '_C', '_R_W', '_tau0_W', 'alpha_W'],
+            'Warburg': ['_sigma']
         }
 
         # Check for duplicate element names
@@ -322,7 +323,8 @@ class Circuit:
             'RandleC': CNLS_fn.ImpedanceFunctions.RandleC,
             'RandleCPE': CNLS_fn.ImpedanceFunctions.RandleCPE,
             'RandleCPEfFLW': CNLS_fn.ImpedanceFunctions.RandleCPEfFLW,
-            'RandleCfFLW': CNLS_fn.ImpedanceFunctions.RandleCfFLW
+            'RandleCfFLW': CNLS_fn.ImpedanceFunctions.RandleCfFLW,
+            'Warburg': CNLS_fn.ImpedanceFunctions.Warburg
         }
         
         # Iterate over the elements and compute their impedances

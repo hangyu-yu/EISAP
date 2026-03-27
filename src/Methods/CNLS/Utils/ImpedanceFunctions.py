@@ -99,6 +99,16 @@ def fFLW(w,param):
     Z = R*safe_tanh((tau0*1j*w)**alpha)/(tau0*1j*w)**alpha; # Boukamp (eq. 29)
     return Z
 
+# Semi-infinite (pure) Warburg element
+def Warburg(w, param):
+    # Semi-infinite diffusion, commonly used for Li-ion batteries.
+    # Z = sigma * (1-j) / sqrt(omega)
+    # param[0]: sigma — Warburg coefficient [Ohm*s^0.5]
+    # Note: no tau parameter — not subject to segment-constraint tau bounds.
+    sigma = param[0]
+    Z = sigma * (1 - 1j) / np.sqrt(w)
+    return Z
+
 # Finite length Warburg element
 def FLW(w,param):
     # From Boukamp https://doi.org/10.1088/2515-7655/aba9e0

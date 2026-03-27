@@ -54,6 +54,8 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
         name_short = "C"
     elif app_data == "CPE":
         name_short = "Q"
+    elif app_data == "Warburg":
+        name_short = "W"
     else:
         name_short = app_data
     rules = _PARAM_RULES.get(element['type'], [])
@@ -190,7 +192,8 @@ def build_element_table(config, element, element_idx):
         'RandleC': [('C0', 1), ('R_W0', 2), ('Tau_W0', 3)],
         'RandleCfFLW': [('C0', 1), ('R_W0', 2), ('Tau_W0', 3), ('Alpha_W0', 4)],
         'RandleCPE': [('Q0', 1), ('Alpha_Q0', 2), ('R_W0', 3), ('Tau_W0', 4),],
-        'RandleCPEfFLW': [('Q0', 1), ('Alpha_Q0', 2), ('R_W0', 3), ('Tau_W0', 4), ('Alpha_W0', 5)]
+        'RandleCPEfFLW': [('Q0', 1), ('Alpha_Q0', 2), ('R_W0', 3), ('Tau_W0', 4), ('Alpha_W0', 5)],
+        'Warburg': []  # no extra rows; only sigma (no tau — not subject to segment constraint)
     }
     parent_table = f"table_cnls_elements_{element['name'][-1]}"
     rules = _PARAM_RULES.get(element['type'], [])
@@ -205,7 +208,7 @@ def build_element_table(config, element, element_idx):
             width=-1,
             callback=lambda s, a: _element_table_change_callback(s, a, config, element, _PARAM_RULES),
         )
-        dpg.add_text(config.store['element_list'][element['type']][0]+'0' if element['type'] in ['Inductor', 'Inductor_a', 'CPE', 'Capacitor'] else 'R0')
+        dpg.add_text(config.store['element_list'][element['type']][0]+'0' if element['type'] in ['Inductor', 'Inductor_a', 'CPE', 'Capacitor', 'Warburg'] else 'R0')
         _add_parameters_bounds(config, element, 0, _PARAM_RULES, element_idx)
     
     for title, param_idx in rules:
@@ -267,6 +270,7 @@ def add_element(sender, appdata, config):
         'Gerisher': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
         'fFLW': ([1, 1, 1], [np.inf, np.inf, 1], [1e-10, 1e-10, 0.4]),
         'FLW': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+        'Warburg': ([1], [np.inf], [1e-10]),
         'RandleC': ([1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf], [1e-10, 1e-10, 1e-10, 1e-10]),
         'RandleCfFLW': ([1, 1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf, 1], [1e-10, 1e-10, 1e-10, 1e-10, 0.4]),
         'RandleCPE': ([1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf], [1e-10, 1e-10, 0.4, 1e-10, 1e-10]),
