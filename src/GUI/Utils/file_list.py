@@ -489,9 +489,13 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None, import_history
                 EIS_tmp.file_folder = config.folder_path
                 EIS_tmp.filename = os.path.basename(file)
 
-                need_drt_import = config.store.get('beacon_DRT_import', False) or EIS_tmp.tknv_truncated is None
+                need_drt_import = (
+                    config.store.get('beacon_DRT_import', False)
+                    or not config.store[file_name_no_ext].get('_drt_loaded', False)
+                )
                 if need_drt_import:
                     EIS_tmp.import_data_DRT()
+                    config.store[file_name_no_ext]['_drt_loaded'] = True
 
                 if is_first_selected_file or ((not config.selected_files) and idx == 0):
                     EIS.file_folder = config.folder_path
@@ -688,6 +692,15 @@ def display_file(sender, app_data, config, refresh_eis_tab=True, refresh_drt_tab
                 _safe_set_value("text_optimal_lambda", f"{float(config.store[os.path.splitext(config.display_file)[0]]['EIS'].lambda_opt):.4e}")
             elif dpg.does_item_exist("text_optimal_lambda"):
                 _safe_set_value("text_optimal_lambda", "Non-calculated")
+            # RBF-DRT parameters
+            rbf_params = EIS_tmp.parameter.get("DRT_RBF", {})
+            _safe_set_value('input_text_rbf_lambda', rbf_params.get("lambda", 1e-3))
+            _safe_set_value('combo_rbf_type', rbf_params.get("rbf_type", "Gaussian"))
+            _safe_set_value('input_text_rbf_coeff', rbf_params.get("coeff", 0.5))
+            _safe_set_value('combo_rbf_shape_control', rbf_params.get("shape_control", "FWHM Coefficient"))
+            _safe_set_value('combo_rbf_der_used', rbf_params.get("der_used", "1st order"))
+            _safe_set_value('combo_rbf_method', rbf_params.get("method", "ridge"))
+            _safe_set_value('check_box_rbf_fit_inductance', bool(rbf_params.get("fit_inductance", False)))
     except:
         if dpg.does_item_exist("text_optimal_lambda"):
             dpg.set_value("text_optimal_lambda", "Non-calculated")
@@ -725,6 +738,13 @@ def display_file(sender, app_data, config, refresh_eis_tab=True, refresh_drt_tab
                 dpg.configure_item("input_nbr_iters", default_value=config.store[_file_key]['CNLS'].iteration)
                 dpg.configure_item("input_nbr_peaks", default_value=len(config.store[_file_key]['CNLS'].f_fixed)) if config.store[_file_key]['CNLS'].f_fixed is not None else 6
                 gui_utils.cnls_functions.dynamic_peak_ids(0, 0, config)
+                _cnls = config.store[_file_key]['CNLS']
+                dpg.configure_item("checkbox_cnls_R_percentage",  default_value=_cnls.R_cons is not None)
+                dpg.configure_item("checkbox_cnls_Tau_percentage", default_value=_cnls.Tau_cons is not None)
+                if dpg.does_item_exist("input_constraints_R_percentage"):
+                    dpg.configure_item("input_constraints_R_percentage",  default_value=_cnls.R_cons   if _cnls.R_cons   is not None else 10.0)
+                if dpg.does_item_exist("input_constraints_Tau_percentage"):
+                    dpg.configure_item("input_constraints_Tau_percentage", default_value=_cnls.Tau_cons if _cnls.Tau_cons is not None else 10.0)
 
                 if config.store["Elements"] is None or config.store["Elements"] == []:
                     config.store["Elements"] = [

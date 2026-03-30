@@ -1,4 +1,5 @@
 import os
+import copy
 import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
@@ -81,6 +82,32 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
             dpg.configure_item("check_box_cnls_rc_initialization", enabled=True)
         
     build_element_table(config, element, int(element_nbr)-1)
+    # Sync type/name change to all selected files.
+    # Each file keeps its own Param values (preserve fitted/user results).
+    # For new param indices (if count increased), extend with default 1.
+    # Ub/Lb: preserve existing per-file values; extend new indices with displayed-file defaults.
+    _idx = int(element_nbr) - 1
+    _full_param_count = len(element['Param'])
+    _default_ub = element['Ub']   # full list after build_element_table
+    _default_lb = element['Lb']   # full list after build_element_table
+    for _fn in config.selected_files:
+        if _fn == config.display_file:
+            continue
+        _fk = os.path.splitext(_fn)[0]
+        if _fk in config.store and 'CNLS' in config.store[_fk]:
+            _elems = config.store[_fk]['CNLS'].Elements
+            if isinstance(_elems, list) and len(_elems) > _idx:
+                _old = _elems[_idx]
+                _op = _old.get('Param', [])
+                _ou = _old.get('Ub', [])
+                _ol = _old.get('Lb', [])
+                _elems[_idx] = {
+                    'name': element['name'],
+                    'type': app_data,
+                    'Param': [(_op[i] if i < len(_op) else 1)             for i in range(_full_param_count)],
+                    'Ub':    [(_ou[i] if i < len(_ou) else _default_ub[i]) for i in range(_full_param_count)],
+                    'Lb':    [(_ol[i] if i < len(_ol) else _default_lb[i]) for i in range(_full_param_count)],
+                }
     menu_remove_elements(config)
 
 def _update_param_callback(sender, app_data, config, element, i):
@@ -96,7 +123,6 @@ def _update_param_callback(sender, app_data, config, element, i):
     element['Param'][i] = app_data
     element_idx = int(element['name'][-1])-1
     config.store["Elements"][element_idx]['Param'][i] = app_data
-    _sync_element_field_to_selected_files(config, element_idx, 'Param', i, app_data)
 
 def _update_ub_callback(sender, app_data, config, element, i):
     """Callback function for updating the parameter in the table.
@@ -288,6 +314,13 @@ def add_element(sender, appdata, config):
         'Lb': lb
     }
     config.store["Elements"].append(new_element)
+    # Sync new element to all selected files
+    for _fn in config.selected_files:
+        _fk = os.path.splitext(_fn)[0]
+        if _fk in config.store and 'CNLS' in config.store[_fk]:
+            _elems = config.store[_fk]['CNLS'].Elements
+            if isinstance(_elems, list) and len(_elems) < element_nbr:
+                _elems.append(copy.deepcopy(new_element))
     build_element_table(config, new_element, element_nbr-1)
     menu_remove_elements(config)
     
@@ -328,6 +361,17 @@ def remove_element(sender, appdata, config):
     config.store["Elements"].remove(config.store["Elements"][idx_to_remove])
     for i in range(len(config.store["Elements"])):
         config.store["Elements"][i]['name'] = f"{config.store['element_list'][config.store['Elements'][i]['type']]}{i+1}"
+    # Sync removal to all selected files (per-file; preserve each file's own Param/Ub/Lb)
+    for _fn in config.selected_files:
+        if _fn == config.display_file:
+            continue
+        _fk = os.path.splitext(_fn)[0]
+        if _fk in config.store and 'CNLS' in config.store[_fk]:
+            _elems = config.store[_fk]['CNLS'].Elements
+            if isinstance(_elems, list) and len(_elems) > idx_to_remove:
+                del _elems[idx_to_remove]
+                for _i in range(len(_elems)):
+                    _elems[_i]['name'] = f"{config.store['element_list'][_elems[_i]['type']]}{_i+1}"
     update_elements(config)
     
     # Check if Randle elements still exist and update RC initialization checkbox

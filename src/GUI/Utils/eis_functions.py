@@ -89,6 +89,15 @@ def data_import(sender, app_data, config, EIS):
                 config.store[file_name_no_ext] = {}
                 config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
                 EIS_tmp = config.store[file_name_no_ext]['EIS']
+                # The global EIS template may carry DRT/RBF results from a previously
+                # loaded project file. Reset them so raw-file imports always start clean.
+                for _drt_attr in (
+                    'tknv_truncated', 'tknv_smooth', 'tknv_extrapolation',
+                    'tknv_LCcorrect', 'tknv_zhit',
+                    'rbf_truncated', 'rbf_smooth', 'rbf_extrapolation',
+                    'rbf_LCcorrect', 'rbf_zhit',
+                ):
+                    setattr(EIS_tmp, _drt_attr, None)
                 EIS_tmp.filename = file_name
             EIS_tmp.raw['Re'] = data['Re/Ohm'].to_numpy()
             EIS_tmp.raw['Im'] = data['Im/Ohm'].to_numpy()

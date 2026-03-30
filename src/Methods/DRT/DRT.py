@@ -1644,13 +1644,26 @@ class DRT:
                         if f_gamma.size == 0:
                             f_gamma = f_z.copy()
 
+                        # f_z, Re, Im, Residuals may be NaN-padded because the DataFrame was
+                        # saved with mixed-length columns (f_gamma/g longer than f/Re/Im/Residuals).
+                        # Strip trailing NaN so lengths are correct.
+                        f_z_mask = np.isfinite(f_z)
+                        f_z = f_z[f_z_mask]
+                        g_arr = _read_col_as_array(rbf_data, 'gamma/ohm·s·cm2')
+                        g_mask = np.isfinite(g_arr)
+                        g_arr = g_arr[g_mask]
+                        f_gamma = f_gamma[g_mask] if len(f_gamma) == len(g_mask) else f_gamma[np.isfinite(f_gamma)]
+                        re_arr = _read_col_as_array(rbf_data, 'Re/ohm·cm2')[f_z_mask]
+                        im_arr = _read_col_as_array(rbf_data, 'Im/ohm·cm2')[f_z_mask]
+                        res_arr = _read_col_as_array(rbf_data, 'Residuals')[f_z_mask]
+
                         target_dict[mode] = {
                             'f': f_z,
                             'f_gamma': f_gamma,
-                            'g': _read_col_as_array(rbf_data, 'gamma/ohm·s·cm2'),
-                            'Re': _read_col_as_array(rbf_data, 'Re/ohm·cm2'),
-                            'Im': _read_col_as_array(rbf_data, 'Im/ohm·cm2'),
-                            'Residuals': _read_col_as_array(rbf_data, 'Residuals'),
+                            'g': g_arr,
+                            'Re': re_arr,
+                            'Im': im_arr,
+                            'Residuals': res_arr,
                         }
                     except Exception:
                         # RBF sheets may be absent in older files; keep graceful fallback.

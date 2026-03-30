@@ -383,12 +383,21 @@ def initialize_parameters(sender, appdata, config):
                 raise ValueError("CNLS elements are empty. Please initialize circuit elements first.")
 
             reference = apply_cnls_reference_data(CNLS_tmp, EIS_tmp)
-            rl_data = reference.get("drt_rl_result", {}).get("RL", {})
+            # RL parameters (Rs, L, Rp) must always come from the tknv key of each
+            # file's own EIS_tmp — same as pre-v3.27 code.  Using reference["drt_rl_result"]
+            # is unreliable: for RBF data types the drt_rl_key has no "RL" subdict.
+            _rl_base = CNLS_tmp.data_type.replace('_KK', '').replace('_DRT', '').replace('_RBF', '')
+            try:
+                rl_data = EIS_tmp['tknv_' + _rl_base].get('RL', {}) or {}
+            except Exception:
+                rl_data = {}
 
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
+            CNLS_tmp.R_cons = None if not dpg.get_value("checkbox_cnls_R_percentage") else dpg.get_value("input_constraints_R_percentage")
+            CNLS_tmp.Tau_cons = None if not dpg.get_value("checkbox_cnls_Tau_percentage") else dpg.get_value("input_constraints_Tau_percentage")
             # Disable RC_fit_switch if Randle elements exist
             has_randle = any('Randle' in element.get('type', '') for element in (CNLS_tmp.Elements or []))
             if has_randle:

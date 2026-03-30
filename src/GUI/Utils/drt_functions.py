@@ -232,6 +232,10 @@ def process_data(sender, app_data, config):
     )
     _success = False
     _current_file = ""
+    # Use the GUI radio button as the single source of truth for method selection.
+    # This ensures all selected files are processed with the same method regardless
+    # of whether their individual 'enabled' flag was synced before this call.
+    rbf_from_gui = dpg.get_value("radio_drt_method") == "RBF-DRT" if dpg.does_item_exist("radio_drt_method") else None
     try:
         for i, file_name in enumerate(config.selected_files):
             _current_file = file_name
@@ -240,6 +244,9 @@ def process_data(sender, app_data, config):
             if file_name_no_ext not in config.store.keys():
                 raise FileNotFoundError('The specified file is not loaded or EIS processing is not done.')
             EIS_tmp = config.store[file_name_no_ext]['EIS']
+            # Sync the per-file enabled flag from the GUI before computing.
+            if rbf_from_gui is not None:
+                EIS_tmp.parameter['DRT_RBF']['enabled'] = rbf_from_gui
             rbf_enabled = EIS_tmp.parameter.get('DRT_RBF', {}).get('enabled', False)
             if rbf_enabled:
                 if EIS_tmp.parameter["DRT"]["tknv_pos"]:
