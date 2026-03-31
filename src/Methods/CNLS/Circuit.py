@@ -677,7 +677,7 @@ class Circuit:
                 except Exception as e:
                     print(f"[Warning] CNLS RBF DRT failed, fallback to Tikhonov/tknv_pos: {e}")
 
-            if self.DRTparamters['tknv_pos'] is None or self.DRTparameters['tknv_pos'] is False:
+            if self.DRTparameters['tknv_pos'] is None or self.DRTparameters['tknv_pos'] is False:
                 return DRT_fn.DRT_tikhonov(eis_input, self.DRTparameters)
             return DRT_fn.DRT_tknv_pos(eis_input, self.DRTparameters)
 
