@@ -140,7 +140,7 @@ def table_update(config):
                                 dpg.add_table_column(label="Phase [deg]", width_stretch=True)
                                 for idx in range(CNLS_tmp.Z.shape[0]):
                                     with dpg.table_row():
-                                        dpg.add_text(str(CNLS_tmp.f[idx]))
+                                        dpg.add_text(f"{CNLS_tmp.f[idx]:.3f}" if abs(CNLS_tmp.f[idx]) < 1 else f"{CNLS_tmp.f[idx]:.2f}")
                                         dpg.add_text(_smart_format(np.real(CNLS_tmp.Z[element][idx])) % np.real(CNLS_tmp.Z[element][idx]))
                                         dpg.add_text(_smart_format(np.imag(CNLS_tmp.Z[element][idx])) % np.imag(CNLS_tmp.Z[element][idx]))
                                         dpg.add_text(_smart_format(np.abs(CNLS_tmp.Z[element][idx])) % np.abs(CNLS_tmp.Z[element][idx]))
@@ -201,7 +201,7 @@ def table_update(config):
                     for idx in range(n_rows):
                         with dpg.table_row():
                             freq = _safe_at(f_drt, idx)
-                            dpg.add_text(str(freq) if freq is not None else "N/A")
+                            dpg.add_text((f"{freq:.3f}" if abs(freq) < 1 else f"{freq:.2f}") if freq is not None else "N/A")
 
                             drt_mes = _safe_at(drt_meas, idx)
                             dpg.add_text(_smart_format(drt_mes) % drt_mes if drt_mes is not None else "N/A")

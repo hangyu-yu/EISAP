@@ -347,6 +347,10 @@ def initialize_parameters(sender, appdata, config):
         dpg.configure_item("checkbox_cnls_segement_constraints", default_value=False, enabled=False)
         config.store["segment_constraints"] = 'free'
         print('---- Segment constraints set to free due to the presence of Randle elements.')
+
+    # Snapshot UI state once. Do not restore UI values during initialization.
+    rs_lb_kk = dpg.get_value("check_box_cnls_rs_lb_kk") if dpg.does_item_exist("check_box_cnls_rs_lb_kk") else False
+    rs_lb_drt = dpg.get_value("check_box_cnls_rs_lb_drt") if dpg.does_item_exist("check_box_cnls_rs_lb_drt") else False
     
     # Load all the parameters from the CNLS setup
     _success = False
@@ -456,12 +460,64 @@ def initialize_parameters(sender, appdata, config):
             if len(param_list) != 0:
                 raise ValueError("The number of initial guess is more than the number of elements.")
             
+            # Store Rs_LB settings in CNLS object
+            CNLS_tmp.Rs_LB_KK = rs_lb_kk
+            CNLS_tmp.Rs_LB_DRT = rs_lb_drt
+            
+            r2_idx = None
+            rs_value = None
+            
+            if rs_lb_kk or rs_lb_drt:
+                # Find R2 element
+                for idx, element in enumerate(CNLS_tmp.Elements):
+                    if element['name'] == 'R2':
+                        r2_idx = idx
+                        break
+                
+                if r2_idx is not None:
+                    # Priority: KK first, then DRT
+                    if rs_lb_kk:
+                        try:
+                            if EIS_tmp.KK_data is not None and EIS_tmp.KK_data.get('res_ohm_kk') is not None:
+                                rs_value = float(EIS_tmp.KK_data['res_ohm_kk'].item())
+                        except Exception:
+                            pass
+                    
+                    if rs_value is None and rs_lb_drt:
+                        try:
+                            # Prefer the already-resolved RL dict used above for CNLS init.
+                            if rl_data.get('Rs_ReIm') is not None:
+                                rs_value = float(rl_data['Rs_ReIm'])
+                            else:
+                                # Fallback: scan all tknv_* branches for RL.Rs_ReIm.
+                                for _k, _v in EIS_tmp.items():
+                                    if isinstance(_k, str) and _k.startswith('tknv_') and isinstance(_v, dict):
+                                        _rl = _v.get('RL', {}) or {}
+                                        if _rl.get('Rs_ReIm') is not None:
+                                            rs_value = float(_rl['Rs_ReIm'])
+                                            break
+                        except Exception:
+                            pass
+                    
+                    if rs_value is not None and rs_value > 0:
+                        CNLS_tmp.Elements[r2_idx]['Lb'] = [rs_value]
+            
             CNLS_tmp.initialize_elements()
             if CNLS_tmp.RC_fit_switch:
                 CNLS_tmp = _apply_rc_fit_initialization(CNLS_tmp)
-                config.store["elements"] = CNLS_tmp.Elements
+                config.store["Elements"] = CNLS_tmp.Elements
 
             constraint_percentage(CNLS_tmp)
+            
+            # Reapply Rs_LB after constraint_percentage (in case R_cons overwrote it)
+            if (rs_lb_kk or rs_lb_drt) and r2_idx is not None and rs_value is not None and rs_value > 0:
+                # Find the Rs parameter index using R2 element's start index
+                if r2_idx < len(CNLS_tmp.ElementsStartIndex):
+                    rs_param_idx = CNLS_tmp.ElementsStartIndex[r2_idx]
+                    if rs_param_idx < len(CNLS_tmp.LowerBound):
+                        CNLS_tmp.LowerBound[rs_param_idx] = rs_value
+                        CNLS_tmp.Elements[r2_idx]['Lb'] = [rs_value]
+            
             _pm.update_progress(progress, i + 1, file_name)
         _success = True
     except Exception as _e:
@@ -473,11 +529,14 @@ def initialize_parameters(sender, appdata, config):
         _pm.close_progress(progress)
     if not _success:
         return
+    
+    # Update display_file's Elements with Rs_LB applied
     display_key = os.path.splitext(config.display_file)[0] if config.display_file else None
     if display_key in config.store and 'CNLS' in config.store[display_key] and isinstance(config.store[display_key]['CNLS'].Elements, list):
         config.store["Elements"] = config.store[display_key]['CNLS'].Elements
     else:
         _ensure_store_elements(config)
+    
     gui_utils.cnls_elements.update_elements(config)
 
 # Load the parameters for the CNLS fitting
@@ -502,6 +561,10 @@ def load_parameters(sender, appdata, config):
                 CNLS_tmp.Elements = copy.deepcopy(config.store['Elements'])
             if not isinstance(CNLS_tmp.Elements, list) or len(CNLS_tmp.Elements) == 0:
                 raise ValueError("CNLS elements are empty. Please initialize circuit elements first.")
+            if dpg.does_item_exist("check_box_cnls_rs_lb_kk"):
+                dpg.set_value("check_box_cnls_rs_lb_kk", bool(getattr(CNLS_tmp, "Rs_LB_KK", False)))
+            if dpg.does_item_exist("check_box_cnls_rs_lb_drt"):
+                dpg.set_value("check_box_cnls_rs_lb_drt", bool(getattr(CNLS_tmp, "Rs_LB_DRT", False)))
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")

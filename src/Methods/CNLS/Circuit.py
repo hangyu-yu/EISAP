@@ -122,6 +122,8 @@ class Circuit:
         self.ElementsParamPValues = [] # List to store p-values for parameters (for statistical significance)
         self.FitSummary = None # DataFrame to store the fit summary
         self.RC_fit_switch = False # Flag to indicate if RC initialization is used for fitting
+        self.Rs_LB_KK = False # Flag to set R2 lower bound from KK ohmic resistance
+        self.Rs_LB_DRT = False # Flag to set R2 lower bound from DRT ohmic resistance
         self.R_cons = None 
         self.Tau_cons = None
 
@@ -852,6 +854,8 @@ class Circuit:
                 "ElementsStartIndex": [self.ElementsStartIndex],
                 "ElementsNparam": [self.ElementsNparam],
                 "RC_fit_switch": [self.RC_fit_switch],
+                "Rs_LB_KK": [self.Rs_LB_KK],
+                "Rs_LB_DRT": [self.Rs_LB_DRT],
                 "R_cons": [self.R_cons],
                 "Tau_cons": [self.Tau_cons]
             }
@@ -980,6 +984,8 @@ class Circuit:
             self.ElementsStartIndex = safe_literal(safe_get(summary_df, "ElementsStartIndex", self.ElementsStartIndex, str), self.ElementsStartIndex)
             self.ElementsNparam = safe_literal(safe_get(summary_df, "ElementsNparam", self.ElementsNparam, str), self.ElementsNparam)
             self.RC_fit_switch = safe_get(summary_df, "RC_fit_switch", self.RC_fit_switch, bool)
+            self.Rs_LB_KK = safe_get(summary_df, "Rs_LB_KK", self.Rs_LB_KK, bool)
+            self.Rs_LB_DRT = safe_get(summary_df, "Rs_LB_DRT", self.Rs_LB_DRT, bool)
             self.R_cons = safe_get(summary_df, "R_cons", self.R_cons, float)
             self.Tau_cons = safe_get(summary_df, "Tau_cons", self.Tau_cons, float)
 

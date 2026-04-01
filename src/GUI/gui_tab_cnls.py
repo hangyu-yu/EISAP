@@ -49,6 +49,16 @@ def _initialization_cnls(config, CNLS):
             print(f"---- CNLS data initialized from {file_name} successfully.")
     return skipped
 
+def rs_lb_kk_callback(sender, app_data, config):
+    """Handle Rs_LB_KK checkbox: when enabled, disable Rs_LB_DRT."""
+    if app_data:
+        dpg.set_value("check_box_cnls_rs_lb_drt", False)
+
+def rs_lb_drt_callback(sender, app_data, config):
+    """Handle Rs_LB_DRT checkbox: when enabled, disable Rs_LB_KK."""
+    if app_data:
+        dpg.set_value("check_box_cnls_rs_lb_kk", False)
+
 def plot_cnls_tau_callback(sender, app_data, config):
     num_peaks = range(dpg.get_value("input_nbr_peaks"))
     for i in num_peaks:
@@ -187,6 +197,18 @@ def gui_tab_cnls(config, EIS, CNLS):
                                 label="RC initilization",
                                 default_value = config.store[os.path.splitext(config.display_file)[0]]['CNLS'].RC_fit_switch if gui_utils.cnls_functions._file_existence_check(config) and config.store[os.path.splitext(config.display_file)[0]]['CNLS'].RC_fit_switch is not None else False,
                                 callback=lambda sender, app_data: RC_initialization_callback(sender, app_data, config),
+                            )
+                            dpg.add_checkbox(
+                                tag="check_box_cnls_rs_lb_kk",
+                                label="Rs_LB_KK",
+                                default_value = bool(getattr(config.store[os.path.splitext(config.display_file)[0]]['CNLS'], 'Rs_LB_KK', False)) if gui_utils.cnls_functions._file_existence_check(config) else False,
+                                callback=lambda sender, app_data: rs_lb_kk_callback(sender, app_data, config),
+                            )
+                            dpg.add_checkbox(
+                                tag="check_box_cnls_rs_lb_drt",
+                                label="Rs_LB_DRT",
+                                default_value = bool(getattr(config.store[os.path.splitext(config.display_file)[0]]['CNLS'], 'Rs_LB_DRT', False)) if gui_utils.cnls_functions._file_existence_check(config) else False,
+                                callback=lambda sender, app_data: rs_lb_drt_callback(sender, app_data, config),
                             )
                         with dpg.menu(label="Add elements"):
                             for header, element in config.store['element_list'].items():

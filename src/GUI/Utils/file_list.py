@@ -739,6 +739,12 @@ def display_file(sender, app_data, config, refresh_eis_tab=True, refresh_drt_tab
                 dpg.configure_item("input_nbr_peaks", default_value=len(config.store[_file_key]['CNLS'].f_fixed)) if config.store[_file_key]['CNLS'].f_fixed is not None else 6
                 gui_utils.cnls_functions.dynamic_peak_ids(0, 0, config)
                 _cnls = config.store[_file_key]['CNLS']
+                if dpg.does_item_exist("check_box_cnls_rc_initialization"):
+                    dpg.configure_item("check_box_cnls_rc_initialization", default_value=bool(getattr(_cnls, 'RC_fit_switch', False)))
+                if dpg.does_item_exist("check_box_cnls_rs_lb_kk"):
+                    dpg.configure_item("check_box_cnls_rs_lb_kk", default_value=bool(getattr(_cnls, 'Rs_LB_KK', False)))
+                if dpg.does_item_exist("check_box_cnls_rs_lb_drt"):
+                    dpg.configure_item("check_box_cnls_rs_lb_drt", default_value=bool(getattr(_cnls, 'Rs_LB_DRT', False)))
                 dpg.configure_item("checkbox_cnls_R_percentage",  default_value=_cnls.R_cons is not None)
                 dpg.configure_item("checkbox_cnls_Tau_percentage", default_value=_cnls.Tau_cons is not None)
                 if dpg.does_item_exist("input_constraints_R_percentage"):

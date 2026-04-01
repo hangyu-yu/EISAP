@@ -180,7 +180,7 @@ def table_update(config):
                 for idx in range(n):
                     with dpg.table_row():
                         dpg.add_text(f"{idx + 1}")
-                        dpg.add_text(_format_value(f_arr[idx], digits=2))
+                        dpg.add_text(f"{f_arr[idx]:.3f}" if abs(f_arr[idx]) < 1 else f"{f_arr[idx]:.2f}")
                         dpg.add_text(_format_value(g_arr[idx], digits=6))
                         dpg.add_text(_format_value(re_arr[idx], digits=6))
                         dpg.add_text(_format_value(im_arr[idx], digits=6))

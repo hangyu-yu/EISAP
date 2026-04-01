@@ -81,7 +81,7 @@ def table_update(config):
                         with dpg.table_row():
                             phase = math.degrees(math.atan2(data['Im'][row_idx], data['Re'][row_idx]))
                             dpg.add_text(f"{row_idx + 1}")
-                            dpg.add_text(f"{data['f'][row_idx]:.2f}")
+                            dpg.add_text(f"{data['f'][row_idx]:.3f}" if abs(data['f'][row_idx]) < 1 else f"{data['f'][row_idx]:.2f}")
                             dpg.add_text(f"{data['Re'][row_idx]:.6f}")
                             dpg.add_text(f"{data['Im'][row_idx]:.6f}")
                             dpg.add_text(f"{data['Z'][row_idx]:.4f}")
@@ -96,7 +96,7 @@ def table_update(config):
                     for row_idx in range(len(data['f'])):
                         with dpg.table_row():
                             dpg.add_text(f"{row_idx + 1}")
-                            dpg.add_text(f"{data['f'][row_idx]:.2f}")
+                            dpg.add_text(f"{data['f'][row_idx]:.3f}" if abs(data['f'][row_idx]) < 1 else f"{data['f'][row_idx]:.2f}")
                             dpg.add_text(f"{data['delta_Re_kk'][row_idx]:.6f}")
                             dpg.add_text(f"{data['delta_Im_kk'][row_idx]:.6f}")
         dpg.bind_item_theme(table_tag, table_theme)
