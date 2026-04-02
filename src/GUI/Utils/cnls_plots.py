@@ -53,6 +53,54 @@ def _set_log_axis_limits(x_axis, x_values):
         dpg.set_axis_limits(x_axis, x_min, x_max)
 
 
+def _is_rbf_cnls_data_type(data_type):
+    return isinstance(data_type, str) and data_type.endswith('_RBF')
+
+
+def _set_drt_y_limits(y_axis, y_arrays, force_zero_lower=False):
+    """Set robust y-limits for DRT plots.
+
+    For ordinary Tikhonov modes we avoid pinning the lower bound to 0,
+    so negative valleys remain visible. For RBF modes we keep zero-based
+    lower bound behavior to preserve existing visual style.
+    """
+    if y_axis is None:
+        return
+
+    merged = []
+    for arr in y_arrays:
+        if arr is None:
+            continue
+        y = np.asarray(arr, dtype=np.float64).reshape(-1)
+        y = y[np.isfinite(y)]
+        if len(y) > 0:
+            merged.append(y)
+
+    if len(merged) == 0:
+        dpg.set_axis_limits(y_axis, 0.0, 1.0)
+        return
+
+    y_all = np.concatenate(merged)
+    y_min = float(np.min(y_all))
+    y_max = float(np.max(y_all))
+
+    if force_zero_lower:
+        low = 0.0
+        high = y_max * 1.1 if y_max > 0 else 1.0
+    else:
+        span = y_max - y_min
+        if not np.isfinite(span) or span <= 0:
+            pad = max(abs(y_max) * 0.1, 1e-6)
+        else:
+            pad = span * 0.1
+        low = y_min - pad
+        high = y_max + pad
+        if low == high:
+            high = low + 1.0
+
+    dpg.set_axis_limits(y_axis, low, high)
+
+
 def _resolve_drt_plot_xy(drt_result, use_tau=False, fallback_f=None):
     """Resolve DRT x/y from a DRT result dict, supporting RBF fine-grid keys."""
     if not isinstance(drt_result, dict):
@@ -141,6 +189,7 @@ def update_single_plots(config):
     data = CNLS_tmp
     f_fit = data.f
     f_drt = data.f_drt if hasattr(data, "f_drt") and data.f_drt is not None else data.f
+    force_zero_drt_lower = _is_rbf_cnls_data_type(getattr(data, "data_type", None))
 
     # Plot the DRT to identify the peaks
     try:
@@ -161,8 +210,7 @@ def update_single_plots(config):
             if len(x_drt) > 0:
                 dpg.add_line_series(x_drt, y_drt, parent=y_axis)
                 _set_log_axis_limits(x_axis, x_drt)
-                y_max_value = float(np.max(y_drt))
-                dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1 if y_max_value > 0 else 1.0)
+                _set_drt_y_limits(y_axis, [y_drt], force_zero_lower=force_zero_drt_lower)
                 dpg.add_plot_legend()
 
         # Plot the residual
@@ -266,14 +314,11 @@ def update_single_plots(config):
                             dpg.add_line_series(x_fit_drt, y_fit_drt, parent=y_axis, label="Fit")
                             x_series_all.append(x_fit_drt)
 
-                        y_max_candidates = []
-                        if len(y_fit_drt) > 0:
-                            y_max_candidates.append(np.max(y_fit_drt))
-                        if f_drt is not None and data.DRTmes is not None:
-                            if len(x_meas) > 0:
-                                y_max_candidates.append(np.max(y_meas))
-                        y_max_value = float(np.max(y_max_candidates)) if len(y_max_candidates) > 0 else 1.0
-                        dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1 if y_max_value > 0 else 1.0)
+                        _set_drt_y_limits(
+                            y_axis,
+                            [y_meas if 'y_meas' in locals() else None, y_fit_drt],
+                            force_zero_lower=force_zero_drt_lower,
+                        )
 
                         if len(x_series_all) > 0:
                             _set_log_axis_limits(x_axis, np.concatenate(x_series_all))
@@ -329,6 +374,7 @@ def update_single_plots(config):
                         y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="gamma [ohm·s·cm2]")
                         if f_fit is not None and data.Zmes is not None and data.w is not None:
                             x_series_all = []
+                            y_series = []
                             if f_drt is not None and data.DRTmes is not None:
                                 x_meas, y_meas = _sanitize_log_xy(
                                     np.asarray(f_drt if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*f_drt), dtype=np.float64),
@@ -337,11 +383,7 @@ def update_single_plots(config):
                                 if len(x_meas) > 0:
                                     dpg.add_scatter_series(x_meas, y_meas, parent=y_axis, label="Measure")
                                     x_series_all.append(x_meas)
-                                    y_max_value = float(np.max(y_meas))
-                                else:
-                                    y_max_value = 0.0
-                            else:
-                                y_max_value = 0.0
+                                    y_series.append(y_meas)
                             for element in data.ElementDRTs:
                                 if element == 'mes':
                                     continue
@@ -356,8 +398,8 @@ def update_single_plots(config):
                                     continue
                                 dpg.add_line_series(x_elem, y_elem, parent=y_axis, label=f"{element}")
                                 x_series_all.append(x_elem)
-                                y_max_value = np.max([y_max_value, np.max(y_elem)]) 
-                            dpg.set_axis_limits(y_axis, 0, y_max_value * 1.1)
+                                y_series.append(y_elem)
+                            _set_drt_y_limits(y_axis, y_series, force_zero_lower=force_zero_drt_lower)
                             if len(x_series_all) > 0:
                                 _set_log_axis_limits(x_axis, np.concatenate(x_series_all))
                             dpg.add_plot_legend()

@@ -409,7 +409,9 @@ def initialize_parameters(sender, appdata, config):
             else:
                 config.store["RC_fit_switch"] = dpg.get_value("check_box_cnls_rc_initialization")
                 CNLS_tmp.RC_fit_switch = config.store.get("RC_fit_switch", False)
-            
+
+            _orig_drtmes = CNLS_tmp.DRTmes
+            # NO longer use abs(DRTmes); analyze DRT as-is
             R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_tmp.PeakDerivative(CNLS_tmp.f_mode, f_fixed=CNLS_tmp.f_fixed, nbr_peaks_fixed=len(CNLS_tmp.f_fixed))
             R_est_sum = np.sum(R_est)
             rp_reim = rl_data.get('Rp_ReIm', None)

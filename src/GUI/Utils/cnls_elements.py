@@ -228,6 +228,7 @@ def build_element_table(config, element, element_idx):
     _column_setup(config, element)
     with dpg.table_row(parent=parent_table):
         dpg.add_text(gui_utils.small_functions.string_abbreviation(element['name'], 2, 3))
+        
         dpg.add_combo(
             items=list(config.store['element_list']),
             default_value=element['type'],
@@ -247,7 +248,8 @@ def build_element_table(config, element, element_idx):
 # Main function to update the element table
 def update_elements(config):
     dpg.delete_item("child_window_cnls_elements", children_only=True)
-    # Create the new tables
+    
+    # Create the main element table header
     with dpg.table(
         parent="child_window_cnls_elements",
         tag = "Table_cnls_elements",
@@ -339,6 +341,7 @@ def menu_remove_elements(config):
     """
     if dpg.does_item_exist("menu_remove_elements"):
         dpg.delete_item("menu_remove_elements")
+
     with dpg.menu(label="Remove elements", parent="menu_cnls_parameters", tag="menu_remove_elements"):
         for name in [elem['name'] for elem in config.store['Elements'][:]]:
             dpg.add_menu_item(

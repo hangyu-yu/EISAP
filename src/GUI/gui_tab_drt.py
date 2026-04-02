@@ -62,29 +62,6 @@ def tknv_pos_callback(sender, app_data, EIS, config):
     """
     Callback function for the tikhonov positive checkbox.
     """
-    def _is_lambda_auto_switch_candidate():
-        """Treat blank/invalid/default lambda as not manually provided."""
-        if not dpg.does_item_exist("input_text_lambda"):
-            return True
-
-        raw_value = dpg.get_value("input_text_lambda")
-        if raw_value is None:
-            return True
-
-        try:
-            if isinstance(raw_value, str):
-                text = raw_value.strip()
-                if text == "":
-                    return True
-                value = float(text)
-            else:
-                value = float(raw_value)
-        except (TypeError, ValueError):
-            return True
-
-        # If value is still one of default lambda values, allow automatic switching.
-        return np.isclose(value, 0.05) or np.isclose(value, 5e-4)
-
     def _target_files_for_update():
         if config.selected_files:
             return list(config.selected_files)
@@ -104,7 +81,6 @@ def tknv_pos_callback(sender, app_data, EIS, config):
         return None
 
     mode = False
-    lambda_auto_candidate = _is_lambda_auto_switch_candidate()
     auto_lambda = 0.05 if app_data else 5e-4
 
     for file_name in _target_files_for_update():
@@ -113,8 +89,8 @@ def tknv_pos_callback(sender, app_data, EIS, config):
             continue
         else:
             EIS_tmp = config.store[file_name_no_ext]["EIS"]
-            # If lambda is not manually provided, toggle between default values with tikhonov mode.
-            if lambda_auto_candidate and EIS_tmp.parameter["DRT"].get("Lambda_selection", "Manual") != "Optimal":
+            # Keep lambda coupled to tknv_pos mode when in Manual mode.
+            if EIS_tmp.parameter["DRT"].get("Lambda_selection", "Manual") != "Optimal":
                 EIS_tmp.parameter["DRT"]["lambda"] = auto_lambda
             if app_data:
                 mode = True
