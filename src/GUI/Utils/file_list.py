@@ -77,7 +77,7 @@ def sync_file_list_checkboxes(config, tag):
             if current_value != target_value:
                 dpg.set_value(checkbox_tag, target_value)
 
-def update_selected_files(config, tag=None):
+def update_selected_files(config, tag=None, force_refresh=False):
     """
     Update the list of selected files in config.selected_files.
     """
@@ -112,11 +112,11 @@ def update_selected_files(config, tag=None):
         sync_file_list_checkboxes(config, "child_window_file_list_cnls")
         sync_file_list_checkboxes(config, "child_window_file_list_soceis")
 
-        # Nothing changed at all — skip everything.
+        # Nothing changed at all — skip everything unless caller requests refresh.
         selection_changed = previous_selected != list(config.selected_files or [])
         display_changed = previous_display != config.display_file
 
-        if not selection_changed and not display_changed:
+        if not selection_changed and not display_changed and not force_refresh:
             return
 
         # Update display combos in analysis tabs whenever selection or display changed.
@@ -150,18 +150,17 @@ def update_selected_files(config, tag=None):
                 except Exception:
                     pass
 
-        # Refresh single-file detail panels only when the displayed file changed.
-        if display_changed:
+        # Refresh single-file detail panels when display changes or a forced refresh is requested.
+        if display_changed or force_refresh:
             try:
-                if config.display_file is not None:
-                    gui_utils.file_list.display_file(
-                        None,
-                        config.display_file,
-                        config,
-                        refresh_eis_tab=dpg.does_item_exist("tab_eis"),
-                        refresh_drt_tab=dpg.does_item_exist("tab_drt"),
-                        refresh_cnls_tab=dpg.does_item_exist("tab_cnls"),
-                    )
+                gui_utils.file_list.display_file(
+                    None,
+                    config.display_file,
+                    config,
+                    refresh_eis_tab=dpg.does_item_exist("tab_eis"),
+                    refresh_drt_tab=dpg.does_item_exist("tab_drt"),
+                    refresh_cnls_tab=dpg.does_item_exist("tab_cnls"),
+                )
             except Exception:
                 pass
     finally:
@@ -264,9 +263,13 @@ def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
         config.selected_files = [name for name in selected_names if name in current_names]
         _sync_selected_files_with_current_list(config)
 
+        # Respect explicit empty confirmation from the large selector.
+        if not config.selected_files:
+            config.store["_skip_autoselect_first_once"] = True
+
         update_file_list(config, tag, EIS, CNLS)
         # Reuse standard selection callback to update display file and redraw all related plots.
-        update_selected_files(config, tag)
+        update_selected_files(config, tag, force_refresh=True)
         dpg.delete_item(window_tag)
 
     def _apply_index_selection():
@@ -306,6 +309,15 @@ def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
             if dpg.does_item_exist(cb_tag):
                 dpg.set_value(cb_tag, one_based_idx in chosen_indices)
 
+        _update_temp_selected_from_window()
+
+    def _set_all_large_selector(checked, clear_index=False):
+        for filename in current_file_names:
+            cb_tag = f"checkbox_large_selector_{tag}_{filename}"
+            if dpg.does_item_exist(cb_tag):
+                dpg.set_value(cb_tag, checked)
+        if clear_index and dpg.does_item_exist(index_input_tag):
+            dpg.set_value(index_input_tag, "")
         _update_temp_selected_from_window()
 
     vp_w = dpg.get_viewport_client_width() if hasattr(dpg, "get_viewport_client_width") else dpg.get_viewport_width()
@@ -352,8 +364,8 @@ def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
                 dpg.add_button(label="Apply Index", callback=lambda: _apply_index_selection())
             _update_temp_selected_from_window()
             with dpg.group(horizontal=True):
-                dpg.add_button(label="Select all", callback=lambda: [dpg.set_value(f"checkbox_large_selector_{tag}_{name}", True) for name in current_file_names if dpg.does_item_exist(f"checkbox_large_selector_{tag}_{name}")] or _update_temp_selected_from_window())
-                dpg.add_button(label="Unselect all", callback=lambda: [dpg.set_value(f"checkbox_large_selector_{tag}_{name}", False) for name in current_file_names if dpg.does_item_exist(f"checkbox_large_selector_{tag}_{name}")] or _update_temp_selected_from_window())
+                dpg.add_button(label="Select all", callback=lambda: _set_all_large_selector(True))
+                dpg.add_button(label="Unselect all", callback=lambda: _set_all_large_selector(False, clear_index=True))
             dpg.add_spacer(height=6)
             dpg.add_separator()
             dpg.add_spacer(height=6)
@@ -410,8 +422,10 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None, import_history
     _sync_selected_files_with_current_list(config)
 
     # If nothing is selected but valid files exist, auto-select the first file.
+    # One-shot opt-out is used when user explicitly confirms an empty selection.
+    skip_autoselect_first = bool(config.store.pop("_skip_autoselect_first_once", False))
     valid_files_pre = [f for f in config.file_list if "[Error]" not in f]
-    if not config.selected_files and valid_files_pre:
+    if not config.selected_files and valid_files_pre and not skip_autoselect_first:
         first_name = os.path.basename(valid_files_pre[0])
         config.selected_files = [first_name]
         config.display_file = first_name

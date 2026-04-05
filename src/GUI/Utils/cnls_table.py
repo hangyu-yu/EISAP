@@ -3,6 +3,16 @@ import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utilis
 
+
+def _clear_cnls_data_tabs():
+    for tab_tag in [
+        "tab_cnls_data_parameters",
+        "tab_cnls_data_impedance",
+        "tab_cnls_data_drt",
+    ]:
+        if dpg.does_item_exist(tab_tag):
+            dpg.delete_item(tab_tag, children_only=True)
+
 def _smart_format(value):
     """
     Smartly format a value:
@@ -39,10 +49,16 @@ def table_update(config):
         print("-- CNLS data table updating...")
 
     if not config.display_file:
+        _clear_cnls_data_tabs()
+        return
+
+    file_name_no_ext = os.path.splitext(config.display_file)[0]
+    has_cnls = file_name_no_ext in config.store and 'CNLS' in config.store[file_name_no_ext]
+    if not has_cnls:
+        _clear_cnls_data_tabs()
         return
 
     # Parameter results
-    file_name_no_ext = os.path.splitext(config.display_file)[0]
     if config.store.get("verbose_logs", False):
         print('-- Update CNLS parameter table...')
     if dpg.does_item_exist("tab_cnls_data_parameters"):
@@ -56,9 +72,10 @@ def table_update(config):
             parent=f"tab_cnls_data_parameters",
             tag=f"table_cnls_data_parameters",
             header_row=True,
-            borders_innerV=True,  # Show vertical column lines
-            borders_outerV=True,
-            borders_outerH=True,
+            borders_innerV=False,
+            borders_innerH=False,
+            borders_outerV=False,
+            borders_outerH=False,
             row_background=True,  # Enable alternating row colors
             reorderable=True,     # Allow column reordering via drag-and-drop
             freeze_rows=1,        # Freeze header row (fixed during scrolling)

@@ -411,9 +411,25 @@ def update_single_plots(config):
 def update_all_plots(config):
     """Update all CNLS plots."""
     print("-- CNLS data all plots updating...")
+    if not dpg.does_item_exist("tab_bar_cnls_plot_all"):
+        print("---- Skipped: tab_bar_cnls_plot_all not found.")
+        return
+
+    if not config.selected_files or not config.display_file:
+        dpg.delete_item("tab_bar_cnls_plot_all", children_only=True)
+        print("---- Cleared: No files selected/displayed.")
+        return
+
     try:
-        CNLS_tmp = config.store[os.path.splitext(config.display_file)[0]]['CNLS']
+        file_key = os.path.splitext(config.display_file)[0]
+        if file_key not in config.store or 'CNLS' not in config.store[file_key]:
+            dpg.delete_item("tab_bar_cnls_plot_all", children_only=True)
+            print("---- Cleared: Display file has no CNLS data.")
+            return
+
+        CNLS_tmp = config.store[file_key]['CNLS']
         if CNLS_tmp.Elements is None:
+            dpg.delete_item("tab_bar_cnls_plot_all", children_only=True)
             print("---- CNLS all plots skipped: no elements found.")
             return
 

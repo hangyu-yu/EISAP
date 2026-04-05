@@ -5,33 +5,30 @@ import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
 
 
+_PARAM_LIST = {
+    'Inductor': ([1], [np.inf], [1e-10]),
+    'Resistor': ([1], [np.inf], [1e-10]),
+    'Capacitor': ([1], [np.inf], [1e-10]),
+    'CPE': ([1, 1], [np.inf, 1], [1e-10, 0.4]),
+    'Inductor_a': ([1, 1], [np.inf, 1], [1e-10, 0.4]),
+    'RC': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+    'RQ': ([1, 1, 1], [np.inf, np.inf, 1], [1e-10, 1e-10, 0.4]),
+    'Gerisher': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+    'fFLW': ([1, 1, 1], [np.inf, np.inf, 1], [1e-10, 1e-10, 0.4]),
+    'FLW': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+    'Warburg': ([1], [np.inf], [1e-10]),
+    'RandleC': ([1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf], [1e-10, 1e-10, 1e-10, 1e-10]),
+    'RandleCfFLW': ([1, 1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf, 1], [1e-10, 1e-10, 1e-10, 1e-10, 0.4]),
+    'RandleCPE': ([1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf], [1e-10, 1e-10, 0.4, 1e-10, 1e-10]),
+    'RandleCPEfFLW': ([1, 1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf, 1], [1e-10, 1e-10, 0.4, 1e-10, 1e-10, 0.4]),
+}
+
+
 def _sync_element_field_to_selected_files(config, element_index, field_name, param_index, new_value):
     """Propagate one edited value to all selected files using direct assignment."""
     for file_name in config.selected_files:
         file_name_no_ext = os.path.splitext(file_name)[0]
         config.store[file_name_no_ext]['CNLS'].Elements[element_index][field_name][param_index] = new_value
-
-# In-module functions
-def _table_setup(element):
-    if not dpg.does_item_exist(f"table_cnls_elements_{element['name'][-1]}"):
-        dpg.add_table(
-            parent= "child_window_cnls_elements",
-            tag = f"table_cnls_elements_{element['name'][-1]}",
-            header_row=False,
-            borders_innerH=False,
-            row_background=False,
-            borders_outerH=True,
-            policy=dpg.mvTable_SizingStretchSame
-        )
-
-def _column_setup(config, element):
-    viewport_width = dpg.get_viewport_width()
-    dpg.add_table_column(width_stretch=True, parent=f"table_cnls_elements_{element['name'][-1]}")
-    dpg.add_table_column(width_stretch=True, parent=f"table_cnls_elements_{element['name'][-1]}")
-    dpg.add_table_column(width_stretch=True, parent=f"table_cnls_elements_{element['name'][-1]}")
-    dpg.add_table_column(width_stretch=True, parent=f"table_cnls_elements_{element['name'][-1]}")
-    dpg.add_table_column(width_stretch=True, parent=f"table_cnls_elements_{element['name'][-1]}")
-    dpg.add_table_column(width_stretch=True, parent=f"table_cnls_elements_{element['name'][-1]}")
 
 def _element_table_change_callback(sender, app_data, config, element, _PARAM_RULES):
     """Callback function for element type change in the table.
@@ -43,7 +40,6 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
     """
     # Get the selected element type
     element_nbr = element['name'][-1]
-    dpg.delete_item(f"table_cnls_elements_{element_nbr}", children_only=True)
     element['type'] = app_data
     if app_data == "Resistor":
         name_short = "R"
@@ -81,7 +77,8 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
         if dpg.does_item_exist("check_box_cnls_rc_initialization"):
             dpg.configure_item("check_box_cnls_rc_initialization", enabled=True)
         
-    build_element_table(config, element, int(element_nbr)-1)
+    # Rebuild the full table to keep all columns aligned after edits.
+    update_elements(config)
     # Sync type/name change to all selected files.
     # Each file keeps its own Param values (preserve fitted/user results).
     # For new param indices (if count increased), extend with default 1.
@@ -109,6 +106,8 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
                     'Lb':    [(_ol[i] if i < len(_ol) else _default_lb[i]) for i in range(_full_param_count)],
                 }
     menu_remove_elements(config)
+    if hasattr(gui_utils, "cnls_functions") and hasattr(gui_utils.cnls_functions, "refresh_selector_preview"):
+        gui_utils.cnls_functions.refresh_selector_preview(config)
 
 def _update_param_callback(sender, app_data, config, element, i):
     """Callback function for updating the parameter in the table.
@@ -221,11 +220,8 @@ def build_element_table(config, element, element_idx):
         'RandleCPEfFLW': [('Q0', 1), ('Alpha_Q0', 2), ('R_W0', 3), ('Tau_W0', 4), ('Alpha_W0', 5)],
         'Warburg': []  # no extra rows; only sigma (no tau — not subject to segment constraint)
     }
-    parent_table = f"table_cnls_elements_{element['name'][-1]}"
+    parent_table = "Table_cnls_elements"
     rules = _PARAM_RULES.get(element['type'], [])
-
-    _table_setup(element)
-    _column_setup(config, element)
     with dpg.table_row(parent=parent_table):
         dpg.add_text(gui_utils.small_functions.string_abbreviation(element['name'], 2, 3))
         
@@ -254,9 +250,10 @@ def update_elements(config):
         parent="child_window_cnls_elements",
         tag = "Table_cnls_elements",
         header_row = True,
-        borders_innerV=True,  # Show vertical column lines
-        borders_outerV=True,
-        borders_outerH=True,
+        borders_innerV=False,
+        borders_innerH=False,
+        borders_outerV=False,
+        borders_outerH=False,
         row_background=True,  # Enable alternating row colors
         freeze_rows=1,        # Freeze header row (fixed during scrolling)
         # scrollX=True,         # Enable horizontal scrolling
@@ -285,35 +282,25 @@ def add_element(sender, appdata, config):
         config: Configuration object.
         element_type: The type of element to add.
     """
-    # Initialize the element parameters
     element_type = dpg.get_item_label(sender)[4:]
-    _PARAM_List = {
-        'Inductor': ([1], [np.inf], [1e-10]),
-        'Resistor': ([1], [np.inf], [1e-10]),
-        'Capacitor': ([1], [np.inf], [1e-10]),
-        'CPE': ([1, 1], [np.inf, 1], [1e-10, 0.4]),
-        'Inductor_a': ([1, 1], [np.inf, 1], [1e-10, 0.4]),
-        'RC': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
-        'RQ': ([1, 1, 1], [np.inf, np.inf, 1], [1e-10, 1e-10, 0.4]),
-        'Gerisher': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
-        'fFLW': ([1, 1, 1], [np.inf, np.inf, 1], [1e-10, 1e-10, 0.4]),
-        'FLW': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
-        'Warburg': ([1], [np.inf], [1e-10]),
-        'RandleC': ([1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf], [1e-10, 1e-10, 1e-10, 1e-10]),
-        'RandleCfFLW': ([1, 1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf, 1], [1e-10, 1e-10, 1e-10, 1e-10, 0.4]),
-        'RandleCPE': ([1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf], [1e-10, 1e-10, 0.4, 1e-10, 1e-10]),
-        'RandleCPEfFLW': ([1, 1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf, 1], [1e-10, 1e-10, 0.4, 1e-10, 1e-10, 0.4])
-    }
-    param, ub, lb = _PARAM_List[element_type]
+    add_element_by_type(config, element_type)
+
+
+def add_element_by_type(config, element_type):
+    """Add a CNLS element directly by element type."""
+    if element_type not in _PARAM_LIST:
+        raise ValueError(f"Unsupported element type: {element_type}")
+
+    param, ub, lb = _PARAM_LIST[element_type]
     # Get the number of existing elements
     element_nbr = len(config.store["Elements"]) + 1
     # Create a new element with default values
     new_element = {
         'name': f"{config.store['element_list'][element_type]}{element_nbr}",
         'type': element_type,
-        'Param': param,
-        'Ub': ub,
-        'Lb': lb
+        'Param': copy.deepcopy(param),
+        'Ub': copy.deepcopy(ub),
+        'Lb': copy.deepcopy(lb)
     }
     config.store["Elements"].append(new_element)
     # Sync new element to all selected files
@@ -332,6 +319,9 @@ def add_element(sender, appdata, config):
         if dpg.does_item_exist("check_box_cnls_rc_initialization"):
             dpg.configure_item("check_box_cnls_rc_initialization", default_value=False, enabled=False)
             config.store['RC_fit_switch'] = False
+
+    if hasattr(gui_utils, "cnls_functions") and hasattr(gui_utils.cnls_functions, "refresh_selector_preview"):
+        gui_utils.cnls_functions.refresh_selector_preview(config)
 
 def menu_remove_elements(config):
     """Create a menu for removing elements from the CNLS fitting table.
@@ -359,7 +349,14 @@ def remove_element(sender, appdata, config):
     """
     # Get the number of existing elements
     name_to_remove = dpg.get_item_label(sender)[7:]
+    remove_element_by_name(config, name_to_remove)
+
+
+def remove_element_by_name(config, name_to_remove):
+    """Remove one CNLS element by its current name."""
     names = [elem['name'] for elem in config.store['Elements'][:]]
+    if name_to_remove not in names:
+        return False
     idx_to_remove = names.index(name_to_remove)
     config.store["Elements"].remove(config.store["Elements"][idx_to_remove])
     for i in range(len(config.store["Elements"])):
@@ -387,3 +384,7 @@ def remove_element(sender, appdata, config):
         # Re-enable RC initialization if no Randle elements remain
         if dpg.does_item_exist("check_box_cnls_rc_initialization"):
             dpg.configure_item("check_box_cnls_rc_initialization", enabled=True)
+
+    if hasattr(gui_utils, "cnls_functions") and hasattr(gui_utils.cnls_functions, "refresh_selector_preview"):
+        gui_utils.cnls_functions.refresh_selector_preview(config)
+    return True

@@ -211,6 +211,11 @@ def gui_tab_cnls(config, EIS, CNLS):
                                 callback=lambda sender, app_data: rs_lb_drt_callback(sender, app_data, config),
                             )
                         with dpg.menu(label="Add elements"):
+                            dpg.add_menu_item(
+                                label="Selector",
+                                callback=lambda s, a: gui_utils.cnls_functions.open_selector_window(s, a, config)
+                            )
+                            dpg.add_separator()
                             for header, element in config.store['element_list'].items():
                                 dpg.add_menu_item(
                                     label=f"Add {header}",

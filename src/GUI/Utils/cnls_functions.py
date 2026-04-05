@@ -8,6 +8,36 @@ import src.Methods.CNLS.Utils as CNLS_fn
 from src.Methods.CNLS.Circuit import Circuit
 
 
+CNLS_SELECTOR_WINDOW_TAG = "window_cnls_selector"
+CNLS_SELECTOR_DRAWLIST_TAG = "cnls_selector_preview_drawlist"
+CNLS_SELECTOR_REMOVE_LIST_TAG = "cnls_selector_remove_list"
+CNLS_SELECTOR_ADD_TABLE_TAG = "cnls_selector_add_table"
+CNLS_SELECTOR_REMOVE_STATUS_TAG = "cnls_selector_remove_status"
+CNLS_SELECTOR_EDIT_KEY = "_selector_elements_buffer"
+
+
+_selector_remove_selected_names = []
+
+
+_SELECTOR_PARAM_LIST = {
+    'Inductor': ([1], [np.inf], [1e-10]),
+    'Resistor': ([1], [np.inf], [1e-10]),
+    'Capacitor': ([1], [np.inf], [1e-10]),
+    'CPE': ([1, 1], [np.inf, 1], [1e-10, 0.4]),
+    'Inductor_a': ([1, 1], [np.inf, 1], [1e-10, 0.4]),
+    'RC': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+    'RQ': ([1, 1, 1], [np.inf, np.inf, 1], [1e-10, 1e-10, 0.4]),
+    'Gerisher': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+    'fFLW': ([1, 1, 1], [np.inf, np.inf, 1], [1e-10, 1e-10, 0.4]),
+    'FLW': ([1, 1], [np.inf, np.inf], [1e-10, 1e-10]),
+    'Warburg': ([1], [np.inf], [1e-10]),
+    'RandleC': ([1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf], [1e-10, 1e-10, 1e-10, 1e-10]),
+    'RandleCfFLW': ([1, 1, 1, 1, 1], [np.inf, np.inf, np.inf, np.inf, 1], [1e-10, 1e-10, 1e-10, 1e-10, 0.4]),
+    'RandleCPE': ([1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf], [1e-10, 1e-10, 0.4, 1e-10, 1e-10]),
+    'RandleCPEfFLW': ([1, 1, 1, 1, 1, 1], [np.inf, np.inf, 1, np.inf, np.inf, 1], [1e-10, 1e-10, 0.4, 1e-10, 1e-10, 0.4]),
+}
+
+
 def _default_cnls_elements():
     return [
         {'name': 'L1', 'type': 'Inductor', 'Param': [1], 'Ub': [np.inf], 'Lb': [1e-10]},
@@ -285,6 +315,601 @@ def initialize_elements(config):
     except:
         print("[Warning] No previous CNLS elements found.")
 
+
+def _selector_add_element_callback(sender, appdata, user_data):
+    """Quick-add one element from Selector window."""
+    config, element_type = user_data
+    _selector_add_element_to_buffer(config, element_type)
+    refresh_selector_preview(config)
+    refresh_selector_remove_window(config)
+
+
+def _selector_get_elements(config):
+    elements = config.store.get(CNLS_SELECTOR_EDIT_KEY)
+    if isinstance(elements, list):
+        return elements
+    return config.store.get("Elements", [])
+
+
+def _selector_start_session(config):
+    config.store[CNLS_SELECTOR_EDIT_KEY] = copy.deepcopy(config.store.get("Elements", []))
+    _selector_remove_selected_names.clear()
+
+
+def _selector_end_session(config):
+    if CNLS_SELECTOR_EDIT_KEY in config.store:
+        del config.store[CNLS_SELECTOR_EDIT_KEY]
+    _selector_remove_selected_names.clear()
+
+
+def _selector_reindex_buffer_names(config):
+    elements = config.store.get(CNLS_SELECTOR_EDIT_KEY, [])
+    for i, element in enumerate(elements):
+        et = element.get('type', 'Resistor')
+        prefix = config.store.get('element_list', {}).get(et, et)
+        element['name'] = f"{prefix}{i + 1}"
+
+
+def _selector_add_element_to_buffer(config, element_type):
+    if element_type not in _SELECTOR_PARAM_LIST:
+        return
+    buffer_elements = config.store.get(CNLS_SELECTOR_EDIT_KEY, [])
+    param, ub, lb = _SELECTOR_PARAM_LIST[element_type]
+    buffer_elements.append({
+        'name': '',
+        'type': element_type,
+        'Param': copy.deepcopy(param),
+        'Ub': copy.deepcopy(ub),
+        'Lb': copy.deepcopy(lb),
+    })
+    _selector_reindex_buffer_names(config)
+
+
+def _selector_toggle_remove_choice(sender, appdata, user_data):
+    """Track multi-select state in remove window."""
+    element_name = user_data
+    if appdata:
+        if element_name not in _selector_remove_selected_names:
+            _selector_remove_selected_names.append(element_name)
+    else:
+        if element_name in _selector_remove_selected_names:
+            _selector_remove_selected_names.remove(element_name)
+    _update_remove_status_text()
+
+
+def _update_remove_status_text():
+    if not dpg.does_item_exist(CNLS_SELECTOR_REMOVE_STATUS_TAG):
+        return
+    if len(_selector_remove_selected_names) == 0:
+        dpg.set_value(CNLS_SELECTOR_REMOVE_STATUS_TAG, "Selected: 0")
+    else:
+        dpg.set_value(
+            CNLS_SELECTOR_REMOVE_STATUS_TAG,
+            f"Selected: {len(_selector_remove_selected_names)}  ({', '.join(_selector_remove_selected_names)})",
+        )
+
+
+def _selector_remove_selected_callback(sender, appdata, config):
+    """Remove all selected elements from Selector remove area."""
+    if len(_selector_remove_selected_names) == 0:
+        return
+
+    names = [elem.get('name', '') for elem in _selector_get_elements(config)]
+    remove_indices = sorted(
+        [names.index(name) for name in _selector_remove_selected_names if name in names],
+        reverse=True,
+    )
+    buffer_elements = config.store.get(CNLS_SELECTOR_EDIT_KEY, [])
+    for idx in remove_indices:
+        if idx < len(buffer_elements):
+            del buffer_elements[idx]
+
+    _selector_reindex_buffer_names(config)
+    _selector_remove_selected_names.clear()
+    refresh_selector_preview(config)
+    refresh_selector_remove_window(config)
+
+
+def refresh_selector_remove_window(config):
+    """Refresh selectable element boxes in Selector remove area."""
+    if not dpg.does_item_exist(CNLS_SELECTOR_REMOVE_LIST_TAG):
+        return
+
+    names = [elem.get('name', '') for elem in _selector_get_elements(config)]
+    _selector_remove_selected_names[:] = [name for name in _selector_remove_selected_names if name in names]
+
+    dpg.delete_item(CNLS_SELECTOR_REMOVE_LIST_TAG, children_only=True)
+    with dpg.table(
+        parent=CNLS_SELECTOR_REMOVE_LIST_TAG,
+        header_row=False,
+        borders_innerH=False,
+        borders_outerH=False,
+        borders_innerV=False,
+        borders_outerV=False,
+        policy=dpg.mvTable_SizingStretchSame,
+    ):
+        col_n = 6
+        for _ in range(col_n):
+            dpg.add_table_column()
+        for i in range(0, len(names), col_n):
+            with dpg.table_row():
+                row_names = names[i:i + col_n]
+                for name in row_names:
+                    dpg.add_selectable(
+                        label=name,
+                        default_value=(name in _selector_remove_selected_names),
+                        callback=_selector_toggle_remove_choice,
+                        user_data=name,
+                    )
+                for _ in range(col_n - len(row_names)):
+                    dpg.add_text("")
+
+    _update_remove_status_text()
+
+
+def _selector_confirm_callback(sender, appdata, config):
+    """Apply Selector edits to CNLS parameter table and file CNLS objects."""
+    edited = copy.deepcopy(config.store.get(CNLS_SELECTOR_EDIT_KEY, []))
+    config.store["Elements"] = edited
+
+    for _fn in config.selected_files:
+        _fk = os.path.splitext(_fn)[0]
+        if _fk in config.store and 'CNLS' in config.store[_fk]:
+            config.store[_fk]['CNLS'].Elements = copy.deepcopy(edited)
+
+    gui_utils.cnls_elements.update_elements(config)
+    _selector_end_session(config)
+    if dpg.does_item_exist(CNLS_SELECTOR_WINDOW_TAG):
+        dpg.hide_item(CNLS_SELECTOR_WINDOW_TAG)
+
+
+def _selector_cancel_callback(sender, appdata, config):
+    """Discard Selector edits and close window."""
+    _selector_end_session(config)
+    if dpg.does_item_exist(CNLS_SELECTOR_WINDOW_TAG):
+        dpg.hide_item(CNLS_SELECTOR_WINDOW_TAG)
+
+
+def _draw_resistor(parent, x0, x1, y, color, thickness):
+    width = max(12.0, x1 - x0)
+    mid = (x0 + x1) / 2.0
+
+    # Keep resistor leads around 15 px when space allows, while using a smaller body.
+    lead_target = 15.0
+    max_body_from_lead = max(8.0, width - 2.0 * lead_target)
+    body_w = min(42.0, max(14.0, width * 0.34), max_body_from_lead)
+
+    r0 = mid - body_w / 2.0
+    r1 = mid + body_w / 2.0
+    rect_h = min(7.0, max(4.6, body_w * 0.16))
+
+    dpg.draw_line((x0, y), (r0, y), color=color, thickness=thickness, parent=parent)
+    dpg.draw_line((r1, y), (x1, y), color=color, thickness=thickness, parent=parent)
+    dpg.draw_rectangle((r0, y - rect_h), (r1, y + rect_h), color=color, fill=(35, 50, 66, 200), thickness=1.8, parent=parent)
+
+
+def _draw_capacitor(parent, x0, x1, y, color, thickness):
+    mid = (x0 + x1) / 2.0
+    gap = min(7.0, max(4.0, (x1 - x0) / 6.0))
+    plate_h = 16
+    dpg.draw_line((x0, y), (mid - gap, y), color=color, thickness=thickness, parent=parent)
+    dpg.draw_line((mid - gap, y - plate_h), (mid - gap, y + plate_h), color=color, thickness=thickness, parent=parent)
+    dpg.draw_line((mid + gap, y - plate_h), (mid + gap, y + plate_h), color=color, thickness=thickness, parent=parent)
+    dpg.draw_line((mid + gap, y), (x1, y), color=color, thickness=thickness, parent=parent)
+
+
+def _draw_inductor(parent, x0, x1, y, color, thickness):
+    coil_count = 4
+    span = max(20.0, x1 - x0)
+    radius = span / (coil_count * 2.0)
+    left = (x0 + x1) / 2.0 - coil_count * radius
+    dpg.draw_line((x0, y), (left, y), color=color, thickness=thickness, parent=parent)
+    for i in range(coil_count):
+        cx = left + radius * (2 * i + 1)
+        dpg.draw_circle((cx, y), radius, color=color, thickness=thickness, parent=parent)
+    dpg.draw_line((left + coil_count * 2.0 * radius, y), (x1, y), color=color, thickness=thickness, parent=parent)
+
+
+def _draw_warburg(parent, x0, x1, y, color, thickness):
+    width = max(12.0, x1 - x0)
+    lead = min(10.0, max(4.0, width * 0.14))
+    w0 = x0 + lead
+    w1 = x1 - lead
+    amp = min(4.5, max(2.8, (w1 - w0) * 0.10))
+
+    dpg.draw_line((x0, y), (w0, y), color=color, thickness=thickness, parent=parent)
+    dpg.draw_line((w1, y), (x1, y), color=color, thickness=thickness, parent=parent)
+
+    segments = 6
+    step = max(3.0, (w1 - w0) / segments)
+    points = [(w0, y)]
+    for i in range(1, segments + 1):
+        px = w0 + i * step
+        py = y + (amp if i % 2 else -amp)
+        points.append((px, py))
+    dpg.draw_polyline(points, color=color, thickness=thickness, parent=parent)
+
+
+def _draw_generic_block(parent, x0, x1, y, color, fill):
+    dpg.draw_rectangle((x0, y - 13), (x1, y + 13), color=color, fill=fill, thickness=1.5, parent=parent)
+
+
+def _draw_label_block(parent, x0, x1, y, color, fill, label):
+    _draw_generic_block(parent, x0, x1, y, color, fill)
+    tx = (x0 + x1) / 2.0 - 5
+    dpg.draw_text((tx, y - 7), str(label), color=(230, 240, 248, 255), parent=parent, size=13)
+
+
+def _estimate_text_width(label, font_size):
+    """Estimate text width for drawlist labels without requiring font metrics API."""
+    width_units = 0.0
+    for ch in str(label):
+        if ch in "WwMm@#%&":
+            width_units += 0.88
+        elif ch in "firtjlI1|":
+            width_units += 0.38
+        elif ch.isupper():
+            width_units += 0.66
+        elif ch.islower():
+            width_units += 0.56
+        elif ch.isdigit():
+            width_units += 0.58
+        else:
+            width_units += 0.60
+    return max(6.0, width_units * float(font_size))
+
+
+def _draw_abbrev_series(parent, x0, x1, y, color, label, thickness=2):
+    """Draw a series abbreviation (e.g., W, G) without any surrounding box."""
+    width = max(12.0, x1 - x0)
+    # Match the Q-style connector behavior: target 15 px lead with safe fallback.
+    min_inner_span = 6.0
+    max_lead = max(2.0, (width - min_inner_span) / 2.0)
+    lead = min(max_lead, max(15.0, width * 0.20))
+    t0 = x0 + lead
+    t1 = x1 - lead
+
+    dpg.draw_line((x0, y), (t0, y), color=color, thickness=thickness, parent=parent)
+    dpg.draw_line((t1, y), (x1, y), color=color, thickness=thickness, parent=parent)
+
+    label_str = str(label)
+    inner_span = max(8.0, t1 - t0)
+    if label_str in ["W", "G", "FLW", "fFLW"]:
+        factor = 0.52 if label_str == "W" else 0.56
+        font_size = int(max(18, min(24, inner_span * factor)))
+    elif len(label_str) <= 2:
+        font_size = int(max(16, min(22, inner_span * 0.40)))
+    elif len(label_str) <= 4:
+        font_size = int(max(14, min(19, inner_span * 0.31)))
+    else:
+        font_size = int(max(12, min(17, inner_span * 0.25)))
+
+    # Prefer measured text width for visual centering; fallback to estimator.
+    text_w = _estimate_text_width(label_str, font_size)
+    try:
+        measured = dpg.get_text_size(label_str)
+        if isinstance(measured, (list, tuple)) and len(measured) >= 1:
+            text_w = max(1.0, float(measured[0]))
+    except Exception:
+        pass
+    tx = (x0 + x1) / 2.0 - text_w / 2.0
+    ty = y - font_size * 0.46
+    dpg.draw_text((tx, ty), label_str, color=(230, 240, 248, 255), parent=parent, size=font_size)
+
+
+def _draw_cpe_symbol(parent, x0, x1, y, color, thickness):
+    """Draw CPE symbol as two chevron-like folded lines (<< style), no text."""
+    width = max(14.0, x1 - x0)
+    # Keep a clearly visible side lead while preserving enough inner span for the chevrons.
+    min_inner_span = 6.0
+    max_lead = max(2.0, (width - min_inner_span) / 2.0)
+    lead = min(max_lead, max(15.0, width * 0.20))
+    c0 = x0 + lead
+    c1 = x1 - lead
+    dpg.draw_line((x0, y), (c0, y), color=color, thickness=thickness, parent=parent)
+    dpg.draw_line((c1, y), (x1, y), color=color, thickness=thickness, parent=parent)
+
+    span = max(10.0, c1 - c0)
+    # Use a taller and slightly narrower fold so the chevrons look less sharp.
+    h = min(6.8, max(4.2, span * 0.19))
+    left_center = c0 + span * 0.40
+    right_center = c0 + span * 0.60
+    half = max(2.4, span * 0.10)
+
+    # Two compact, symmetric chevrons for a cleaner << appearance.
+    dpg.draw_polyline(
+        [(left_center + half, y - h), (left_center - half, y), (left_center + half, y + h)],
+        color=color,
+        thickness=thickness,
+        parent=parent,
+    )
+    dpg.draw_polyline(
+        [(right_center + half, y - h), (right_center - half, y), (right_center + half, y + h)],
+        color=color,
+        thickness=thickness,
+        parent=parent,
+    )
+
+
+def _draw_parallel_branch(parent, x0, x1, y, color, fill, lower_type):
+    """Draw a two-branch parallel network between left/right nodes."""
+    top_y = y - 16
+    bot_y = y + 16
+
+    dpg.draw_line((x0, top_y), (x0, bot_y), color=color, thickness=2, parent=parent)
+    dpg.draw_line((x1, top_y), (x1, bot_y), color=color, thickness=2, parent=parent)
+    dpg.draw_circle((x0, y), 1.8, color=color, fill=color, thickness=1, parent=parent)
+    dpg.draw_circle((x1, y), 1.8, color=color, fill=color, thickness=1, parent=parent)
+
+    # Upper branch: resistor
+    _draw_resistor(parent, x0, x1, top_y, color, 2)
+
+    # Lower branch: depends on element family
+    if lower_type == "capacitor":
+        _draw_capacitor(parent, x0, x1, bot_y, color, 2)
+    elif lower_type == "cpe":
+        _draw_cpe_symbol(parent, x0, x1, bot_y, color, 2)
+    elif lower_type == "label_w":
+        _draw_label_block(parent, x0 + 4, x1 - 4, bot_y, color, fill, "W")
+    elif lower_type == "label_g":
+        _draw_label_block(parent, x0 + 4, x1 - 4, bot_y, color, fill, "G")
+    else:
+        _draw_generic_block(parent, x0 + 4, x1 - 4, bot_y, color, fill)
+
+
+def _draw_randle_symbol(parent, x0, x1, y, color, fill, cpe=False, warburg_is_fractal=False):
+    """Draw Randle family as: (C/CPE) || (R + FLW/fFLW)."""
+    width = max(44.0, x1 - x0)
+    lead = min(8.0, max(4.0, width * 0.08))
+    core0 = x0 + lead
+    core1 = x1 - lead
+    core_w = max(24.0, core1 - core0)
+
+    top_y = y - 16
+    bot_y = y + 16
+
+    dpg.draw_line((x0, y), (core0, y), color=color, thickness=2, parent=parent)
+    dpg.draw_line((core1, y), (x1, y), color=color, thickness=2, parent=parent)
+
+    # Parallel rails (left/right nodes)
+    dpg.draw_line((core0, top_y), (core0, bot_y), color=color, thickness=2, parent=parent)
+    dpg.draw_line((core1, top_y), (core1, bot_y), color=color, thickness=2, parent=parent)
+    dpg.draw_circle((core0, y), 1.8, color=color, fill=color, thickness=1, parent=parent)
+    dpg.draw_circle((core1, y), 1.8, color=color, fill=color, thickness=1, parent=parent)
+
+    # Upper branch: C or CPE
+    if cpe:
+        _draw_cpe_symbol(parent, core0, core1, top_y, color, 2)
+    else:
+        _draw_capacitor(parent, core0, core1, top_y, color, 2)
+
+    # Lower branch: series R + FLW/fFLW
+    r_end = core0 + core_w * 0.46
+    w_start = r_end + core_w * 0.08
+    _draw_resistor(parent, core0, r_end, bot_y, color, 2)
+    dpg.draw_line((r_end, bot_y), (w_start, bot_y), color=color, thickness=2, parent=parent)
+    if w_start < core1 - 2:
+        warburg_label = "fFLW" if warburg_is_fractal else "FLW"
+        _draw_abbrev_series(parent, w_start, core1, bot_y, color, warburg_label, thickness=2)
+    else:
+        dpg.draw_line((w_start, bot_y), (core1, bot_y), color=color, thickness=2, parent=parent)
+
+
+def _draw_element_symbol(parent, element_type, x0, x1, y, color, fill):
+    # Make symbols a bit more compact so connectors between elements are clearer.
+    sx0, sx1 = x0, x1
+    width = max(1.0, x1 - x0)
+    pad = min(8.0, max(2.0, width * 0.08))
+    x0 = x0 + pad
+    x1 = x1 - pad
+
+    # Keep the compact symbol electrically connected to the outer chain wire.
+    dpg.draw_line((sx0, y), (x0, y), color=color, thickness=2, parent=parent)
+    dpg.draw_line((x1, y), (sx1, y), color=color, thickness=2, parent=parent)
+
+    thickness = 2
+    et = str(element_type)
+    if et == "Resistor":
+        _draw_resistor(parent, x0, x1, y, color, thickness)
+    elif et == "RC":
+        _draw_parallel_branch(parent, x0, x1, y, color, fill, lower_type="capacitor")
+    elif et == "RQ":
+        _draw_parallel_branch(parent, x0, x1, y, color, fill, lower_type="cpe")
+    elif et == "Gerisher":
+        _draw_abbrev_series(parent, x0, x1, y, color, "G", thickness=thickness)
+    elif et == "FLW":
+        _draw_abbrev_series(parent, x0, x1, y, color, "FLW", thickness=thickness)
+    elif et == "fFLW":
+        _draw_abbrev_series(parent, x0, x1, y, color, "fFLW", thickness=thickness)
+    elif et in ["Capacitor", "CPE"]:
+        if et == "CPE":
+            _draw_cpe_symbol(parent, x0, x1, y, color, thickness)
+        else:
+            _draw_capacitor(parent, x0, x1, y, color, thickness)
+    elif et in ["Inductor", "Inductor_a"]:
+        _draw_inductor(parent, x0, x1, y, color, thickness)
+    elif et == "Warburg":
+        _draw_abbrev_series(parent, x0, x1, y, color, "W", thickness=thickness)
+    elif et == "RandleC":
+        _draw_randle_symbol(parent, x0, x1, y, color, fill, cpe=False, warburg_is_fractal=False)
+    elif et == "RandleCPE":
+        _draw_randle_symbol(parent, x0, x1, y, color, fill, cpe=True, warburg_is_fractal=False)
+    elif et == "RandleCfFLW":
+        _draw_randle_symbol(parent, x0, x1, y, color, fill, cpe=False, warburg_is_fractal=True)
+    elif et == "RandleCPEfFLW":
+        _draw_randle_symbol(parent, x0, x1, y, color, fill, cpe=True, warburg_is_fractal=True)
+    else:
+        _draw_generic_block(parent, x0, x1, y, color, fill)
+
+
+def refresh_selector_preview(config):
+    """Refresh equivalent-circuit preview in Selector window."""
+    if not dpg.does_item_exist(CNLS_SELECTOR_DRAWLIST_TAG):
+        return
+
+    dpg.delete_item(CNLS_SELECTOR_DRAWLIST_TAG, children_only=True)
+    elements = _selector_get_elements(config)
+    if not isinstance(elements, list) or len(elements) == 0:
+        dpg.draw_text((20, 45), "No elements. Use add buttons above.", color=(190, 190, 190, 255), parent=CNLS_SELECTOR_DRAWLIST_TAG, size=16)
+        return
+
+    draw_w = 1040
+    draw_h = 220
+    if dpg.does_item_exist(CNLS_SELECTOR_DRAWLIST_TAG):
+        try:
+            rect_size = dpg.get_item_rect_size(CNLS_SELECTOR_DRAWLIST_TAG)
+            if isinstance(rect_size, (list, tuple)) and len(rect_size) >= 1:
+                draw_w = max(760, int(rect_size[0]))
+                if len(rect_size) >= 2:
+                    draw_h = max(150, int(rect_size[1]))
+        except Exception:
+            pass
+
+    n = len(elements)
+    # Adaptive sizing keeps symbol proportions readable across resolutions.
+    scale_x = draw_w / 1040.0
+    scale_y = draw_h / 220.0
+    scale = max(0.85, min(1.8, min(scale_x, scale_y)))
+
+    margin = max(14.0, min(40.0, 24.0 * scale))
+    lead = max(16.0, min(44.0, 22.0 * scale))
+    gap = max(10.0, min(30.0, 18.0 * scale))
+    wire_thickness = max(1.6, min(3.2, 2.0 * scale))
+
+    usable = draw_w - 2 * margin - 2 * lead
+    element_units = [2.0 if str(elem.get("type", "")).startswith("Randle") else 1.0 for elem in elements]
+    total_units = max(1.0, float(sum(element_units)))
+    symbol_span_raw = (usable - gap * (n - 1)) / total_units
+    symbol_span_min = max(30.0, 34.0 * scale * 0.92)
+    symbol_span_max = max(78.0, 102.0 * scale)
+    symbol_span = min(symbol_span_max, max(symbol_span_min, symbol_span_raw))
+
+    top_pad = max(14.0, min(34.0, 20.0 * scale))
+    label_font = int(max(12, min(18, round(14 * scale))))
+    label_gap = max(34.0, symbol_span * 0.52, label_font * 2.35)
+    mid_y = max(top_pad + 22.0, min(draw_h - label_gap - label_font - 10.0, draw_h * 0.46))
+
+    wire_color = (195, 195, 195, 255)
+    symbol_color = (94, 170, 220, 255)
+    symbol_fill = (25, 41, 52, 180)
+
+    start_x = margin
+    dpg.draw_line((start_x, mid_y), (start_x + lead, mid_y), color=wire_color, thickness=wire_thickness, parent=CNLS_SELECTOR_DRAWLIST_TAG)
+
+    cursor_x = start_x + lead
+    for idx, element in enumerate(elements):
+        element_name = str(element.get("name", f"E{idx + 1}"))
+        element_type = str(element.get("type", "Unknown"))
+        element_span = symbol_span * element_units[idx]
+        x0 = cursor_x
+        x1 = cursor_x + element_span
+        _draw_element_symbol(CNLS_SELECTOR_DRAWLIST_TAG, element_type, x0, x1, mid_y, symbol_color, symbol_fill)
+        label_w = max(18.0, len(element_name) * (label_font * 0.52))
+        label_x = (x0 + x1) / 2.0 - label_w / 2.0
+        label_y = min(draw_h - label_font - 6.0, mid_y + label_gap)
+        dpg.draw_text((label_x, label_y), element_name, color=(225, 235, 245, 255), parent=CNLS_SELECTOR_DRAWLIST_TAG, size=label_font)
+
+        right_x = x1
+        next_x = right_x + gap
+        dpg.draw_line((right_x, mid_y), (next_x, mid_y), color=wire_color, thickness=wire_thickness, parent=CNLS_SELECTOR_DRAWLIST_TAG)
+
+        cursor_x = next_x
+
+    dpg.draw_line((cursor_x, mid_y), (cursor_x + lead, mid_y), color=wire_color, thickness=wire_thickness, parent=CNLS_SELECTOR_DRAWLIST_TAG)
+
+def open_selector_window(sender, appdata, config):
+    """Open circuit selector window with quick-add buttons and a live preview."""
+    _ensure_store_elements(config)
+    _selector_start_session(config)
+
+    if dpg.does_item_exist(CNLS_SELECTOR_WINDOW_TAG):
+        dpg.show_item(CNLS_SELECTOR_WINDOW_TAG)
+        refresh_selector_preview(config)
+        refresh_selector_remove_window(config)
+        return
+
+    vp_w = dpg.get_viewport_client_width() if hasattr(dpg, "get_viewport_client_width") else dpg.get_viewport_width()
+    vp_h = dpg.get_viewport_client_height() if hasattr(dpg, "get_viewport_client_height") else dpg.get_viewport_height()
+    win_width = min(max(980, int(vp_w * 0.86)), max(760, vp_w - 20))
+    win_height = min(max(620, int(vp_h * 0.88)), max(520, vp_h - 20))
+
+    add_h = 130
+    remove_h = 150
+    action_h = 56
+    fixed_overhead = 210
+    preview_h = max(170, win_height - (add_h + remove_h + action_h + fixed_overhead))
+
+    with dpg.window(
+        tag=CNLS_SELECTOR_WINDOW_TAG,
+        label="CNLS Selector",
+        modal=True,
+        width=win_width,
+        height=win_height,
+        pos=(max(0, (vp_w - win_width) // 2), max(0, (vp_h - win_height) // 2)),
+        no_resize=True,
+        no_scrollbar=True,
+        no_collapse=True,
+    ):
+        dpg.add_text("Add Elements")
+        with dpg.child_window(height=add_h, border=True, no_scrollbar=True):
+            with dpg.table(
+                tag=CNLS_SELECTOR_ADD_TABLE_TAG,
+                header_row=False,
+                borders_innerH=False,
+                borders_outerH=False,
+                borders_innerV=False,
+                borders_outerV=False,
+                policy=dpg.mvTable_SizingStretchSame,
+            ):
+                col_n = 5
+                for _ in range(col_n):
+                    dpg.add_table_column()
+
+                element_types = list(config.store.get("element_list", {}).keys())
+                for i in range(0, len(element_types), col_n):
+                    with dpg.table_row():
+                        row_types = element_types[i:i + col_n]
+                        for et in row_types:
+                            dpg.add_button(
+                                label=et,
+                                width=-1,
+                                callback=_selector_add_element_callback,
+                                user_data=(config, et),
+                            )
+                        for _ in range(col_n - len(row_types)):
+                            dpg.add_text("")
+
+        dpg.add_spacer(height=8)
+        dpg.add_separator()
+        dpg.add_spacer(height=6)
+
+        dpg.add_text("Remove Elements")
+        with dpg.child_window(height=remove_h, border=True, no_scrollbar=True):
+            dpg.add_text(tag=CNLS_SELECTOR_REMOVE_STATUS_TAG, default_value="Selected: 0")
+            with dpg.child_window(tag=CNLS_SELECTOR_REMOVE_LIST_TAG, height=75, border=True, no_scrollbar=True):
+                pass
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Remove Selected", width=180, callback=_selector_remove_selected_callback, user_data=config)
+
+        dpg.add_spacer(height=8)
+        dpg.add_separator()
+        dpg.add_spacer(height=6)
+
+        dpg.add_text("Equivalent Circuit Preview")
+        with dpg.child_window(height=preview_h, horizontal_scrollbar=False, border=True):
+            dpg.add_drawlist(tag=CNLS_SELECTOR_DRAWLIST_TAG, width=1200, height=240)
+
+        dpg.add_spacer(height=8)
+        dpg.add_separator()
+        dpg.add_spacer(height=6)
+        with dpg.child_window(height=action_h, border=True, no_scrollbar=True):
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Confirm", width=180, callback=_selector_confirm_callback, user_data=config)
+                dpg.add_button(label="Cancel", width=180, callback=_selector_cancel_callback, user_data=config)
+
+    refresh_selector_remove_window(config)
+    refresh_selector_preview(config)
+
 def _apply_rc_fit_initialization(CNLS_tmp):
     rc_cnls = copy.deepcopy(CNLS_tmp)
     rc_counter = 3
@@ -370,6 +995,8 @@ def initialize_parameters(sender, appdata, config):
                 or cnls_existing.DRTmes is None
                 or not isinstance(cnls_existing.Elements, list)
                 or len(cnls_existing.Elements) == 0
+                or cnls_existing.DRTparameters is None
+                or cnls_existing.DRTparameters['tknv_pos'] != EIS_tmp.parameter['DRT']['tknv_pos']
             )
             if need_rebuild_cnls:
                 config.store[file_name_no_ext]['CNLS'] = copy.deepcopy(Circuit(
@@ -381,6 +1008,9 @@ def initialize_parameters(sender, appdata, config):
                 ))
             
             CNLS_tmp = config.store[file_name_no_ext]['CNLS']
+            CNLS_tmp.DRTparameters = EIS_tmp.parameter['DRT']
+            CNLS_tmp.DRTparameters_rbf = EIS_tmp.parameter.get('DRT_RBF', None) if isinstance(EIS_tmp.parameter, dict) else None
+            
             if not isinstance(CNLS_tmp.Elements, list) or len(CNLS_tmp.Elements) == 0:
                 CNLS_tmp.Elements = copy.deepcopy(config.store['Elements'])
             if not isinstance(CNLS_tmp.Elements, list) or len(CNLS_tmp.Elements) == 0:

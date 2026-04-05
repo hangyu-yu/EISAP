@@ -70,7 +70,9 @@ def RmNonKK_callback(sender, app_data, EIS):
     EIS.parameter["KK"]["RmNonKK"] = dpg.get_value(sender)
 
 def manual_removal_callback(sender, app_data, config, EIS):
-    EIS.parameter["ManualRemoval"]["Enable"] = dpg.get_value(sender)
+    # Keep canonical key in sync; preserve legacy key for backward compatibility.
+    EIS.parameter["ManualRemoval"]["enable"] = bool(dpg.get_value(sender))
+    EIS.parameter["ManualRemoval"]["Enable"] = EIS.parameter["ManualRemoval"]["enable"]
     if app_data:
         dpg.configure_item("num_cut_upper", enabled=False)
         dpg.configure_item("num_cut_lower", enabled=False)
@@ -429,7 +431,11 @@ def gui_tab_eis(config, EIS, CNLS):
                         dpg.add_button(tag="Button_data_import", label="Data import", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.eis_functions.data_import(s, a, config, EIS))
                         dpg.bind_item_theme("Button_data_import", blue_button_theme)
 
-                        dpg.add_button(tag="Button_drt_Process_dataters", label="Load parameters", width=int(viewport_width*0.075), callback=lambda s, a: gui_utils.eis_functions.load_parameters(s, a, config, EIS))
+                        dpg.add_button(
+                            tag="Button_drt_Process_dataters", 
+                            label="Load parameters", 
+                            width=int(viewport_width*0.075), 
+                            callback=lambda s, a: gui_utils.eis_functions.load_parameters(s, a, config, EIS))
                         dpg.bind_item_theme("Button_drt_Process_dataters", blue_button_theme)
 
                         dpg.add_button(tag="Button_Process_data", label="Process data", width=int(viewport_width*0.075), callback=lambda s, a: callback_process_data(s, a, EIS, config))

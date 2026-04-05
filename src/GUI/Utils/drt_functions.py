@@ -276,6 +276,22 @@ def process_data(sender, app_data, config):
         if display_key in config.store and 'EIS' in config.store[display_key]:
             refresh_lambda_target_combo(config.store[display_key]['EIS'])
 
+    # Keep CNLS fit DRT view in sync after DRT re-processing.
+    if dpg.does_item_exist("tab_cnls"):
+        import src.GUI.Utils as gui_utils
+        if dpg.does_item_exist("tab_bar_cnls_plot_single"):
+            try:
+                gui_utils.cnls_plots.update_single_plots(config)
+            except Exception as _ep:
+                import traceback as _tb
+                print(f"[Warning] DRT process_data — CNLS single-plot refresh failed:\n{_tb.format_exc()}")
+        if dpg.does_item_exist("tab_bar_cnls_plot_all"):
+            try:
+                gui_utils.cnls_plots.update_all_plots(config)
+            except Exception as _ep:
+                import traceback as _tb
+                print(f"[Warning] DRT process_data — CNLS all-plot refresh failed:\n{_tb.format_exc()}")
+
 def save_drt(sender, app_data, config, EIS):
     import src.GUI.Utils.progress_modal as _pm
     n = len(config.selected_files) if config.selected_files else 0

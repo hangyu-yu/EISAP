@@ -6,17 +6,17 @@ from src.Methods.DRT.DRT import DRT
 
 def _get_manualcut_preview_data(config):
     """
-    Preview for selector = RAW after ONLY upper/lower cut.
+    Preview for selector = RAW data only.
     No significance/outlier/KK/manual removal are applied here.
 
-    This keeps selector indices stable and avoids misleading visuals.
+    This keeps indices stable and matches batch manual-removal behavior.
     """
     file_key = os.path.splitext(config.display_file)[0]
     EIS_tmp = config.store[file_key]["EIS"]
 
-    f = np.asarray(EIS_tmp.truncated["f"], dtype=float)
-    Re = np.asarray(EIS_tmp.truncated["Re"], dtype=float)
-    Im = np.asarray(EIS_tmp.truncated["Im"], dtype=float)
+    f = np.asarray(EIS_tmp.raw["f"], dtype=float)
+    Re = np.asarray(EIS_tmp.raw["Re"], dtype=float)
+    Im = np.asarray(EIS_tmp.raw["Im"], dtype=float)
 
     return f, Re, Im
 
@@ -66,7 +66,16 @@ def open_manual_cut_window(config):
     Im = np.asarray(Im, dtype=float)
     f = np.asarray(f, dtype=float)
 
-    prev = set(config.store[file_key]["EIS"].parameter.get("ManualRemoval", {}).get("indices", []) or [])
+    prev_raw = config.store[file_key]["EIS"].parameter.get("ManualRemoval", {}).get("indices", [])
+    if isinstance(prev_raw, str):
+        prev = set(parse_indices_1based_to_0based(prev_raw))
+    else:
+        prev = set()
+        for _v in (prev_raw or []):
+            try:
+                prev.add(int(_v))
+            except Exception:
+                continue
 
     # helpers
     def _selected_indices_from_checks(n):
@@ -99,6 +108,22 @@ def open_manual_cut_window(config):
             dpg.set_value("manual_cut_single_series_kept", [kept_x, kept_y])
         if dpg.does_item_exist("manual_cut_single_series_removed"):
             dpg.set_value("manual_cut_single_series_removed", [rem_x, rem_y])
+
+        if dpg.does_item_exist("manual_cut_single_x"):
+            x_all = np.asarray(Re, dtype=float)
+            x_all = x_all[np.isfinite(x_all)]
+            if len(x_all) > 0:
+                x_min = float(np.min(x_all))
+                x_max = float(np.max(x_all))
+                x_low = x_min * 0.9 if x_min >= 0 else x_min * 1.1
+                x_high = x_max * 1.1 if x_max >= 0 else x_max * 0.9
+                if x_low == x_high:
+                    pad = max(abs(x_low) * 0.1, 1e-6)
+                    x_low -= pad
+                    x_high += pad
+                dpg.set_axis_limits("manual_cut_single_x", x_low, x_high)
+        if dpg.does_item_exist("manual_cut_single_y"):
+            dpg.fit_axis_data("manual_cut_single_y")
 
     def _on_row_toggle(sender, app_data, user_data):
         # live update when checkbox toggled
@@ -234,6 +259,7 @@ def close_manual_cut_window():
     if dpg.does_item_exist("manual_cut_single_window"):
         dpg.delete_item("manual_cut_single_window")
 
+
 def process_manually_cut_data(config, n_points_preview):
     EIS_new = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=12.56, n_cell=1, file_folder=config.folder_path, filename=None)
     file_key = os.path.splitext(config.display_file)[0]
@@ -246,14 +272,34 @@ def process_manually_cut_data(config, n_points_preview):
         if dpg.does_item_exist(f"manual_remove_single_chk_{i}") and dpg.get_value(f"manual_remove_single_chk_{i}"):
             indices.append(i)  # 0-based relative to the preview array
 
+    # Single-point removal should not enable batch manual-removal mode in the main UI.
+    EIS_tmp.parameter["ManualRemoval"] = {"enable": False, "indices": sorted(set(indices))}
+    EIS_tmp.parameter["ManualRemoval"]["Enable"] = False
+
     close_manual_cut_window()
-    n = len(EIS_tmp.truncated["f"])
+
+    # Keep data flow consistent with batch processing: start from RAW every time.
+    if EIS_tmp.raw is None or EIS_tmp.raw.get("f", None) is None:
+        print(f"[Warning] No raw data found for {config.display_file}. Skipping manual cut.")
+        return
+
+    EIS_tmp.truncated = {
+        "f": np.copy(EIS_tmp.raw["f"]),
+        "Re": np.copy(EIS_tmp.raw["Re"]),
+        "Im": np.copy(EIS_tmp.raw["Im"]),
+        "Z": np.copy(EIS_tmp.raw["Z"]),
+    }
+    if "significance" in EIS_tmp.raw and EIS_tmp.raw["significance"] is not None:
+        EIS_tmp.truncated["significance"] = np.copy(EIS_tmp.raw["significance"])
+
+    n = len(EIS_tmp.raw["f"])
+    indices = [i for i in sorted(set(indices)) if 0 <= i < n]
     if indices:
         mask = np.ones(n, dtype=bool)
         mask[indices] = False
-        for key in EIS_tmp.truncated.keys():
-            if EIS_tmp.truncated[key] is not None:
-                EIS_tmp.truncated[key] = np.asarray(EIS_tmp.truncated[key])[mask]
+        for key in ["f", "Re", "Im", "Z", "significance"]:
+            if key in EIS_tmp.raw and EIS_tmp.raw[key] is not None:
+                EIS_tmp.truncated[key] = np.asarray(EIS_tmp.raw[key])[mask]
 
     # 05 - KK test
     if EIS_tmp.parameter['KK']['KK_test']:

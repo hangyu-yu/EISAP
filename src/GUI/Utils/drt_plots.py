@@ -1131,6 +1131,11 @@ def update_all_plots(config):
     """Update multi-file DRT comparison plots (gamma distribution only)."""
     print("-- Updating DRT gamma distribution plots...")
 
+    if dpg.does_item_exist("tab_bar_drt_plot_all") and not config.selected_files:
+        dpg.delete_item("tab_bar_drt_plot_all", children_only=True)
+        print("---- Cleared: No files selected.")
+        return
+
     if not config.selected_files:
         print("---- Skipped: No files selected.")
         return
