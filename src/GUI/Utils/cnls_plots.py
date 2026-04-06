@@ -490,12 +490,16 @@ def update_all_plots(config):
 
                         for file_name in source_files:
                             file_key = os.path.splitext(file_name)[0]
-                            file_name_list.append(gui_utils.small_functions.string_abbreviation(file_key, 3, 5))
-                            if file_key not in config.store:
-                                print(f"[Warning] File {file_key} not found in config store. Skipping...")
+                            if file_key not in config.store or 'CNLS' not in config.store[file_key]:
+                                print(f"[Warning] File {file_key} not found or has no CNLS data. Skipping...")
                                 continue
                             cnls_file = config.store[file_key]['CNLS']
+                            if (cnls_file.ElementsParamValues is None
+                                    or para_idx >= len(cnls_file.ElementsParamValues)):
+                                print(f"[Warning] File {file_key} missing param index {para_idx}. Skipping...")
+                                continue
                             value = cnls_file.ElementsParamValues[para_idx]
+                            file_name_list.append(gui_utils.small_functions.string_abbreviation(file_key, 3, 5))
                             data_list.append(value)
                             y_min_value = np.min([y_min_value, value])
                             y_max_value = np.max([y_max_value, value])

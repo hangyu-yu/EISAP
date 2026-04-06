@@ -482,13 +482,21 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None, import_history
             cnls_xlsx = _normalize_path(os.path.join(config.folder_path, "CNLS", file_name_no_ext + ".xlsx"))
 
             if eis_dir_exists and os.path.exists(eis_xlsx):
-                if file_name_no_ext not in config.store.keys() or "EIS" not in config.store[file_name_no_ext].keys() or config.store[file_name_no_ext]['EIS'].raw['Re'] is None:
+                _already_attempted = config.store.get(file_name_no_ext, {}).get('_eis_import_attempted', False)
+                _needs_import = (
+                    file_name_no_ext not in config.store.keys()
+                    or "EIS" not in config.store[file_name_no_ext].keys()
+                    or (config.store[file_name_no_ext]['EIS'].raw['Re'] is None and not _already_attempted)
+                )
+                if _needs_import:
                     config.store[file_name_no_ext] = {}
                     config.store[file_name_no_ext]['EIS'] = copy.deepcopy(EIS)
                     EIS_tmp = config.store[file_name_no_ext]['EIS']
                     EIS_tmp.file_folder = config.folder_path
                     EIS_tmp.filename = os.path.basename(file)
                     EIS_tmp.import_data_EIS()
+                    # Mark as attempted so parameter-only files aren't re-imported on every refresh.
+                    config.store[file_name_no_ext]['_eis_import_attempted'] = True
 
                     if is_first_selected_file or ((not config.selected_files) and idx == 0):
                         EIS.filename = os.path.basename(file)
@@ -573,10 +581,13 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None, import_history
 
     if show_progress:
         import src.GUI.Utils.progress_modal as _pm
-        _no_data_files = [
-            f for f in config.selected_files
-            if os.path.splitext(f)[0] not in config.store
-        ]
+        def _raw_is_empty(fname):
+            fk = os.path.splitext(fname)[0]
+            if fk not in config.store or "EIS" not in config.store[fk]:
+                return True
+            _f = config.store[fk]["EIS"].raw["f"]
+            return _f is None or (hasattr(_f, "__len__") and len(_f) == 0)
+        _no_data_files = [f for f in config.selected_files if _raw_is_empty(f)]
         _is_default_dir = os.path.exists(os.path.join(config.folder_path, "requirements.txt"))
         _has_processed_data = os.path.isdir(os.path.join(config.folder_path, "EIS"))
         if _no_data_files and not _is_default_dir and _has_processed_data:

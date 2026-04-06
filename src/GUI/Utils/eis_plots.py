@@ -4,6 +4,7 @@ import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
 
 
+
 def _has_zhit_data(eis_obj):
     return (
         hasattr(eis_obj, "zhit_data")
@@ -203,9 +204,11 @@ def _plot_all_three_views(parent_tag, eis_list, data_category, compare_category)
 
     for file_name, data in eis_list:
         file_name_no_ext = os.path.splitext(file_name)[0]
-        if data[data_category]["f"] is None:
+        _f = data[data_category]["f"]
+        if _f is None or (hasattr(_f, "__len__") and len(_f) == 0):
             continue
-        if data[compare_category]["f"] is None:
+        _fc = data[compare_category]["f"]
+        if _fc is None or (hasattr(_fc, "__len__") and len(_fc) == 0):
             continue
 
         tag_short = gui_utils.small_functions.string_abbreviation(file_name_no_ext, 12, 12)

@@ -1396,8 +1396,15 @@ class DRT:
                 
             except Exception as e:
                 print(f"---- No 'EIS_Parameters' sheet found or error reading parameters: {str(e)}")
-            
-            # 其余的数据导入代码保持不变...
+
+            # Reset all data fields to None BEFORE reading sheets.
+            # This prevents deepcopy-polluted template data from leaking into
+            # files that only have an EIS_Parameters sheet (no raw/processed data).
+            for _d in (self.raw, self.truncated, self.LCcorrect, self.smooth, self.extrapolation,
+                       self.KK_data, self.zhit_data):
+                for _k in list(_d.keys()):
+                    _d[_k] = None
+
             # Define all data import operations in a list for cleaner code
             import_operations = [
                 ('Original', self.raw),
