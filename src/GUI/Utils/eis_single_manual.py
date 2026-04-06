@@ -2,6 +2,7 @@ import os
 import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
+import src.GUI.Utils.progress_modal as progress_modal
 from src.Methods.DRT.DRT import DRT
 
 def _get_manualcut_preview_data(config):
@@ -261,65 +262,87 @@ def close_manual_cut_window():
 
 
 def process_manually_cut_data(config, n_points_preview):
-    EIS_new = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=12.56, n_cell=1, file_folder=config.folder_path, filename=None)
-    file_key = os.path.splitext(config.display_file)[0]
-    EIS_tmp = config.store[file_key]["EIS"]
+    progress = progress_modal.open_progress(
+        "EIS - Single Manual Removal",
+        "Applying manual removal to current file...",
+        5,
+        window_tag="single_manual_remove_progress",
+    )
+    try:
+        EIS_new = DRT(Re_raw=None, Im_raw=None, f_raw=None, CellArea=12.56, n_cell=1, file_folder=config.folder_path, filename=None)
+        file_key = os.path.splitext(config.display_file)[0]
+        EIS_tmp = config.store[file_key]["EIS"]
 
-    gui_utils.eis_functions.load_parameters(None, None, config, EIS_new)
+        gui_utils.eis_functions.load_parameters(None, None, config, EIS_new)
 
-    indices = []
-    for i in range(n_points_preview):
-        if dpg.does_item_exist(f"manual_remove_single_chk_{i}") and dpg.get_value(f"manual_remove_single_chk_{i}"):
-            indices.append(i)  # 0-based relative to the preview array
+        indices = []
+        for i in range(n_points_preview):
+            if dpg.does_item_exist(f"manual_remove_single_chk_{i}") and dpg.get_value(f"manual_remove_single_chk_{i}"):
+                indices.append(i)  # 0-based relative to the preview array
 
-    # Single-point removal should not enable batch manual-removal mode in the main UI.
-    EIS_tmp.parameter["ManualRemoval"] = {"enable": False, "indices": sorted(set(indices))}
-    EIS_tmp.parameter["ManualRemoval"]["Enable"] = False
+        # Single-point removal should not enable batch manual-removal mode in the main UI.
+        EIS_tmp.parameter["ManualRemoval"] = {"enable": False, "indices": sorted(set(indices))}
+        EIS_tmp.parameter["ManualRemoval"]["Enable"] = False
+        progress_modal.update_progress(progress, 1, "Selection parsed")
 
-    close_manual_cut_window()
+        close_manual_cut_window()
 
-    # Keep data flow consistent with batch processing: start from RAW every time.
-    if EIS_tmp.raw is None or EIS_tmp.raw.get("f", None) is None:
-        print(f"[Warning] No raw data found for {config.display_file}. Skipping manual cut.")
-        return
+        # Keep data flow consistent with batch processing: start from RAW every time.
+        if EIS_tmp.raw is None or EIS_tmp.raw.get("f", None) is None:
+            print(f"[Warning] No raw data found for {config.display_file}. Skipping manual cut.")
+            return
 
-    EIS_tmp.truncated = {
-        "f": np.copy(EIS_tmp.raw["f"]),
-        "Re": np.copy(EIS_tmp.raw["Re"]),
-        "Im": np.copy(EIS_tmp.raw["Im"]),
-        "Z": np.copy(EIS_tmp.raw["Z"]),
-    }
-    if "significance" in EIS_tmp.raw and EIS_tmp.raw["significance"] is not None:
-        EIS_tmp.truncated["significance"] = np.copy(EIS_tmp.raw["significance"])
+        EIS_tmp.truncated = {
+            "f": np.copy(EIS_tmp.raw["f"]),
+            "Re": np.copy(EIS_tmp.raw["Re"]),
+            "Im": np.copy(EIS_tmp.raw["Im"]),
+            "Z": np.copy(EIS_tmp.raw["Z"]),
+        }
+        if "significance" in EIS_tmp.raw and EIS_tmp.raw["significance"] is not None:
+            EIS_tmp.truncated["significance"] = np.copy(EIS_tmp.raw["significance"])
 
-    n = len(EIS_tmp.raw["f"])
-    indices = [i for i in sorted(set(indices)) if 0 <= i < n]
-    if indices:
-        mask = np.ones(n, dtype=bool)
-        mask[indices] = False
-        for key in ["f", "Re", "Im", "Z", "significance"]:
-            if key in EIS_tmp.raw and EIS_tmp.raw[key] is not None:
-                EIS_tmp.truncated[key] = np.asarray(EIS_tmp.raw[key])[mask]
+        n = len(EIS_tmp.raw["f"])
+        indices = [i for i in sorted(set(indices)) if 0 <= i < n]
+        if indices:
+            mask = np.ones(n, dtype=bool)
+            mask[indices] = False
+            for key in ["f", "Re", "Im", "Z", "significance"]:
+                if key in EIS_tmp.raw and EIS_tmp.raw[key] is not None:
+                    EIS_tmp.truncated[key] = np.asarray(EIS_tmp.raw[key])[mask]
+        progress_modal.update_progress(progress, 2, "Truncated data rebuilt")
 
-    # 05 - KK test
-    if EIS_tmp.parameter['KK']['KK_test']:
-        EIS_tmp.KK_test(EIS_tmp.truncated)
-    
-    # 06 - Data cut based on KK residual
-    if EIS_tmp.parameter['KK']['RmNonKK']:
-        EIS_tmp.rm_auto_KK()
-        EIS_tmp.KK_test(EIS_tmp.truncated)
-    
-    # 06 - Get smoothed data, LCcorrected data, and extrapolated data
-    EIS_tmp.parameter['Smoothing']['fmax'] = max(EIS_tmp.truncated['f'])
-    EIS_tmp.parameter['Smoothing']['fmin'] = min(EIS_tmp.truncated['f'])
-    EIS_tmp.smooth = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Smoothing'])
-    EIS_tmp.store['RsLCinv_kk']['L'] = 0
-    EIS_tmp.store['RsLCinv_kk']['Cinv'] = 0
-    EIS_tmp.LCcorrect = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Smoothing'])
-    EIS_tmp.extrapolation = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Extrapolation'])
+        # 05 - KK test
+        if EIS_tmp.parameter['KK']['KK_test']:
+            EIS_tmp.KK_test(EIS_tmp.truncated)
 
-    # Update figures and tables
-    gui_utils.eis_table.table_update(config)
-    gui_utils.eis_plots.update_single_plots(config)
-    gui_utils.eis_plots.update_all_plots(config)
+        # 06 - Data cut based on KK residual
+        if EIS_tmp.parameter['KK']['RmNonKK']:
+            EIS_tmp.rm_auto_KK()
+            EIS_tmp.KK_test(EIS_tmp.truncated)
+
+        # 06 - Get smoothed data, LCcorrected data, and extrapolated data
+        EIS_tmp.parameter['Smoothing']['fmax'] = max(EIS_tmp.truncated['f'])
+        EIS_tmp.parameter['Smoothing']['fmin'] = min(EIS_tmp.truncated['f'])
+        EIS_tmp.smooth = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Smoothing'])
+        EIS_tmp.store['RsLCinv_kk']['L'] = 0
+        EIS_tmp.store['RsLCinv_kk']['Cinv'] = 0
+        EIS_tmp.LCcorrect = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Smoothing'])
+        EIS_tmp.extrapolation = EIS_tmp.ResampleEIS(EIS_tmp.truncated, EIS_tmp.parameter['Extrapolation'])
+        progress_modal.update_progress(progress, 3, "Derived data computed")
+
+        # Update figures and tables
+        gui_utils.eis_table.table_update(config)
+        gui_utils.eis_plots.update_single_plots(config)
+        progress_modal.update_progress(progress, 4, "Single plot updated")
+        gui_utils.eis_plots.update_all_plots(config)
+        progress_modal.update_progress(progress, 5, "Done")
+    except Exception as exc:
+        import traceback
+        print(f"[Error] Single manual removal failed: {exc}\\n{traceback.format_exc()}")
+        progress_modal.show_error_dialog(
+            "EIS - Single Manual Removal Error",
+            f"{type(exc).__name__}: {exc}",
+            file_hint=config.display_file,
+        )
+    finally:
+        progress_modal.close_progress(progress)

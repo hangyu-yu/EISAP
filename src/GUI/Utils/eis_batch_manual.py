@@ -7,8 +7,6 @@ import src.GUI.Utils.progress_modal as progress_modal
 from src.Methods.DRT.DRT import DRT
 
 
-AUTO_REFRESH_ALL_PLOTS_LIMIT = 24
-
 def reset_batch_cut(config):
     try:
         for file_name in config.selected_files:
@@ -315,6 +313,8 @@ def process_manually_cut_data(config, n_points_preview):
     dpg.set_value("input_manual_remove_batch_indices", compress_indices(selected1))
     dpg.set_value("checkbox_manual_remove_batch_points", True)
     close_manual_cut_window()
+    # Let DearPyGui commit modal-window deletion before opening another modal.
+    dpg.split_frame()
 
     progress = progress_modal.open_progress(
         "EIS - Batch Manual Removal",
@@ -423,17 +423,4 @@ def process_manually_cut_data(config, n_points_preview):
     dpg.split_frame()
     gui_utils.eis_plots.update_single_plots(config)
     dpg.split_frame()
-
-    if len(config.selected_files) <= AUTO_REFRESH_ALL_PLOTS_LIMIT:
-        gui_utils.eis_plots.update_all_plots(config)
-    else:
-        print(
-            f"[Info] Skipped automatic EIS all-plots refresh after batch manual removal "
-            f"for {len(config.selected_files)} files to avoid GUI instability."
-        )
-        progress_modal.show_warning_dialog(
-            "EIS - All Plots Refresh Skipped",
-            f"Batch manual removal finished for {len(config.selected_files)} files.\n\n"
-            f"Automatic refresh of the 'All' EIS plots was skipped to avoid crashes with large selections.\n"
-            f"Single-file plots and tables were updated normally.",
-        )
+    gui_utils.eis_plots.update_all_plots(config)

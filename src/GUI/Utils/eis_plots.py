@@ -62,6 +62,15 @@ def _ensure_tab_bar_exists(tab_bar_tag, parent_tag):
     return True
 
 
+def _is_eis_all_tab_active():
+    if not dpg.does_item_exist("tab_bar_eis_plot"):
+        return False
+    try:
+        return dpg.get_value("tab_bar_eis_plot") == "tab_eis_plot_all"
+    except Exception:
+        return False
+
+
 def _plot_single_three_views(parent_tag, data, data_category, compare_category):
     # Defensive cleanup for single-view refresh to avoid overlay/ghosting.
     for suffix in ("re", "im", "nyquist"):
