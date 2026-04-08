@@ -1507,9 +1507,9 @@ def _fig_to_bytes(fig, fmt: str) -> bytes:
     buf = BytesIO()
 
     if fmt == "pdf":
-        fig.savefig(buf, format="pdf", bbox_inches="tight")
+        fig.savefig(buf, format="pdf", bbox_inches="tight", pad_inches=0.2)
     else:
-        fig.savefig(buf, format=fmt, dpi=300, bbox_inches="tight")
+        fig.savefig(buf, format=fmt, dpi=300, bbox_inches="tight", pad_inches=0.2)
 
     plt.close(fig)
     return buf.getvalue()
@@ -1568,8 +1568,6 @@ def add_nyquist_png(zf: zipfile.ZipFile, datasets, title: str):
         ax.grid(False)
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     ax.set_aspect('equal', adjustable='box')
     if not st.session_state.get("export_no_legend", False):
@@ -1751,9 +1749,6 @@ def add_nyquist_compare_png(
         ax.grid(False)
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
-
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     # Legend toggle
     if not st.session_state.get("export_no_legend", False):
@@ -1965,8 +1960,6 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
         ax.grid(False)
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     if len(datasets) > 1 and not st.session_state.get("export_no_legend", False):
         ax.legend(
@@ -2425,9 +2418,6 @@ def add_bode_png(zf: zipfile.ZipFile, datasets, title: str, real: bool):
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
 
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-
     # ---- Legend BELOW ----
     if not st.session_state.get("export_no_legend", False):
         ax.legend(
@@ -2486,9 +2476,6 @@ def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
 
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-
     # ---- Legend BELOW ----
     if not st.session_state.get("export_no_legend", False):
         ax.legend(
@@ -2536,8 +2523,6 @@ def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str):
     ax.set_ylabel("R [Ω·cm²]")
 
     ax.grid(False)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
     ax.tick_params(axis="x", rotation=30)
     
     for fmt in st.session_state.export_formats:
@@ -2607,9 +2592,6 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
         ax.grid(False)
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
-
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     n = len(legend_handles)
     legend_font = max(6, min(10, int(12 - 0.25 * n)))
@@ -2707,9 +2689,6 @@ def add_cnls_elements_fitting_png(
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
 
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-
     # ---- Legend BELOW (consistent with others) ----
     if not st.session_state.get("export_no_legend", False):
         ax.legend(
@@ -2794,8 +2773,6 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
         ax.grid(False)
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     if not st.session_state.get("export_no_legend", False):
         ax.legend(
@@ -2866,8 +2843,6 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
         ax.grid(False)
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     if not st.session_state.get("export_no_legend", False):
         ax.legend(
@@ -2946,10 +2921,6 @@ def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_cho
     if not st.session_state.get("export_no_grid", False):
         ax.grid(which="minor", color="white", linestyle="-", linewidth=1.2)
     ax.tick_params(which="minor", bottom=False, left=False)
-
-    # ---- Remove top/right spines ----
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
 
     # ---- Colorbar ----
     cbar = fig.colorbar(im, ax=ax)
