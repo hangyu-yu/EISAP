@@ -340,6 +340,7 @@ class Config:
         self.config_file = self._resolve_active_config_file(self.folder_path)
         self.load_config(self.config_file)
         self._save_bootstrap_pointer()
+        self.store['previous_selected'] = self.selected_files
 
     def use_project_folder(self, folder_path, load_existing=True):
         """Switch config context to target folder temp/config.json and optionally load it."""

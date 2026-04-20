@@ -86,7 +86,7 @@ def update_selected_files(config, tag=None, force_refresh=False):
 
     config.store["_file_selection_updating"] = True
     try:
-        previous_selected = list(config.selected_files or [])
+        previous_selected = (config.store['previous_selected'] or [])
         previous_display = config.display_file
 
         config.selected_files = [
@@ -115,6 +115,8 @@ def update_selected_files(config, tag=None, force_refresh=False):
         # Nothing changed at all — skip everything unless caller requests refresh.
         selection_changed = previous_selected != list(config.selected_files or [])
         display_changed = previous_display != config.display_file
+
+        config.store['previous_selected'] = config.selected_files
 
         if not selection_changed and not display_changed and not force_refresh:
             return
@@ -260,6 +262,7 @@ def _open_large_file_select_window(config, tag, EIS=None, CNLS=None):
         # Refresh by current folder + extension then apply selected filenames.
         select_files(config, tag)
         current_names = {os.path.basename(path) for path in config.file_list if "[Error]" not in path}
+        config.store['previous_selected'] = config.selected_files
         config.selected_files = [name for name in selected_names if name in current_names]
         _sync_selected_files_with_current_list(config)
 
