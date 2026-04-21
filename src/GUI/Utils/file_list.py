@@ -86,9 +86,11 @@ def update_selected_files(config, tag=None, force_refresh=False):
 
     config.store["_file_selection_updating"] = True
     try:
+        if not 'previous_selected' in config.store:
+            config.store['previous_selected'] = []
         previous_selected = (config.store['previous_selected'] or [])
         previous_display = config.display_file
-
+    
         config.selected_files = [
             os.path.basename(file)
             for file in config.file_list
