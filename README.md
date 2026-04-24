@@ -425,6 +425,16 @@ If SOCEIS contributes to published research, please cite the following papers:
 
 ## Changelog
 
+### v1.0.6 (2026-04-24)
+- New CNLS circuit element: **Warburg (W)** — semi-infinite Warburg (single parameter σ, no τ; not subject to segment constraint), intended for Li-BAT equivalent-circuit models
+- New CNLS options: **Rs\_LB\_KK** and **Rs\_LB\_DRT** mutually-exclusive checkboxes that lock the ohmic-resistance lower bound to the value extracted from KK validation or DRT fitting, respectively
+- New **visual circuit selector** window with schematic diagram preview — element symbols (R, L, C, Q, W, RC, RQ, Randle/CPE) are rendered graphically; elements can be added/removed interactively with a live circuit preview before confirming
+- Refactored **manual point removal** for single-file and batch EIS workflows (`apply_manual_removal`, `process_manually_cut_data`)
+- File selector improvements: **"Select all" / "Unselect all"** buttons in the large file selector; refresh now skipped when neither selection nor display file has changed
+- **DRT method sync fix**: DRT processing reads the GUI radio button (Tikhonov / RBF) as the single source of truth before processing all selected files; CNLS plots are automatically refreshed after DRT reprocessing
+- Bug fix: Dataviewer display issues
+- Various small bug fixes across EIS, DRT, and CNLS modules
+
 ### v1.0.5 (2026-03-27)
 - Pip-installable package (`pip install soceis`; `soceis` CLI command)
 - Windows first-run desktop shortcut creation

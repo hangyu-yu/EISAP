@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 # ─────────────────────────────────────────────────────────────────────────────
 [project]
 name = "soceis"
-version = "1.0.5"
+version = "1.0.6"
 description = "SOCEIS – Electrochemical Impedance Spectroscopy Analysis Suite"
 readme = "README.md"
 license = { file = "LICENSE" }
