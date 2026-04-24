@@ -339,6 +339,11 @@ SOCEIS/
 
 If SOCEIS contributes to published research, please cite the following papers:
 
+> **Yu, H., Frantz, C., Savioz, L., Fronterotta, D., Aubin, P., Geipel, C., Moussaoui, H., Jeanmonod, G., Wang, L., & Van herle, J.** (2026).
+> *Parametric study of Ni-GDC based electrolyte-supported cell via electrochemical impedance spectroscopy.*
+> *Applied Energy*, **415**, 127941.
+> https://doi.org/10.1016/j.apenergy.2026.127941
+
 > **Caliandro, P., Nakajo, A., Diethelm, S., & Van herle, J.** (2019).
 > *Model-assisted identification of solid oxide cell elementary processes by electrochemical impedance spectroscopy measurements.*
 > *Journal of Power Sources*, **436**, 226838.
@@ -354,6 +359,19 @@ If SOCEIS contributes to published research, please cite the following papers:
 ### BibTeX
 
 ```bibtex
+@article{yuParametricStudyNiGDC2026,
+  title = {Parametric Study of {Ni-GDC} Based Electrolyte-Supported Cell via Electrochemical Impedance Spectroscopy},
+  author = {Yu, Hangyu and Frantz, C{\'e}dric and Savioz, Louis and Fronterotta, Dante and Aubin, Philippe and Geipel, Christian and Moussaoui, Hamza and Jeanmonod, Guillaume and Wang, Ligang and {Van herle}, Jan},
+  year = {2026},
+  month = apr,
+  journal = {Applied Energy},
+  volume = {415},
+  pages = {127941},
+  issn = {0306-2619},
+  doi = {10.1016/j.apenergy.2026.127941},
+  urldate = {2026-04-24},
+}
+
 @article{caliandroModelassistedIdentificationSolid2019,
   title = {Model-Assisted Identification of Solid Oxide Cell Elementary Processes by Electrochemical Impedance Spectroscopy Measurements},
   author = {Caliandro, P. and Nakajo, A. and Diethelm, S. and {Van herle}, J.},
