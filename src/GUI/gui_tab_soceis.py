@@ -358,6 +358,29 @@ def choose_project_folder_callback(config, EIS, CNLS):
         CNLS=CNLS,
     )
 
+def launch_iv_viewer(config):
+    """Launch the IV Curve Viewer Streamlit app."""
+    current_file_path = Path(__file__).resolve()
+    viewer_script = current_file_path.parent.parent / "Functions" / "IV_view.py"
+
+    if not viewer_script.exists():
+        print(f"Error: Could not find IV viewer at {viewer_script}")
+        return
+
+    folder_path = config.folder_path if config.folder_path and "[Error]" not in config.folder_path else os.getcwd()
+
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", str(viewer_script),
+        "--", "--root_folder", str(folder_path)
+    ]
+
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        config.store['viewer_processes'].append(proc)
+        print(f"Launching IV Curve Viewer from: {viewer_script}")
+    except Exception as e:
+        print(f"Failed to launch IV viewer: {e}")
+
 def launch_data_viewer(config):
     """
     在指定 Functions 目录下寻找 SOCEIS_view.py，并防止重复启动
@@ -560,6 +583,7 @@ def gui_tab_soceis(config, EIS, CNLS):
                     dpg.add_button(label="EIS analysis", callback=lambda: gui.gui_tab_eis(config, EIS, CNLS))
                     dpg.add_button(label="DRT analysis", callback=lambda: gui.gui_tab_drt(config, EIS, CNLS))
                     dpg.add_button(label="CNLS fitting", callback=lambda: gui.gui_tab_cnls(config, EIS, CNLS))
+                    dpg.add_button(label="IV curve", callback=lambda: launch_iv_viewer(config))
                     dpg.add_button(label="Data viewer", callback=lambda: launch_data_viewer(config))
 
     # Apply one-time size adjustment; global callback is set in gui_main.

@@ -37,7 +37,7 @@ def is_numeric_row(line):
 def read_general_all(file):
     frequency_search_keywords = ["Freq", "Hz"]
     real_part_keywords = ["Zreal", "Re(Z)", "Real", "impedance'", 'Impedance R/Ohm', "Zre", "Z\'"]
-    imaginary_part_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'impedance i/ohm', 'Im(Z)', 'Zim', "-Z\"", "Z\'\'"]
+    imaginary_part_keywords = ["Zimag", "-Im(Z)", "Imag", "impedance''", 'impedance i/ohm', 'Im(Z)', 'Zim', "-Z\"", "Z\'\'", "Img"]
     phase_keywords = ["Phase", "Zphz"]
     impedance_keywords = ["impedance", "Zmod", '|Z|']
     
@@ -128,7 +128,13 @@ def read_general_all(file):
     # Convert all columns to numeric where possible
     for col in data.columns:
         data[col] = pd.to_numeric(data[col], errors='coerce').fillna(data[col])
-    
+
+    # If the imaginary column header contains '-', the values are already negated — flip sign
+    _imag_cols = [col for col in data.columns if contains_keyword(col, imaginary_part_keywords)]
+    if _imag_cols and '-' in _imag_cols[0]:
+        data[_imag_cols[0]] = data[_imag_cols[0]] * -1
+        print(f"---- Imaginary column '{_imag_cols[0]}' contains '-' in header, values multiplied by -1.")
+
     # Sort data by frequency (assuming it's the first column)
     freq_col = [col for col in data.columns if contains_keyword(col, frequency_search_keywords)][0]
     is_ascending = (data[freq_col].diff().dropna() > 0).all()  # Is strictly ascending

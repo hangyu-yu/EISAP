@@ -515,14 +515,16 @@ def update_all_plots(config):
             # Remove stale parameter tabs if definitions changed.
             tab_children = dpg.get_item_children(param_tab_bar)
             for child in tab_children[1]:
-                if isinstance(child, str) and child.startswith("tab_cnls_all_") and child not in valid_param_tabs:
+                child_alias = dpg.get_item_alias(child)
+                if child_alias and child_alias.startswith("tab_cnls_all_") and child_alias not in valid_param_tabs:
                     dpg.delete_item(child)
 
-        # Remove tabs that are no longer needed.
+        # Remove element tabs that are no longer needed.
         if dpg.does_item_exist("tab_bar_cnls_plot_all"):
             children = dpg.get_item_children("tab_bar_cnls_plot_all")
             for child in children[1]:
-                if isinstance(child, str) and child.startswith("tab_cnls_all_") and child not in valid_element_tabs:
+                child_alias = dpg.get_item_alias(child)
+                if child_alias and child_alias.startswith("tab_cnls_all_") and child_alias not in valid_element_tabs:
                     dpg.delete_item(child)
 
         print("---- CNLS all plots updated successfully.")
