@@ -153,8 +153,13 @@ def load_parameters(sender, app_data, config, EIS):
                 EIS_tmp.raw = EIS_tmp.convert2asr(EIS_tmp.raw, EIS_tmp.parameter['Sample'])
                 EIS_tmp.parameter["Sample"]["CellArea"] = float(dpg.get_value("CellArea"))
                 EIS_tmp.parameter["Sample"]["instrument_type"] = dpg.get_value("instrument_type")
-                EIS_tmp.parameter["Preprocessing"]["num_cut_upper"] = int(dpg.get_value("num_cut_upper"))
-                EIS_tmp.parameter["Preprocessing"]["num_cut_lower"] = int(dpg.get_value("num_cut_lower"))
+                EIS_tmp.parameter["Preprocessing"]["freq_cut"] = dpg.get_value("check_box_eis_freq_cut")
+                if EIS_tmp.parameter["Preprocessing"]["freq_cut"]:
+                    EIS_tmp.parameter["Preprocessing"]["num_cut_upper"] = float(dpg.get_value("num_cut_upper"))
+                    EIS_tmp.parameter["Preprocessing"]["num_cut_lower"] = float(dpg.get_value("num_cut_lower"))
+                else:
+                    EIS_tmp.parameter["Preprocessing"]["num_cut_upper"] = int(dpg.get_value("num_cut_upper"))
+                    EIS_tmp.parameter["Preprocessing"]["num_cut_lower"] = int(dpg.get_value("num_cut_lower"))
                 EIS_tmp.parameter["RM_significance"]["sig_threshold"] = float(dpg.get_value("sig_threshold"))
                 EIS_tmp.parameter["RM_significance"]["rm_significance"] = dpg.get_value("rm_significance")
                 EIS_tmp.parameter["Rmoutliers"]["Rmoutliers"] = dpg.get_value("rm_outliers")
@@ -255,8 +260,8 @@ def process_data(sender, app_data, config, EIS):
             # -----------------------------------------------------------------
             # 2) Manual removal
             # -----------------------------------------------------------------
-            mr = EIS_tmp.parameter.get("ManualRemoval", {"enabled": False, "indices": []})
-            if mr.get("enabled", False) and EIS_tmp.truncated is not None and EIS_tmp.truncated.get("f", None) is not None:
+            mr = EIS_tmp.parameter.get("ManualRemoval", {"enable": False, "indices": []})
+            if mr.get("enable", False) and EIS_tmp.truncated is not None and EIS_tmp.truncated.get("f", None) is not None:
                 indices = mr.get("indices", [])
                 n = len(EIS_tmp.truncated["f"])
                 indices = [idx for idx in indices if 0 <= idx < n]

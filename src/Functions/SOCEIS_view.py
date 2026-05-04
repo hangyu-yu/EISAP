@@ -2973,6 +2973,10 @@ with st.sidebar:
 
     root_path = Path(st.session_state.root_input)
 
+    # Detect root folder change so the export path can follow it
+    _root_changed = st.session_state.get("_last_root_input") != st.session_state.root_input
+    st.session_state["_last_root_input"] = st.session_state.root_input
+
     eis_files = discover_eis_files(root_path) if root_path.exists() else []
     if not eis_files:
         st.warning("No EIS folders/files found under the given root.")
@@ -3063,7 +3067,7 @@ with st.sidebar:
 
     # Ensure every selected file has a default label
     for f in files_to_process:
-        st.session_state["custom_names"].setdefault(f.name, f.name)
+        st.session_state["custom_names"].setdefault(f.name, f.stem)
 
     n_files = max(2, len(files_to_process))
     st.markdown("### Colors")
@@ -3116,7 +3120,7 @@ with st.sidebar:
     nyquist_compare_selected = st.multiselect(
         "Compare",
         compare_options,
-        default=[]
+        default=["Smooth vs Truncated"]
     )
 
     nyquist_show_params = st.checkbox("Parameters", value=False, key="nyq_params")
@@ -3126,7 +3130,7 @@ with st.sidebar:
     zhit_show = st.checkbox("Z-HIT", value=False, key="zhit_show")
 
     st.header("DRT")
-    drt_selected = st.multiselect("DRT types", DRT_TYPES, default=[])
+    drt_selected = st.multiselect("DRT types", DRT_TYPES, default=["Truncated"])
     drt_show_params = st.checkbox("Parameters", value=False, key="drt_params")
 
 
@@ -3175,8 +3179,8 @@ with st.sidebar:
         key="export_no_legend"
     )
 
-    if "export_input" not in st.session_state:
-        st.session_state.export_input = str(DEFAULT_EXPORT_FOLDER)
+    if "export_input" not in st.session_state or _root_changed:
+        st.session_state.export_input = str(Path(st.session_state.root_input) / "SOCEIS_figures")
 
     col_left, col_right = st.columns([0.82, 0.18], vertical_alignment="bottom")
 
@@ -3223,12 +3227,12 @@ if not files_to_process:
 # --- Always build display_name_map (even if legend table is hidden) ---
 if show_legend_table:
     display_name_map = {
-        f.name: st.session_state["custom_names"].get(f.name, f.name)
+        f.name: st.session_state["custom_names"].get(f.name, f.stem)
         for f in files_to_process
     }
 else:
-    # fallback to raw filenames
-    display_name_map = {f.name: f.name for f in files_to_process}
+    # fallback to filename without extension
+    display_name_map = {f.name: f.stem for f in files_to_process}
 
 
 # ===============================
@@ -3244,7 +3248,7 @@ if show_legend_table:
         rows.append({
             "Index": idx,
             "File name": fname,
-            "Personalized name (LaTeX-friendly)": st.session_state.custom_names.get(fname, fname),
+            "Personalized name (LaTeX-friendly)": st.session_state.custom_names.get(fname, Path(fname).stem),
         })
 
     df_labels = pd.DataFrame(rows)
@@ -3279,7 +3283,7 @@ if show_legend_table:
 
     if reset_labels:
         for f in files_to_process:
-            st.session_state.custom_names[f.name] = f.name
+            st.session_state.custom_names[f.name] = f.stem
         st.rerun()
 
 # ===============================

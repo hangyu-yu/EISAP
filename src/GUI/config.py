@@ -53,6 +53,7 @@ class Config:
         ]
         self.store["segment_constraints"] = 'segment'
         self.store['viewer_processes'] = []
+        self.store["eis_freq_cut"] = False
 
         self._initialize_config_context()
 

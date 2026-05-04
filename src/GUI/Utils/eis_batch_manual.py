@@ -13,10 +13,10 @@ def reset_batch_cut(config):
             file_name_no_ext = os.path.splitext(file_name)[0]
             EIS_tmp = config.store[file_name_no_ext]['EIS']
             # Store internally
-            EIS_tmp.parameter["ManualRemoval"] = {"enable": True, "indices": ""}
+            EIS_tmp.parameter["ManualRemoval"] = {"enable": True, "indices": []}
     except Exception as e:
         print(f"[Error] Failed to reset manual cut for {file_name_no_ext}: {e}")
-    dpg.set_value("input_manual_remove_batch_indices", EIS_tmp.parameter["ManualRemoval"]["indices"])
+    dpg.set_value("input_manual_remove_batch_indices", "")
 
 def compress_indices(indices_1based):
     if not indices_1based:

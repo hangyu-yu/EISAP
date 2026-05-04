@@ -70,9 +70,7 @@ def RmNonKK_callback(sender, app_data, EIS):
     EIS.parameter["KK"]["RmNonKK"] = dpg.get_value(sender)
 
 def manual_removal_callback(sender, app_data, config, EIS):
-    # Keep canonical key in sync; preserve legacy key for backward compatibility.
     EIS.parameter["ManualRemoval"]["enable"] = bool(dpg.get_value(sender))
-    EIS.parameter["ManualRemoval"]["Enable"] = EIS.parameter["ManualRemoval"]["enable"]
     if app_data:
         dpg.configure_item("num_cut_upper", enabled=False)
         dpg.configure_item("num_cut_lower", enabled=False)
@@ -111,6 +109,19 @@ def file_selector_ok_callback(sender, app_data, config):
 
 def file_selector_cancel_callback(sender, app_data):
     pass
+
+def check_box_eis_freq_cut_callback(sender, app_data, config):
+    """
+    Callback function for the frequency cut checkbox in EIS parameters.
+    """
+    config.store["eis_freq_cut"] = dpg.get_value(sender)
+    if config.store["eis_freq_cut"]:
+        dpg.set_value("text_num_cut_upper", "Upper cut [Hz]:")
+        dpg.set_value("text_num_cut_lower", "Lower cut [Hz]:")
+    else:
+        dpg.set_value("text_num_cut_upper", "Upper cut:")
+        dpg.set_value("text_num_cut_lower", "Lower cut:")
+    print(f"Frequency cut enabled: {config.store["eis_freq_cut"]}")
 
 def callback_process_data(sender, app_data, EIS, config):
     """
@@ -182,7 +193,12 @@ def gui_tab_eis(config, EIS, CNLS):
                 with dpg.child_window(width=int(viewport_width * 0.33), height=int(viewport_height * 0.285), horizontal_scrollbar=True, menubar=True, tag="child_window_parameter_eis"):
                     with dpg.menu_bar(parent="child_window_parameter_eis"):
                         with dpg.menu(label="Parameters"):
-                            dpg.add_menu_item(label="")
+                            dpg.add_checkbox(
+                                tag="check_box_eis_freq_cut",
+                                label="Freq. cut",
+                                default_value = True if EIS.parameter["Preprocessing"]["freq_cut"] is True else False,
+                                callback=lambda sender, app_data: check_box_eis_freq_cut_callback(sender, app_data, config),
+                            )
                     with dpg.tab_bar(tag="tab_bar_eis_parameters"):
                         # Sample parameters
                         with dpg.tab(label="General", tag="tab_eis_parameter_general"):
@@ -236,7 +252,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                         height=400):
                                         dpg.add_file_extension(".py", color=(0, 255, 0, 255), custom_text="[Python]")
                                 with dpg.table_row():
-                                    dpg.add_text("Upper cut:", tag="text_num_cut_upper")
+                                    dpg.add_text("Upper cut [Hz]:" if EIS.parameter["Preprocessing"]["freq_cut"] else "Upper cut:", tag="text_num_cut_upper")
                                     dpg.add_input_text(
                                         tag="num_cut_upper", 
                                         enabled=not EIS.parameter["ManualRemoval"]["enable"],
@@ -249,7 +265,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                     )
                                     dpg.bind_item_theme("button_data_import_function", blue_button_theme)
                                 with dpg.table_row():
-                                    dpg.add_text("Lower cut:", tag="text_num_cut_lower")
+                                    dpg.add_text("Lower cut [Hz]:" if EIS.parameter["Preprocessing"]["freq_cut"] else "Lower cut:", tag="text_num_cut_lower")
                                     dpg.add_input_text(
                                         tag="num_cut_lower", 
                                         enabled=not EIS.parameter["ManualRemoval"]["enable"],

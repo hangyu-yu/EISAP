@@ -151,6 +151,7 @@ class DRT:
                 'num_cut_upper': 0,    # Number of upper frequency points to be cut
                 'num_cut_lower': 0,    # Number of lower frequency points to be cut
                 'num_cut_middle': 0,   # Middle frequency cut, index of points in ''original data''
+                'freq_cut': False      # Switch on frequency cut or not
             },
             # Remove points with low significance only for Zahner data
             'RM_significance': {
@@ -247,18 +248,36 @@ class DRT:
         """
         Remove high-frequency and low-frequency data points from EIS data and remove outliers
         """
-        # Define the cut number of high-frequency and low-frequency points
-        Nfh_cut = self.parameter['Preprocessing']['num_cut_upper']
-        Nfl_cut = self.parameter['Preprocessing']['num_cut_lower']
 
         # Cut high-frequency and low-frequency components
-        leng = len(self.raw['f'])
-        self.truncated['f'] = self.raw['f'][Nfh_cut:leng-Nfl_cut]
-        self.truncated['Re'] = self.raw['Re'][Nfh_cut:leng-Nfl_cut]
-        self.truncated['Im'] = self.raw['Im'][Nfh_cut:leng-Nfl_cut]
-        self.truncated['Z'] = self.raw['Z'][Nfh_cut:leng-Nfl_cut]
-        if self.raw['significance'] is not None:
-            self.truncated['significance'] = self.raw['significance'][Nfh_cut:leng-Nfl_cut]
+        if self.parameter['Preprocessing']['freq_cut']:
+            Nfh_cut_freq = self.parameter['Preprocessing']['num_cut_upper']
+            Nfl_cut_freq = self.parameter['Preprocessing']['num_cut_lower']
+            if Nfh_cut_freq < Nfl_cut_freq:
+                print(f"[Warning] freq_cut: upper cutoff ({Nfh_cut_freq}) is lower than lower cutoff ({Nfl_cut_freq}). Skipping frequency cut.")
+                mask = np.ones(len(self.raw['f']), dtype=bool)
+            else:
+                mask = (self.raw['f'] <= Nfh_cut_freq) & (self.raw['f'] >= Nfl_cut_freq)
+            if not np.any(mask):
+                print(f"[Warning] freq_cut: no data points remain after applying cutoffs ({Nfl_cut_freq} ~ {Nfh_cut_freq} Hz). Skipping frequency cut.")
+                mask = np.ones(len(self.raw['f']), dtype=bool)
+            self.truncated['f'] = self.raw['f'][mask]
+            self.truncated['Re'] = self.raw['Re'][mask]
+            self.truncated['Im'] = self.raw['Im'][mask]
+            self.truncated['Z'] = self.raw['Z'][mask]
+            if self.raw['significance'] is not None:
+                self.truncated['significance'] = self.raw['significance'][mask]
+        else:
+            # Define the cut number of high-frequency and low-frequency points
+            Nfh_cut = self.parameter['Preprocessing']['num_cut_upper']
+            Nfl_cut = self.parameter['Preprocessing']['num_cut_lower']
+            leng = len(self.raw['f'])
+            self.truncated['f'] = self.raw['f'][Nfh_cut:leng-Nfl_cut]
+            self.truncated['Re'] = self.raw['Re'][Nfh_cut:leng-Nfl_cut]
+            self.truncated['Im'] = self.raw['Im'][Nfh_cut:leng-Nfl_cut]
+            self.truncated['Z'] = self.raw['Z'][Nfh_cut:leng-Nfl_cut]
+            if self.raw['significance'] is not None:
+                self.truncated['significance'] = self.raw['significance'][Nfh_cut:leng-Nfl_cut]
         print("---- Cutting finished. Raw data points -", len(self.raw['f']), ", truncated data points -", len(self.truncated['f']))
         
     def rm_significance(self):
@@ -940,6 +959,7 @@ class DRT:
             pd.DataFrame({
                 'Nfh_cut': [self.parameter['Preprocessing']['num_cut_upper']],
                 'Nfl_cut': [self.parameter['Preprocessing']['num_cut_lower']],
+                'freq_cut': [self.parameter['Preprocessing']['freq_cut']],
                 'num_cut_middle': [self.parameter['Preprocessing']['num_cut_middle']],
                 'sig_threshold': [self.parameter['RM_significance']['sig_threshold']],
                 'rm_significance': [self.parameter['RM_significance']['rm_significance']],
@@ -1345,9 +1365,10 @@ class DRT:
                         return default_value
                 
                 # Apply safe_get for each parameter
-                self.parameter['Preprocessing']['num_cut_upper'] = safe_get('Nfh_cut', 0, int)
-                self.parameter['Preprocessing']['num_cut_lower'] = safe_get('Nfl_cut', 0, int)
+                self.parameter['Preprocessing']['num_cut_upper'] = safe_get('Nfh_cut', 0, float)
+                self.parameter['Preprocessing']['num_cut_lower'] = safe_get('Nfl_cut', 0, float)
                 self.parameter['Preprocessing']['num_cut_middle'] = safe_get('num_cut_middle', 0, int)
+                self.parameter['Preprocessing']['freq_cut'] = safe_get('freq_cut', None, bool)  # Assuming freq_cut can be None or a float, adjust as needed
                 self.parameter['RM_significance']['sig_threshold'] = safe_get('sig_threshold', 0.995, float)
                 self.parameter['RM_significance']['rm_significance'] = safe_get('rm_significance', True, bool)
                 self.parameter['Rmoutliers']['mv_window_size'] = safe_get('mv_window_size', 5, int)
