@@ -90,12 +90,14 @@ def read_general_all(file):
             contains_keyword(line, real_part_keywords) and 
             contains_keyword(line, imaginary_part_keywords)):
             header_idx = i
+            header_idx_frq_re_im = True
             break
         # If not found, try the second cluster with frequency, phase and impedance
         if (contains_keyword(line, frequency_search_keywords) and 
             contains_keyword(line, phase_keywords) and 
             contains_keyword(line, impedance_keywords)):
             header_idx = i
+            header_idx_frq_re_im = False
             break
     
     if header_idx is None:
@@ -122,8 +124,22 @@ def read_general_all(file):
     header = smart_split(lines[header_idx].replace(' (', '(').replace(' / ', '/').replace(' /', '/').replace('/ ', '/').replace(' [', '[').replace('Impedance R/Ohm', 'Re/Ohm').replace('Impedance I/Ohm', 'Im/Ohm'))
     data_lines = lines[data_start_idx:data_end_idx]
     
-    # Create DataFrame
-    data = pd.DataFrame([smart_split(line)[:len(header)] for line in data_lines], columns=header)
+    # Create DataFrame — keep only the relevant columns to avoid empty columns from mixed headers
+    if header_idx_frq_re_im:
+        keep_cols = [i for i, col in enumerate(header)
+                     if contains_keyword(col, frequency_search_keywords)
+                     or contains_keyword(col, real_part_keywords)
+                     or contains_keyword(col, imaginary_part_keywords)]
+    else:
+        keep_cols = [i for i, col in enumerate(header)
+                     if contains_keyword(col, frequency_search_keywords)
+                     or contains_keyword(col, phase_keywords)
+                     or contains_keyword(col, impedance_keywords)]
+    filtered_header = [header[i] for i in keep_cols]
+    data = pd.DataFrame(
+        [[parts[i] for i in keep_cols if i < len(parts)] for parts in (smart_split(l) for l in data_lines)],
+        columns=filtered_header,
+    )
     
     # Convert all columns to numeric where possible
     for col in data.columns:
