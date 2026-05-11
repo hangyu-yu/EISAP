@@ -213,8 +213,8 @@ class Circuit:
         self.Ztot0, self.Z0=self.EvaluateCircuit()
         
         AlphaIndex = [i for i, name in enumerate(self.ElementsParamNames) if 'alpha' in name]
-        for i in AlphaIndex:
-            if self.UpperBound[i] == np.inf or self.LowerBound[i] == 1e-10:
+        if change_UBLB:
+            for i in AlphaIndex:
                 self.UpperBound[i] = 1.0
                 self.LowerBound[i] = 0.4
 
