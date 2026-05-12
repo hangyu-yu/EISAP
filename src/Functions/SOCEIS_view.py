@@ -241,7 +241,7 @@ def nyquist_fit_plotly(datasets):
 
     return fig
 
-def cnls_line_plotly(df_cnls: pd.DataFrame, param: str):
+def cnls_line_plotly(df_cnls: pd.DataFrame, param: str, ylim=None):
 
     x = np.arange(1, len(df_cnls) + 1)
     y = df_cnls[param].values
@@ -281,10 +281,24 @@ def cnls_line_plotly(df_cnls: pd.DataFrame, param: str):
             showlegend=True
         )
 
+    if param.startswith("tau"):
+        _ylabel = "τ [s]"
+    elif param.startswith("alpha"):
+        _ylabel = "Dispersion factor"
+    else:
+        _ylabel = "R [Ω·cm²]"
+
+    yaxis_cfg = {}
+    if ylim is not None and ylim[0] is not None and ylim[1] is not None:
+        yaxis_cfg["range"] = [ylim[0], ylim[1]]
+    if param.startswith("tau"):
+        yaxis_cfg["exponentformat"] = "e"
+        yaxis_cfg["tickformat"] = ".2e"
+
     fig.update_layout(
         title=f"{param} — Mean value: {mean_val:.3g} | Std value: {std_val:.3g}",
         xaxis_title="File index",
-        yaxis_title="R [Ω·cm²]",
+        yaxis_title=_ylabel,
         template="plotly_dark",
         legend=dict(
             orientation="v",
@@ -296,7 +310,8 @@ def cnls_line_plotly(df_cnls: pd.DataFrame, param: str):
             ticktext=x_labels,
             tickangle=30,
             automargin=True,
-        )
+        ),
+        yaxis=yaxis_cfg,
     )
 
     return fig
@@ -1327,7 +1342,7 @@ def cnls_residuals_plotly(cnls_file: Path, fname: str):
 
     return fig
 
-def cnls_bar_plotly(series: pd.Series):
+def cnls_bar_plotly(series: pd.Series, ylim=None):
 
     # Detect all Rn columns dynamically (excluding R_ohmic)
     r_keys = sorted(
@@ -1349,11 +1364,15 @@ def cnls_bar_plotly(series: pd.Series):
         showlegend=False
     )
 
+    yaxis_cfg = {}
+    if ylim is not None and ylim[0] is not None and ylim[1] is not None:
+        yaxis_cfg["range"] = [ylim[0], ylim[1]]
+
     fig.update_layout(
         title="CNLS bar plot",
         xaxis_title="Parameter",
         yaxis_title="R [Ω·cm²]",
-        yaxis_type="log",
+        yaxis=yaxis_cfg,
         template="plotly_dark",
     )
 
@@ -1497,11 +1516,14 @@ def cnls_elements_im_bode_plotly(cnls_file: Path, fname: str):
 
     return fig
 
-def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str, param_groups=None):
+def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str, param_groups=None,
+                        r_limit=None, tau_limit=None, alpha_limit=None):
     """Return a list of heatmap figures for the requested param_groups.
 
     param_groups is a subset of ["R", "Time constant", "Alpha"].
     Defaults to all three when None.
+    r_limit/tau_limit are (min, max) in linear units; converted to log10 internally.
+    alpha_limit is (min, max) in linear units [0–1].
     """
     if param_groups is None:
         param_groups = ["R", "Time constant", "Alpha"]
@@ -1518,18 +1540,20 @@ def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str, param_groups
 
     figures = []
 
-    # ---- Resistances (log scale) ----
+    # ---- Resistances ----
     if "R" in param_groups:
         r_cols = [f"R{i}" for i in r_indices if f"R{i}" in df_cnls.columns]
         r_col_order = [c for c in ["ASR", "R_ohmic"] + r_cols if c in df_cnls.columns]
         if r_col_order:
             data = df_cnls[r_col_order].values.astype(float)
-            data[data <= 0] = np.nan
             x_labels = ["R<sub>ohmic</sub>" if c == "R_ohmic" else c for c in r_col_order]
+            r_zmin = r_limit[0] if (r_limit and r_limit[0] is not None) else None
+            r_zmax = r_limit[1] if (r_limit and r_limit[1] is not None) else None
             fig = go.Figure(go.Heatmap(
-                z=np.log10(data), x=x_labels, y=y_labels,
+                z=data, x=x_labels, y=y_labels,
                 colorscale=colorscale, xgap=2, ygap=2,
-                colorbar=dict(title=dict(text="log(R [Ω·cm²])", side="right"))
+                zmin=r_zmin, zmax=r_zmax,
+                colorbar=dict(title=dict(text="R [Ω·cm²]", side="right"))
             ))
             fig.update_layout(
                 title="CNLS resistances heatmap", template="plotly_dark",
@@ -1537,17 +1561,19 @@ def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str, param_groups
             )
             figures.append(fig)
 
-    # ---- Time constants (log scale) ----
+    # ---- Time constants ----
     if "Time constant" in param_groups:
         tau_cols = [f"tau{i}" for i in r_indices if f"tau{i}" in df_cnls.columns]
         if tau_cols:
             data = df_cnls[tau_cols].values.astype(float)
-            data[data <= 0] = np.nan
             x_labels = [f"τ<sub>{c[3:]}</sub>" for c in tau_cols]
+            tau_zmin = tau_limit[0] if (tau_limit and tau_limit[0] is not None) else None
+            tau_zmax = tau_limit[1] if (tau_limit and tau_limit[1] is not None) else None
             fig = go.Figure(go.Heatmap(
-                z=np.log10(data), x=x_labels, y=y_labels,
+                z=data, x=x_labels, y=y_labels,
                 colorscale=colorscale, xgap=2, ygap=2,
-                colorbar=dict(title=dict(text="log(τ [s])", side="right"))
+                zmin=tau_zmin, zmax=tau_zmax,
+                colorbar=dict(title=dict(text="τ [s]", side="right"))
             ))
             fig.update_layout(
                 title="CNLS time constants heatmap", template="plotly_dark",
@@ -1561,9 +1587,11 @@ def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str, param_groups
         if alpha_cols:
             data = df_cnls[alpha_cols].values.astype(float)
             x_labels = [f"α<sub>{c[5:]}</sub>" for c in alpha_cols]
+            a_zmin = alpha_limit[0] if (alpha_limit and alpha_limit[0] is not None) else 0
+            a_zmax = alpha_limit[1] if (alpha_limit and alpha_limit[1] is not None) else 1
             fig = go.Figure(go.Heatmap(
                 z=data, x=x_labels, y=y_labels,
-                colorscale=colorscale, zmin=0, zmax=1, xgap=2, ygap=2,
+                colorscale=colorscale, zmin=a_zmin, zmax=a_zmax, xgap=2, ygap=2,
                 colorbar=dict(title=dict(text="α", side="right"))
             ))
             fig.update_layout(
@@ -2574,7 +2602,7 @@ def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
 
 
 
-def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str):
+def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str, ylim=None):
 
     # Detect dynamic Rn keys
     r_keys = sorted(
@@ -2600,19 +2628,20 @@ def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str):
 
     ax.bar(display_labels, y)
 
-    ax.set_yscale("log")
     ax.set_ylabel("R [Ω·cm²]")
+    if ylim is not None and ylim[0] is not None and ylim[1] is not None:
+        ax.set_ylim(ylim[0], ylim[1])
 
     ax.grid(False)
     ax.tick_params(axis="x", rotation=30)
-    
+
     for fmt in st.session_state.export_formats:
         zf.writestr(
             f"CNLS/{fname}_bar.{fmt}",
             _fig_to_bytes(fig, fmt)
         )
 
-def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
+def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str, ylim=None):
 
     x = np.arange(1, len(df_cnls) + 1)
     y = df_cnls[param].values
@@ -2660,8 +2689,21 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str):
             )
         )
 
+    if param.startswith("tau"):
+        _ylabel = "τ [s]"
+    elif param.startswith("alpha"):
+        _ylabel = "Dispersion factor"
+    else:
+        _ylabel = "R [Ω·cm²]"
+
     ax.set_xlabel("File index")
-    ax.set_ylabel("R [Ω·cm²]")
+    ax.set_ylabel(_ylabel)
+    if param.startswith("tau"):
+        import matplotlib.ticker as _ticker
+        ax.yaxis.set_major_formatter(_ticker.ScalarFormatter(useMathText=True))
+        ax.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
+    if ylim is not None and ylim[0] is not None and ylim[1] is not None:
+        ax.set_ylim(ylim[0], ylim[1])
     ax.set_xticks(x)
     ax.set_xticklabels(x_labels, rotation=30, ha="right")
 
@@ -3067,7 +3109,8 @@ def add_cnls_compare_png(zf: zipfile.ZipFile, cnls_file: Path, fname: str):
         zf.writestr(f"CNLS/Compare/{fname}_drt.{fmt}", _fig_to_bytes(fig, fmt))
 
 
-def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_choice: str, param_groups=None):
+def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_choice: str,
+                         param_groups=None, r_limit=None, tau_limit=None, alpha_limit=None):
 
     if param_groups is None:
         param_groups = ["R", "Time constant", "Alpha"]
@@ -3101,24 +3144,26 @@ def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_cho
         for fmt in st.session_state.export_formats:
             zf.writestr(f"CNLS/{zip_name}.{fmt}", _fig_to_bytes(fig, fmt))
 
-    # ---- Resistances (log scale) ----
+    # ---- Resistances ----
     if "R" in param_groups:
         r_cols = [f"R{i}" for i in r_indices if f"R{i}" in df_cnls.columns]
         r_col_order = [c for c in ["ASR", "R_ohmic"] + r_cols if c in df_cnls.columns]
         if r_col_order:
             data = df_cnls[r_col_order].values.astype(float)
-            data[data <= 0] = np.nan
             x_labels = [r"$R_{\mathrm{ohmic}}$" if c == "R_ohmic" else c for c in r_col_order]
-            _write_heatmap(np.log10(data), x_labels, "log(R [Ω·cm²])", "CNLS_heatmap_R")
+            r_vmin = r_limit[0] if (r_limit and r_limit[0] is not None) else None
+            r_vmax = r_limit[1] if (r_limit and r_limit[1] is not None) else None
+            _write_heatmap(data, x_labels, "R [Ω·cm²]", "CNLS_heatmap_R", vmin=r_vmin, vmax=r_vmax)
 
-    # ---- Time constants (log scale) ----
+    # ---- Time constants ----
     if "Time constant" in param_groups:
         tau_cols = [f"tau{i}" for i in r_indices if f"tau{i}" in df_cnls.columns]
         if tau_cols:
             data = df_cnls[tau_cols].values.astype(float)
-            data[data <= 0] = np.nan
             x_labels = [fr"$\tau_{{{c[3:]}}}$" for c in tau_cols]
-            _write_heatmap(np.log10(data), x_labels, "log(τ [s])", "CNLS_heatmap_tau")
+            tau_vmin = tau_limit[0] if (tau_limit and tau_limit[0] is not None) else None
+            tau_vmax = tau_limit[1] if (tau_limit and tau_limit[1] is not None) else None
+            _write_heatmap(data, x_labels, "τ [s]", "CNLS_heatmap_tau", vmin=tau_vmin, vmax=tau_vmax)
 
     # ---- Dispersion factors (linear 0–1) ----
     if "Alpha" in param_groups:
@@ -3126,7 +3171,9 @@ def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_cho
         if alpha_cols:
             data = df_cnls[alpha_cols].values.astype(float)
             x_labels = [fr"$\alpha_{{{c[5:]}}}$" for c in alpha_cols]
-            _write_heatmap(data, x_labels, "α", "CNLS_heatmap_alpha", vmin=0, vmax=1)
+            a_vmin = alpha_limit[0] if (alpha_limit and alpha_limit[0] is not None) else 0
+            a_vmax = alpha_limit[1] if (alpha_limit and alpha_limit[1] is not None) else 1
+            _write_heatmap(data, x_labels, "α", "CNLS_heatmap_alpha", vmin=a_vmin, vmax=a_vmax)
 
 
 
@@ -3359,6 +3406,23 @@ with st.sidebar:
         )
 
     cnls_show_params = st.checkbox("Parameters", value=False, key="cnls_params")
+
+    with st.expander("Y-axis limits", expanded=False):
+        st.caption("Leave blank for auto-scaling")
+        _c1, _c2 = st.columns(2)
+        cnls_r_lim_lo = _c1.number_input("R min", value=None, placeholder="auto", key="cnls_r_lim_lo")
+        cnls_r_lim_hi = _c2.number_input("R max", value=None, placeholder="auto", key="cnls_r_lim_hi")
+        _c3, _c4 = st.columns(2)
+        cnls_tau_lim_lo = _c3.number_input("τ min", value=None, placeholder="auto", key="cnls_tau_lim_lo")
+        cnls_tau_lim_hi = _c4.number_input("τ max", value=None, placeholder="auto", key="cnls_tau_lim_hi")
+        _c5, _c6 = st.columns(2)
+        cnls_alpha_lim_lo = _c5.number_input("α min", value=None, placeholder="auto", key="cnls_alpha_lim_lo")
+        cnls_alpha_lim_hi = _c6.number_input("α max", value=None, placeholder="auto", key="cnls_alpha_lim_hi")
+
+    cnls_r_limit = (cnls_r_lim_lo, cnls_r_lim_hi) if (cnls_r_lim_lo is not None and cnls_r_lim_hi is not None) else None
+    cnls_tau_limit = (cnls_tau_lim_lo, cnls_tau_lim_hi) if (cnls_tau_lim_lo is not None and cnls_tau_lim_hi is not None) else None
+    cnls_alpha_limit = (cnls_alpha_lim_lo, cnls_alpha_lim_hi) if (cnls_alpha_lim_lo is not None and cnls_alpha_lim_hi is not None) else None
+
     analyze_cnls = bool(cnls_plot_modes) or cnls_show_params
 
     st.header("3D Visualization")
@@ -3746,7 +3810,7 @@ if analyze_cnls:
             cnls_file = sibling_file(files_to_process[0], "CNLS")
 
             if "Bar plot" in cnls_plot_modes:
-                st.plotly_chart(cnls_bar_plotly(series), width="stretch")
+                st.plotly_chart(cnls_bar_plotly(series, ylim=None), width="stretch")
 
             if "Elements fitting" in cnls_plot_modes:
 
@@ -3769,13 +3833,24 @@ if analyze_cnls:
         else:
 
             if "Heatmap" in cnls_plot_modes:
-                for fig in cnls_heatmap_plotly(df_cnls, st.session_state.palette_choice, cnls_heatmap_params):
+                for fig in cnls_heatmap_plotly(
+                    df_cnls, st.session_state.palette_choice, cnls_heatmap_params,
+                    r_limit=cnls_r_limit, tau_limit=cnls_tau_limit, alpha_limit=cnls_alpha_limit,
+                ):
                     st.plotly_chart(fig, width="stretch")
 
             if "Line plots" in cnls_plot_modes and cnls_line_selection:
                 for param in cnls_line_selection:
+                    if param.startswith("tau"):
+                        _ylim = cnls_tau_limit
+                    elif param.startswith("alpha"):
+                        _ylim = cnls_alpha_limit
+                    elif param == "ASR":
+                        _ylim = None
+                    else:
+                        _ylim = cnls_r_limit
                     st.plotly_chart(
-                        cnls_line_plotly(df_cnls, param),
+                        cnls_line_plotly(df_cnls, param, ylim=_ylim),
                         width="stretch"
                     )
 
@@ -3881,7 +3956,7 @@ if save_zip:
                 cnls_file = sibling_file(files_to_process[0], "CNLS")
 
                 if "Bar plot" in cnls_plot_modes:
-                    add_cnls_bar_png(zf, df_cnls.iloc[0], df_cnls.index[0])
+                    add_cnls_bar_png(zf, df_cnls.iloc[0], df_cnls.index[0], ylim=None)
 
                 if "Elements fitting" in cnls_plot_modes:
                     add_cnls_elements_fitting_png(
@@ -3907,12 +3982,23 @@ if save_zip:
                         zf,
                         df_cnls,
                         st.session_state.palette_choice,
-                        cnls_heatmap_params
+                        cnls_heatmap_params,
+                        r_limit=cnls_r_limit,
+                        tau_limit=cnls_tau_limit,
+                        alpha_limit=cnls_alpha_limit,
                     )
 
                 if "Line plots" in cnls_plot_modes and cnls_line_selection:
                     for param in cnls_line_selection:
-                        add_cnls_line_png(zf, df_cnls, param)
+                        if param.startswith("tau"):
+                            _ylim = cnls_tau_limit
+                        elif param.startswith("alpha"):
+                            _ylim = cnls_alpha_limit
+                        elif param == "ASR":
+                            _ylim = None
+                        else:
+                            _ylim = cnls_r_limit
+                        add_cnls_line_png(zf, df_cnls, param, ylim=_ylim)
 
             if "CNLS compare" in cnls_plot_modes:
                 for eis_file in st.session_state.get("cnls_compare_eis_files", []):
