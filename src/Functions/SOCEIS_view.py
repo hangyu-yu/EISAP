@@ -1432,66 +1432,147 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
 
     return fig
 
-def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str):
+def cnls_elements_im_bode_plotly(cnls_file: Path, fname: str):
 
-    r_cols = sorted(
-        [c for c in df_cnls.columns if c.startswith("R") and c != "R_ohmic"],
-        key=lambda x: int(x[1:])
+    if not cnls_file.exists():
+        return None
+
+    xls = pd.ExcelFile(_normalize_path(cnls_file))
+
+    if "Z" not in xls.sheet_names or "Summary" not in xls.sheet_names:
+        return None
+
+    summary_df = pd.read_excel(xls, "Summary", header=None)
+    elements_raw = summary_df.iloc[1, 0]
+    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
+
+    df = pd.read_excel(xls, "Z")
+
+    freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
+    zmes_im = -pd.to_numeric(df.iloc[:, 2], errors="coerce")
+
+    fig = go.Figure()
+
+    fig.add_scatter(
+        x=freq,
+        y=zmes_im,
+        mode="markers",
+        marker=dict(size=5, color="white"),
+        name="Measure"
     )
 
-    col_order = ["ASR", "R_ohmic"] + r_cols
-    df_plot = df_cnls[col_order]
+    # Map RQn → imaginary column using header names (robust to circuit variations)
+    rq_im_map = {}
+    for col in df.columns:
+        m = re.match(r"(RQ\d+)_Im", col)
+        if m:
+            rq_im_map[m.group(1)] = col
 
-    # ---- Pretty x-axis labels ----
-    x_labels = []
+    n_elems = sum(1 for rq in rq_elements if rq in rq_im_map)
+    element_colors = sample_palette_colors(
+        st.session_state.palette_choice,
+        n=max(1, n_elems)
+    )
 
-    for col in col_order:
-        if col == "R_ohmic":
-            x_labels.append("R<sub>ohmic</sub>")
-        else:
-            x_labels.append(col)
-
-    data = df_plot.values.astype(float)
-    data[data <= 0] = np.nan
-    log_data = np.log10(data)
-
-    # ---- Pretty x-axis labels ----
-    x_labels = []
-    for col in col_order:
-        if col == "R_ohmic":
-            x_labels.append("R<sub>ohmic</sub>")
-        else:
-            x_labels.append(col)
-    # ---- Determine heatmap colorscale ----
-    if palette_choice in PLOTLY_SEQ:
-        # Continuous scientific palettes
-        colorscale = palette_choice.split(" ")[0]  # "Viridis (perceptual)" -> "Viridis"
-    else:
-        # Discrete palettes → fallback to perceptual default
-        colorscale = "Viridis"
-    fig = go.Figure(data=go.Heatmap(
-        z=log_data,
-        x=x_labels,
-        y=[latex_label(i) for i in df_plot.index.tolist()],
-        colorscale=colorscale,
-        xgap=2,
-        ygap=2,
-        colorbar=dict(
-            title=dict(
-                text="log(R [Ω·cm²])",
-                side="right"
-            )
+    color_idx = 0
+    for rq in rq_elements:
+        if rq not in rq_im_map:
+            continue
+        z_im = -pd.to_numeric(df[rq_im_map[rq]], errors="coerce")
+        fig.add_scatter(
+            x=freq,
+            y=z_im,
+            mode="lines",
+            name=rq,
+            line=dict(color=element_colors[color_idx])
         )
-    ))
+        color_idx += 1
 
     fig.update_layout(
-        title="CNLS resistances heatmap",
-        template="plotly_dark",
-        xaxis_title="Parameter",
-        yaxis_title="File",
+        title=f"Imaginary Bode – {fname}",
+        xaxis=dict(title="Frequency [Hz]", type="log"),
+        yaxis=dict(title="−Z″ [Ω·cm²]"),
+        template="plotly_dark"
     )
 
     return fig
+
+def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str, param_groups=None):
+    """Return a list of heatmap figures for the requested param_groups.
+
+    param_groups is a subset of ["R", "Time constant", "Alpha"].
+    Defaults to all three when None.
+    """
+    if param_groups is None:
+        param_groups = ["R", "Time constant", "Alpha"]
+
+    if palette_choice in PLOTLY_SEQ:
+        colorscale = palette_choice.split(" ")[0]
+    else:
+        colorscale = "Viridis"
+
+    y_labels = [latex_label(i) for i in df_cnls.index.tolist()]
+    r_indices = sorted(
+        {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k != "R_ohmic"}
+    )
+
+    figures = []
+
+    # ---- Resistances (log scale) ----
+    if "R" in param_groups:
+        r_cols = [f"R{i}" for i in r_indices if f"R{i}" in df_cnls.columns]
+        r_col_order = [c for c in ["ASR", "R_ohmic"] + r_cols if c in df_cnls.columns]
+        if r_col_order:
+            data = df_cnls[r_col_order].values.astype(float)
+            data[data <= 0] = np.nan
+            x_labels = ["R<sub>ohmic</sub>" if c == "R_ohmic" else c for c in r_col_order]
+            fig = go.Figure(go.Heatmap(
+                z=np.log10(data), x=x_labels, y=y_labels,
+                colorscale=colorscale, xgap=2, ygap=2,
+                colorbar=dict(title=dict(text="log(R [Ω·cm²])", side="right"))
+            ))
+            fig.update_layout(
+                title="CNLS resistances heatmap", template="plotly_dark",
+                xaxis_title="Parameter", yaxis_title="File",
+            )
+            figures.append(fig)
+
+    # ---- Time constants (log scale) ----
+    if "Time constant" in param_groups:
+        tau_cols = [f"tau{i}" for i in r_indices if f"tau{i}" in df_cnls.columns]
+        if tau_cols:
+            data = df_cnls[tau_cols].values.astype(float)
+            data[data <= 0] = np.nan
+            x_labels = [f"τ<sub>{c[3:]}</sub>" for c in tau_cols]
+            fig = go.Figure(go.Heatmap(
+                z=np.log10(data), x=x_labels, y=y_labels,
+                colorscale=colorscale, xgap=2, ygap=2,
+                colorbar=dict(title=dict(text="log(τ [s])", side="right"))
+            ))
+            fig.update_layout(
+                title="CNLS time constants heatmap", template="plotly_dark",
+                xaxis_title="Parameter", yaxis_title="File",
+            )
+            figures.append(fig)
+
+    # ---- Dispersion factors (linear 0–1) ----
+    if "Alpha" in param_groups:
+        alpha_cols = [f"alpha{i}" for i in r_indices if f"alpha{i}" in df_cnls.columns]
+        if alpha_cols:
+            data = df_cnls[alpha_cols].values.astype(float)
+            x_labels = [f"α<sub>{c[5:]}</sub>" for c in alpha_cols]
+            fig = go.Figure(go.Heatmap(
+                z=data, x=x_labels, y=y_labels,
+                colorscale=colorscale, zmin=0, zmax=1, xgap=2, ygap=2,
+                colorbar=dict(title=dict(text="α", side="right"))
+            ))
+            fig.update_layout(
+                title="CNLS dispersion factors heatmap", template="plotly_dark",
+                xaxis_title="Parameter", yaxis_title="File",
+            )
+            figures.append(fig)
+
+    return figures
 
 
 
@@ -2858,81 +2939,194 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
             f"CNLS/Fitting/Res_{fname}.{fmt}",
             _fig_to_bytes(fig, fmt)
         )
-   
 
-def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_choice: str):
 
-    # ---- Detect dynamic Rn columns ----
-    r_cols = sorted(
-        [c for c in df_cnls.columns if c.startswith("R") and c != "R_ohmic"],
-        key=lambda x: int(x[1:])
-    )
-    
-    col_order = ["ASR", "R_ohmic"] + r_cols
-    df_plot = df_cnls[col_order]
-    
-    # ---- Determine matplotlib colormap ----
-    if palette_choice in PLOTLY_SEQ:
-        cmap_name = PALETTE_LIBRARY.get(palette_choice, "viridis")
-    else:
-        cmap_name = "viridis"
+def add_cnls_compare_png(zf: zipfile.ZipFile, cnls_file: Path, fname: str):
+    """Export all three CNLS compare plots (imaginary Bode, Nyquist, DRT) to CNLS/Compare/."""
 
-    data = df_plot.values.astype(float)
+    if not cnls_file.exists():
+        return
 
-    # ---- Log scale ----
-    data[data <= 0] = np.nan
-    log_data = np.log10(data)
+    xls = pd.ExcelFile(_normalize_path(cnls_file))
 
-    n_rows, n_cols = log_data.shape
+    if "Z" not in xls.sheet_names or "Summary" not in xls.sheet_names:
+        return
 
-    fig, ax = plt.subplots(
-        figsize=(1.2 * n_cols, max(3, 0.6 * n_rows)),
-        dpi=600
-    )
-    zmin = np.nanmin(log_data)
-    zmax = np.nanmax(log_data)
-    im = ax.imshow(
-        log_data,
-        aspect="auto",
-        cmap=cmap_name,
-        vmin=zmin,
-        vmax=zmax
+    summary_df = pd.read_excel(xls, "Summary", header=None)
+    elements_raw = summary_df.iloc[1, 0]
+    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
+    element_colors = sample_palette_colors(
+        st.session_state.palette_choice,
+        n=max(1, len(rq_elements))
     )
 
-    # ---- Pretty x-axis labels ----
-    pretty_labels = []
+    df_z = pd.read_excel(xls, "Z")
+    freq = pd.to_numeric(df_z.iloc[:, 0], errors="coerce")
 
-    for col in col_order:
-        if col == "R_ohmic":
-            pretty_labels.append(r"$R_{\mathrm{ohmic}}$")
-        else:
-            pretty_labels.append(col)
+    # ---- 1. Imaginary Bode ----
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=600)
 
-    ax.set_xticks(np.arange(n_cols))
-    ax.set_xticklabels(pretty_labels, rotation=30, ha="right")
+    zmes_im = -pd.to_numeric(df_z.iloc[:, 2], errors="coerce")
+    marker_kw = {} if st.session_state.get("export_no_nyquist_markers", False) else dict(marker='o', markersize=3)
+    ax.semilogx(freq, zmes_im, linewidth=1.0, color="black", label="Measure", **marker_kw)
 
-    ax.set_yticks(np.arange(n_rows))
-    ax.set_yticklabels([latex_label(i) for i in df_plot.index.tolist()])
+    rq_im_map = {}
+    for col in df_z.columns:
+        m = re.match(r"(RQ\d+)_Im", col)
+        if m:
+            rq_im_map[m.group(1)] = col
 
-    # ---- Minor ticks for grid ----
-    ax.set_xticks(np.arange(-.5, n_cols, 1), minor=True)
-    ax.set_yticks(np.arange(-.5, n_rows, 1), minor=True)
+    for i, rq in enumerate(rq_elements):
+        if rq not in rq_im_map:
+            continue
+        z_im = -pd.to_numeric(df_z[rq_im_map[rq]], errors="coerce")
+        ax.semilogx(freq, z_im, linewidth=1.5, color=element_colors[i], label=rq)
+
+    ax.set_xlabel("Frequency [Hz]")
+    ax.set_ylabel("−Z″ [Ω·cm²]")
 
     if not st.session_state.get("export_no_grid", False):
-        ax.grid(which="minor", color="white", linestyle="-", linewidth=1.2)
-    ax.tick_params(which="minor", bottom=False, left=False)
-
-    # ---- Colorbar ----
-    cbar = fig.colorbar(im, ax=ax)
-    cbar.set_label("log(R [Ω·cm²])")
-
-    fig.tight_layout()
+        ax.grid(True, linewidth=0.5, alpha=0.3)
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), ncol=1, frameon=False)
+        fig.subplots_adjust(right=0.78)
 
     for fmt in st.session_state.export_formats:
-        zf.writestr(
-            f"CNLS/CNLS_heatmap.{fmt}",
-            _fig_to_bytes(fig, fmt)
+        zf.writestr(f"CNLS/Compare/{fname}_im_bode.{fmt}", _fig_to_bytes(fig, fmt))
+
+    # ---- 2. Nyquist with individual element arcs ----
+    fig, ax = plt.subplots(figsize=(6, 6), dpi=600)
+
+    z_real_total = pd.to_numeric(df_z.iloc[:, 1], errors="coerce")
+    z_imag_total = -pd.to_numeric(df_z.iloc[:, 2], errors="coerce")
+    ax.plot(z_real_total, z_imag_total, linewidth=1.5, color="black", alpha=0.3, label="Total Z")
+
+    z_ohmic = pd.to_numeric(df_z.iloc[:, 11], errors="coerce")
+    offset = z_ohmic.iloc[-1]
+    start_col = 13
+
+    for i, rq in enumerate(rq_elements):
+        real_col = start_col + 2 * i
+        imag_col = start_col + 2 * i + 1
+        if imag_col >= df_z.shape[1]:
+            break
+        z_r = pd.to_numeric(df_z.iloc[:, real_col], errors="coerce")
+        z_i = -pd.to_numeric(df_z.iloc[:, imag_col], errors="coerce")
+        ax.plot(z_r + offset, z_i, linewidth=1.5, color=element_colors[i], label=rq)
+        offset += z_r.iloc[-1]
+
+    ax.set_xlabel("Z′ [Ω·cm²]")
+    ax.set_ylabel("−Z″ [Ω·cm²]")
+    ax.set_aspect("equal", adjustable="box")
+
+    if not st.session_state.get("export_no_grid", False):
+        ax.grid(True, linewidth=0.5, alpha=0.3)
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), ncol=1, frameon=False)
+        fig.subplots_adjust(right=0.78)
+
+    for fmt in st.session_state.export_formats:
+        zf.writestr(f"CNLS/Compare/{fname}_nyquist.{fmt}", _fig_to_bytes(fig, fmt))
+
+    # ---- 3. DRT with individual element contributions ----
+    if "DRT" not in xls.sheet_names:
+        return
+
+    df_drt = pd.read_excel(xls, "DRT")
+    if df_drt.shape[1] < 6:
+        return
+
+    freq_drt = pd.to_numeric(df_drt.iloc[:, 0], errors="coerce")
+    gamma_total = pd.to_numeric(df_drt.iloc[:, 1], errors="coerce")
+
+    fig, ax = plt.subplots(figsize=(8, 5), dpi=600)
+    ax.semilogx(freq_drt, gamma_total, linewidth=1.5, color="black", alpha=0.3, label="Total γ")
+
+    ymax = float(np.nanmax(gamma_total))
+    for i, rq in enumerate(rq_elements):
+        if 5 + i >= df_drt.shape[1]:
+            break
+        gamma_elem = pd.to_numeric(df_drt.iloc[:, 5 + i], errors="coerce")
+        ax.semilogx(freq_drt, gamma_elem, linewidth=1.5, color=element_colors[i], label=rq)
+        elem_max = float(np.nanmax(gamma_elem))
+        if np.isfinite(elem_max):
+            ymax = max(ymax, elem_max)
+
+    ax.set_xlim(float(np.nanmin(freq_drt)), float(np.nanmax(freq_drt)))
+    ax.set_ylim(0, 1.05 * ymax)
+    ax.set_xlabel("Frequency [Hz]")
+    ax.set_ylabel("γ [Ω·cm²·s]")
+
+    if not st.session_state.get("export_no_grid", False):
+        ax.grid(True, linewidth=0.5, alpha=0.3)
+    if not st.session_state.get("export_no_legend", False):
+        ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), ncol=1, frameon=False)
+        fig.subplots_adjust(right=0.78)
+
+    for fmt in st.session_state.export_formats:
+        zf.writestr(f"CNLS/Compare/{fname}_drt.{fmt}", _fig_to_bytes(fig, fmt))
+
+
+def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_choice: str, param_groups=None):
+
+    if param_groups is None:
+        param_groups = ["R", "Time constant", "Alpha"]
+
+    cmap_name = PALETTE_LIBRARY.get(palette_choice, "viridis") if palette_choice in PLOTLY_SEQ else "viridis"
+    y_labels = [latex_label(i) for i in df_cnls.index.tolist()]
+    r_indices = sorted(
+        {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k != "R_ohmic"}
+    )
+    no_grid = st.session_state.get("export_no_grid", False)
+
+    def _write_heatmap(data_arr, x_labels, cbar_label, zip_name, vmin=None, vmax=None):
+        n_rows, n_cols = data_arr.shape
+        fig, ax = plt.subplots(figsize=(1.2 * n_cols, max(3, 0.6 * n_rows)), dpi=600)
+        im = ax.imshow(
+            data_arr, aspect="auto", cmap=cmap_name,
+            vmin=vmin if vmin is not None else np.nanmin(data_arr),
+            vmax=vmax if vmax is not None else np.nanmax(data_arr),
         )
+        ax.set_xticks(np.arange(n_cols))
+        ax.set_xticklabels(x_labels, rotation=30, ha="right")
+        ax.set_yticks(np.arange(n_rows))
+        ax.set_yticklabels(y_labels)
+        ax.set_xticks(np.arange(-.5, n_cols, 1), minor=True)
+        ax.set_yticks(np.arange(-.5, n_rows, 1), minor=True)
+        if not no_grid:
+            ax.grid(which="minor", color="white", linestyle="-", linewidth=1.2)
+        ax.tick_params(which="minor", bottom=False, left=False)
+        fig.colorbar(im, ax=ax).set_label(cbar_label)
+        fig.tight_layout()
+        for fmt in st.session_state.export_formats:
+            zf.writestr(f"CNLS/{zip_name}.{fmt}", _fig_to_bytes(fig, fmt))
+
+    # ---- Resistances (log scale) ----
+    if "R" in param_groups:
+        r_cols = [f"R{i}" for i in r_indices if f"R{i}" in df_cnls.columns]
+        r_col_order = [c for c in ["ASR", "R_ohmic"] + r_cols if c in df_cnls.columns]
+        if r_col_order:
+            data = df_cnls[r_col_order].values.astype(float)
+            data[data <= 0] = np.nan
+            x_labels = [r"$R_{\mathrm{ohmic}}$" if c == "R_ohmic" else c for c in r_col_order]
+            _write_heatmap(np.log10(data), x_labels, "log(R [Ω·cm²])", "CNLS_heatmap_R")
+
+    # ---- Time constants (log scale) ----
+    if "Time constant" in param_groups:
+        tau_cols = [f"tau{i}" for i in r_indices if f"tau{i}" in df_cnls.columns]
+        if tau_cols:
+            data = df_cnls[tau_cols].values.astype(float)
+            data[data <= 0] = np.nan
+            x_labels = [fr"$\tau_{{{c[3:]}}}$" for c in tau_cols]
+            _write_heatmap(np.log10(data), x_labels, "log(τ [s])", "CNLS_heatmap_tau")
+
+    # ---- Dispersion factors (linear 0–1) ----
+    if "Alpha" in param_groups:
+        alpha_cols = [f"alpha{i}" for i in r_indices if f"alpha{i}" in df_cnls.columns]
+        if alpha_cols:
+            data = df_cnls[alpha_cols].values.astype(float)
+            x_labels = [fr"$\alpha_{{{c[5:]}}}$" for c in alpha_cols]
+            _write_heatmap(data, x_labels, "α", "CNLS_heatmap_alpha", vmin=0, vmax=1)
 
 
 
@@ -3140,18 +3334,29 @@ with st.sidebar:
         # Single file
         cnls_plot_modes = st.multiselect(
             "CNLS plot types",
-            ["Bar plot", "Elements fitting"],
+            ["Bar plot", "Elements fitting", "CNLS compare"],
             default=[]
         )
         cnls_line_selection = []
+        cnls_heatmap_params = []
     else:
         # Multiple files
         cnls_plot_modes = st.multiselect(
             "CNLS plot types",
-            ["Heatmap", "Line plots"],
+            ["Heatmap", "Line plots", "CNLS compare"],
             default=[]
         )
         cnls_line_selection = []
+        cnls_heatmap_params = (
+            st.multiselect(
+                "Heatmap parameters",
+                ["R", "Time constant", "Alpha"],
+                default=["R", "Time constant", "Alpha"],
+                key="cnls_heatmap_params"
+            )
+            if "Heatmap" in cnls_plot_modes
+            else []
+        )
 
     cnls_show_params = st.checkbox("Parameters", value=False, key="cnls_params")
     analyze_cnls = bool(cnls_plot_modes) or cnls_show_params
@@ -3482,17 +3687,22 @@ if analyze_cnls:
     if cnls_rows:
         df_cnls = pd.DataFrame(cnls_rows).set_index("File")
         if len(df_cnls) > 1:
-            resistance_columns = [
-                c for c in df_cnls.columns
-                if c.startswith("R") or c == "ASR"
-            ]
+            _r_idx_set = sorted(
+                {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k != "R_ohmic"}
+            )
+            plotable_columns = ["ASR", "R_ohmic"]
+            for _i in _r_idx_set:
+                for _pfx in ("R", "tau", "alpha"):
+                    _col = f"{_pfx}{_i}"
+                    if _col in df_cnls.columns:
+                        plotable_columns.append(_col)
 
             # Update selectable list dynamically
             if "Line plots" in cnls_plot_modes:
                 cnls_line_selection = st.multiselect(
-                    "Select resistances to plot",
-                    resistance_columns,
-                    default=resistance_columns
+                    "Select parameters to plot",
+                    plotable_columns,
+                    default=plotable_columns
                 )
 
         # ---- Dynamic column ordering ----
@@ -3559,10 +3769,8 @@ if analyze_cnls:
         else:
 
             if "Heatmap" in cnls_plot_modes:
-                st.plotly_chart(
-                    cnls_heatmap_plotly(df_cnls, st.session_state.palette_choice),
-                    width="stretch"
-                )
+                for fig in cnls_heatmap_plotly(df_cnls, st.session_state.palette_choice, cnls_heatmap_params):
+                    st.plotly_chart(fig, width="stretch")
 
             if "Line plots" in cnls_plot_modes and cnls_line_selection:
                 for param in cnls_line_selection:
@@ -3571,6 +3779,46 @@ if analyze_cnls:
                         width="stretch"
                     )
 
+        # ---- CNLS compare ----
+        if "CNLS compare" in cnls_plot_modes:
+            st.subheader("CNLS compare")
+
+            compare_candidates = [f for f in files_to_process if sibling_file(f, "CNLS").exists()]
+
+            if not compare_candidates:
+                st.info("No CNLS files found for the selected EIS files.")
+                st.session_state["cnls_compare_eis_files"] = []
+            else:
+                compare_label_map = {display_name_map[f.name]: f for f in compare_candidates}
+
+                if len(compare_candidates) == 1:
+                    selected_labels = list(compare_label_map.keys())
+                else:
+                    selected_labels = st.multiselect(
+                        "Select files",
+                        list(compare_label_map.keys()),
+                        default=list(compare_label_map.keys()),
+                        key="cnls_compare_files"
+                    )
+
+                selected_eis_files = [compare_label_map[lbl] for lbl in selected_labels]
+                st.session_state["cnls_compare_eis_files"] = selected_eis_files
+
+                for eis_file in selected_eis_files:
+                    compare_cnls_file = sibling_file(eis_file, "CNLS")
+                    compare_fname = display_name_map[eis_file.name]
+
+                    fig_im = cnls_elements_im_bode_plotly(compare_cnls_file, compare_fname)
+                    if fig_im:
+                        st.plotly_chart(fig_im, width="stretch")
+
+                    fig_nyq = cnls_nyquist_fit_plotly(compare_cnls_file, compare_fname)
+                    if fig_nyq:
+                        st.plotly_chart(fig_nyq, width="stretch")
+
+                    fig_drt = cnls_elements_fitting_plotly(compare_cnls_file, compare_fname)
+                    if fig_drt:
+                        st.plotly_chart(fig_drt, width="stretch")
 
     else:
         st.info("CNLS enabled, but no CNLS files/sheets were found for the selected EIS files.")
@@ -3658,12 +3906,19 @@ if save_zip:
                     add_cnls_heatmap_png(
                         zf,
                         df_cnls,
-                        st.session_state.palette_choice
+                        st.session_state.palette_choice,
+                        cnls_heatmap_params
                     )
 
                 if "Line plots" in cnls_plot_modes and cnls_line_selection:
                     for param in cnls_line_selection:
                         add_cnls_line_png(zf, df_cnls, param)
+
+            if "CNLS compare" in cnls_plot_modes:
+                for eis_file in st.session_state.get("cnls_compare_eis_files", []):
+                    compare_cnls_file = sibling_file(eis_file, "CNLS")
+                    compare_fname = display_name_map[eis_file.name]
+                    add_cnls_compare_png(zf, compare_cnls_file, compare_fname)
 
 
     st.success(f"ZIP saved at: {zip_path.resolve()}")

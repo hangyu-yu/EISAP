@@ -8,6 +8,7 @@
 src/GUI/config.json
 Projects/
 .streamlit/
+.claude/
 
 # Python packaging build artifacts
 dist/
