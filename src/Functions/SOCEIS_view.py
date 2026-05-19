@@ -648,6 +648,120 @@ def _drt_ymax_from_datasets(datasets) -> float:
     return 1.15 * global_max if global_max > 0 else 1.0
 
 
+def _build_plotly_colorscale(colors: List[str]) -> list:
+    n = len(colors)
+    if n == 1:
+        return [[0.0, colors[0]], [1.0, colors[0]]]
+    return [[i / (n - 1), c] for i, c in enumerate(colors)]
+
+
+def _add_colorbar(fig, datasets):
+    """Replace legend with a continuous colorbar; show 4 tick labels from dataset names."""
+    n = len(datasets)
+    if n == 0:
+        return
+    colors = [COLOR_PALETTE[i % len(COLOR_PALETTE)] for i in range(n)]
+    colorscale = _build_plotly_colorscale(colors)
+
+    if n == 1:
+        tick_indices = [0]
+    elif n <= 4:
+        tick_indices = list(range(n))
+    else:
+        tick_indices = [round(i * (n - 1) / 3) for i in range(4)]
+
+    tickvals = [i / (n - 1) if n > 1 else 0.5 for i in tick_indices]
+    ticktext = [datasets[i][0] for i in tick_indices]
+
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None],
+        mode='markers',
+        marker=dict(
+            colorscale=colorscale,
+            showscale=True,
+            cmin=0,
+            cmax=1,
+            color=[0.5],
+            colorbar=dict(
+                tickvals=tickvals,
+                ticktext=ticktext,
+                thickness=15,
+                len=0.75,
+                outlinewidth=0,
+            )
+        ),
+        showlegend=False,
+        hoverinfo='skip'
+    ))
+    fig.update_layout(showlegend=False)
+
+
+def _add_colorbar_3d(fig, datasets):
+    """Add a continuous colorbar to a 3D figure, replacing the legend."""
+    n = len(datasets)
+    if n == 0:
+        return
+    colors = [COLOR_PALETTE[i % len(COLOR_PALETTE)] for i in range(n)]
+    colorscale = _build_plotly_colorscale(colors)
+
+    if n == 1:
+        tick_indices = [0]
+    elif n <= 4:
+        tick_indices = list(range(n))
+    else:
+        tick_indices = [round(i * (n - 1) / 3) for i in range(4)]
+
+    tickvals = [i / (n - 1) if n > 1 else 0.5 for i in tick_indices]
+    ticktext = [datasets[i][0] for i in tick_indices]
+
+    fig.add_trace(go.Scatter3d(
+        x=[None], y=[None], z=[None],
+        mode='markers',
+        marker=dict(
+            colorscale=colorscale,
+            showscale=True,
+            cmin=0,
+            cmax=1,
+            color=[0.5],
+            size=0.001,
+            colorbar=dict(
+                tickvals=tickvals,
+                ticktext=ticktext,
+                thickness=15,
+                len=0.75,
+                outlinewidth=0,
+            )
+        ),
+        showlegend=False,
+        hoverinfo='skip'
+    ))
+    fig.update_layout(showlegend=False)
+
+
+def _add_mpl_colorbar(fig, ax, datasets):
+    """Add a matplotlib colorbar (4 tick labels) replacing the legend in saved plots."""
+    n = len(datasets)
+    if n == 0:
+        return
+    colors = [mcolors.to_rgba(COLOR_PALETTE[i % len(COLOR_PALETTE)]) for i in range(n)]
+    cmap = mcolors.LinearSegmentedColormap.from_list("_palette", colors, N=256)
+    norm = mcolors.Normalize(vmin=0, vmax=max(n - 1, 1))
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+
+    if n == 1:
+        tick_indices = [0]
+    elif n <= 4:
+        tick_indices = list(range(n))
+    else:
+        tick_indices = [round(i * (n - 1) / 3) for i in range(4)]
+
+    cbar = fig.colorbar(sm, ax=ax, fraction=0.046, pad=0.04)
+    cbar.set_ticks([i for i in tick_indices])
+    cbar.set_ticklabels([datasets[i][0] for i in tick_indices])
+    cbar.outline.set_visible(False)
+
+
 def extract_cnls_parameters(cnls_file: Path) -> Optional[Dict[str, float]]:
 
     if not cnls_file.exists():
@@ -741,6 +855,9 @@ def nyquist_plotly(datasets, title):
         template="plotly_dark",
         height=650  # enforce square aspect visually
     )
+
+    if st.session_state.get("colorbar_mode", False):
+        _add_colorbar(fig, datasets)
 
     return fig
 
@@ -876,6 +993,13 @@ def nyquist_compare_plotly(compare_mode, files_to_process, display_name_map):
         template="plotly_dark"
     )
 
+    if st.session_state.get("colorbar_mode", False):
+        pseudo = [
+            (latex_label(display_name_map.get(f.name, f.stem)), None)
+            for f in files_to_process
+        ]
+        _add_colorbar(fig, pseudo)
+
     return fig
 
 def bode_plotly(datasets, title, real=True):
@@ -896,6 +1020,10 @@ def bode_plotly(datasets, title, real=True):
         yaxis_title="Z′ [Ω·cm²]" if real else "−Z″ [Ω·cm²]",
         template="plotly_dark",
     )
+
+    if st.session_state.get("colorbar_mode", False):
+        _add_colorbar(fig, datasets)
+
     return fig
 
 
@@ -1000,6 +1128,10 @@ def drt_plotly(datasets, title):
         yaxis=dict(title="γ [Ω·s·cm²]", range=[0, ymax]),
         template="plotly_dark",
     )
+
+    if st.session_state.get("colorbar_mode", False):
+        _add_colorbar(fig, datasets)
+
     return fig
 
 def nyquist_3d_plotly(datasets, title):
@@ -1074,6 +1206,9 @@ def nyquist_3d_plotly(datasets, title):
         margin=dict(l=0, r=0, b=0, t=40)
     )
 
+    if st.session_state.get("colorbar_mode", False):
+        _add_colorbar_3d(fig, datasets)
+
     return fig
 
 def nyquist_3d_plotly_cols(datasets, title, x_col: int, y_col: int, negate_y: bool = True):
@@ -1146,6 +1281,9 @@ def nyquist_3d_plotly_cols(datasets, title, x_col: int, y_col: int, negate_y: bo
         margin=dict(l=0, r=0, b=0, t=40)
     )
 
+    if st.session_state.get("colorbar_mode", False):
+        _add_colorbar_3d(fig, datasets)
+
     return fig
 
 def drt_3d_plotly(datasets, title):
@@ -1207,6 +1345,9 @@ def drt_3d_plotly(datasets, title):
         ),
         margin=dict(l=0, r=0, b=0, t=40)
     )
+
+    if st.session_state.get("colorbar_mode", False):
+        _add_colorbar_3d(fig, datasets)
 
     return fig
 
@@ -1679,7 +1820,9 @@ def add_nyquist_png(zf: zipfile.ZipFile, datasets, title: str):
         ax.grid(True, linewidth=0.5, alpha=0.3)
 
     ax.set_aspect('equal', adjustable='box')
-    if not st.session_state.get("export_no_legend", False):
+    if st.session_state.get("colorbar_mode", False):
+        _add_mpl_colorbar(fig, ax, datasets)
+    elif not st.session_state.get("export_no_legend", False):
         ax.legend(
             loc="center left",
             bbox_to_anchor=(1.02, 0.5),
@@ -1860,7 +2003,10 @@ def add_nyquist_compare_png(
         ax.grid(True, linewidth=0.5, alpha=0.3)
 
     # Legend toggle
-    if not st.session_state.get("export_no_legend", False):
+    if st.session_state.get("colorbar_mode", False):
+        pseudo = [(latex_label(display_name_map.get(f.name, f.stem)), None) for f in files_to_process]
+        _add_mpl_colorbar(fig, ax, pseudo)
+    elif not st.session_state.get("export_no_legend", False):
         ax.legend(
             loc="center left",
             bbox_to_anchor=(1.02, 0.5),
@@ -1981,7 +2127,7 @@ def add_drt_3d_png(zf: zipfile.ZipFile, datasets, title: str):
         margin=dict(l=0, r=250, b=40, t=20)
     )
 
-    if st.session_state.get("export_no_legend", False):
+    if st.session_state.get("export_no_legend", False) or st.session_state.get("colorbar_mode", False):
 
         fig.update_layout(
             showlegend=False,
@@ -2070,7 +2216,9 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
     else:
         ax.grid(True, linewidth=0.5, alpha=0.3)
 
-    if len(datasets) > 1 and not st.session_state.get("export_no_legend", False):
+    if st.session_state.get("colorbar_mode", False):
+        _add_mpl_colorbar(fig, ax, datasets)
+    elif len(datasets) > 1 and not st.session_state.get("export_no_legend", False):
         ax.legend(
             loc="center left",
             bbox_to_anchor=(1.02, 0.5),
@@ -2163,6 +2311,9 @@ def nyquist_fit_3d_plotly(datasets, title="Nyquist – DRT Smooth Fit (3D)"):
         ),
         margin=dict(l=0, r=0, b=0, t=40)
     )
+
+    if st.session_state.get("colorbar_mode", False):
+        _add_colorbar_3d(fig, datasets)
 
     return fig
 
@@ -2263,7 +2414,7 @@ def add_nyquist_fit_3d_png(zf: zipfile.ZipFile, datasets, title: str = "Nyquist_
         ),
         margin=dict(l=0, r=250, b=40, t=20)
     )
-    if st.session_state.get("export_no_legend", False):
+    if st.session_state.get("export_no_legend", False) or st.session_state.get("colorbar_mode", False):
 
         fig.update_layout(
             showlegend=False,
@@ -2293,7 +2444,7 @@ def add_nyquist_fit_3d_png(zf: zipfile.ZipFile, datasets, title: str = "Nyquist_
         )
 
         zf.writestr(f"Nyquist_3D/{title}_3D.{fmt}", img_bytes)
-    
+
 def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
 
     fig = nyquist_3d_plotly(datasets, title)
@@ -2420,7 +2571,7 @@ def add_nyquist_3d_png(zf: zipfile.ZipFile, datasets, title: str):
         margin=dict(l=40, r=220, b=40, t=40)
     )
 
-    if st.session_state.get("export_no_legend", False):
+    if st.session_state.get("export_no_legend", False) or st.session_state.get("colorbar_mode", False):
 
         fig.update_layout(
             showlegend=False,
@@ -2528,7 +2679,9 @@ def add_bode_png(zf: zipfile.ZipFile, datasets, title: str, real: bool):
         ax.grid(True, linewidth=0.5, alpha=0.3)
 
     # ---- Legend BELOW ----
-    if not st.session_state.get("export_no_legend", False):
+    if st.session_state.get("colorbar_mode", False):
+        _add_mpl_colorbar(fig, ax, datasets)
+    elif not st.session_state.get("export_no_legend", False):
         ax.legend(
             loc="center left",
             bbox_to_anchor=(1.02, 0.5),
@@ -2586,7 +2739,9 @@ def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
         ax.grid(True, linewidth=0.5, alpha=0.3)
 
     # ---- Legend BELOW ----
-    if not st.session_state.get("export_no_legend", False):
+    if st.session_state.get("colorbar_mode", False):
+        _add_mpl_colorbar(fig, ax, datasets)
+    elif not st.session_state.get("export_no_legend", False):
         ax.legend(
             loc="center left",
             bbox_to_anchor=(1.02, 0.5),
@@ -3428,6 +3583,12 @@ with st.sidebar:
     st.header("3D Visualization")
     nyquist_3d = st.checkbox("3D Nyquist", value=False)
     drt_3d = st.checkbox("3D DRT", value=False)
+    st.checkbox(
+        "Colorbar instead of legend",
+        value=False,
+        key="colorbar_mode",
+        help="Replaces the legend on all EIS and DRT plots with a continuous colorbar (4 tick labels)."
+    )
 
     st.header("Export")
     export_no_nyquist_markers = st.checkbox(
