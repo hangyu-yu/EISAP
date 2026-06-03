@@ -199,6 +199,8 @@ def gui_tab_eis(config, EIS, CNLS):
                                 default_value = True if EIS.parameter["Preprocessing"]["freq_cut"] is True else False,
                                 callback=lambda sender, app_data: check_box_eis_freq_cut_callback(sender, app_data, config),
                             )
+                            dpg.add_checkbox(tag="checkbox_negate_re", label="-Re", default_value=False)
+                            dpg.add_checkbox(tag="checkbox_negate_im", label="-Im", default_value=False)
                     with dpg.tab_bar(tag="tab_bar_eis_parameters"):
                         # Sample parameters
                         with dpg.tab(label="General", tag="tab_eis_parameter_general"):
@@ -291,7 +293,7 @@ def gui_tab_eis(config, EIS, CNLS):
                                 with dpg.table_row():
                                     dpg.add_text("Max. KK res. [%]")
                                     dpg.add_input_text(
-                                        tag="kk_threshold", 
+                                        tag="kk_threshold",
                                         enabled=not EIS.parameter["ManualRemoval"]["enable"],
                                         default_value=EIS.parameter["KK"]["kk_threshold"])
 

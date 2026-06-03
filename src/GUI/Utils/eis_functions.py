@@ -101,6 +101,10 @@ def data_import(sender, app_data, config, EIS):
                 EIS_tmp.filename = file_name
             EIS_tmp.raw['Re'] = data['Re/Ohm'].to_numpy()
             EIS_tmp.raw['Im'] = data['Im/Ohm'].to_numpy()
+            if dpg.does_item_exist("checkbox_negate_re") and dpg.get_value("checkbox_negate_re"):
+                EIS_tmp.raw['Re'] = -EIS_tmp.raw['Re']
+            if dpg.does_item_exist("checkbox_negate_im") and dpg.get_value("checkbox_negate_im"):
+                EIS_tmp.raw['Im'] = -EIS_tmp.raw['Im']
             EIS_tmp.raw['Z'] = EIS_tmp.raw['Re'] + 1j * EIS_tmp.raw['Im']
             EIS_tmp.raw['f'] = data['Frequency/Hz'].to_numpy()
             if 'Significance' in data.columns:
