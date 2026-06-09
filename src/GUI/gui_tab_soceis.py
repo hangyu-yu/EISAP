@@ -381,37 +381,52 @@ def launch_iv_viewer(config):
     except Exception as e:
         print(f"Failed to launch IV viewer: {e}")
 
-def launch_data_viewer(config):
-    """
-    在指定 Functions 目录下寻找 SOCEIS_view.py，并防止重复启动
-    """
-    # 1. 路径定位：当前文件 -> 上一级 -> Functions / SOCEIS_view.py
-    # gui_tab_soceis.py 在 src/GUI/Tabs/ (假设) 
-    # 或者根据你的实际结构：Path(__file__).parent.parent.parent / "Functions"
-    # 这里我们定义：当前文件的父目录的父目录下的 Functions 文件夹
+def launch_eis_viewer(config):
+    """Launch the EIS viewer (SOCEIS_view.py) Streamlit app."""
     current_file_path = Path(__file__).resolve()
     viewer_script = current_file_path.parent.parent / "Functions" / "SOCEIS_view.py"
 
     if not viewer_script.exists():
-        print(f"Error: Could not find viewer at {viewer_script}")
+        print(f"Error: Could not find EIS viewer at {viewer_script}")
         return
 
-    # 2. 获取当前选择的路径
     folder_path = config.folder_path if config.folder_path and "[Error]" not in config.folder_path else os.getcwd()
 
-    # 4. 启动进程
     cmd = [
         sys.executable, "-m", "streamlit", "run", str(viewer_script),
         "--", "--root_folder", str(folder_path)
     ]
-    
+
     try:
-        # 使用 subprocess.Popen 启动，不阻塞主 GUI
         proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        config.store['viewer_processes'].append(proc)  # 存储进程对象以便后续管理
-        print(f"Launching Data Viewer from: {viewer_script}")
+        config.store['viewer_processes'].append(proc)
+        print(f"Launching EIS Viewer from: {viewer_script}")
     except Exception as e:
-        print(f"Failed to launch: {e}")
+        print(f"Failed to launch EIS viewer: {e}")
+
+
+def launch_beckhoff_viewer(config):
+    """Launch the Beckhoff Data Viewer (Beckhoff_view.py) Streamlit app."""
+    current_file_path = Path(__file__).resolve()
+    viewer_script = current_file_path.parent.parent / "Functions" / "Beckhoff_view.py"
+
+    if not viewer_script.exists():
+        print(f"Error: Could not find Beckhoff viewer at {viewer_script}")
+        return
+
+    folder_path = config.folder_path if config.folder_path and "[Error]" not in config.folder_path else os.getcwd()
+
+    cmd = [
+        sys.executable, "-m", "streamlit", "run", str(viewer_script),
+        "--", "--root_folder", str(folder_path)
+    ]
+
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        config.store['viewer_processes'].append(proc)
+        print(f"Launching Beckhoff Data Viewer from: {viewer_script}")
+    except Exception as e:
+        print(f"Failed to launch Beckhoff viewer: {e}")
 
 # Main function to create the SOCEIS tab
 def gui_tab_soceis(config, EIS, CNLS):
@@ -583,8 +598,9 @@ def gui_tab_soceis(config, EIS, CNLS):
                     dpg.add_button(label="EIS analysis", callback=lambda: gui.gui_tab_eis(config, EIS, CNLS))
                     dpg.add_button(label="DRT analysis", callback=lambda: gui.gui_tab_drt(config, EIS, CNLS))
                     dpg.add_button(label="CNLS fitting", callback=lambda: gui.gui_tab_cnls(config, EIS, CNLS))
+                    dpg.add_button(label="EIS viewer", callback=lambda: launch_eis_viewer(config))
                     dpg.add_button(label="IV curve", callback=lambda: launch_iv_viewer(config))
-                    dpg.add_button(label="Data viewer", callback=lambda: launch_data_viewer(config))
+                    dpg.add_button(label="Data viewer", callback=lambda: launch_beckhoff_viewer(config))
 
     # Apply one-time size adjustment; global callback is set in gui_main.
     update_image_sizes()
