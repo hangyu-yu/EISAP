@@ -298,13 +298,12 @@ def gui_tab_cnls(config, EIS, CNLS):
                                         callback=lambda s, a: gui_utils.cnls_functions.update_data_type(s, a, config)
                                     )
                                 with dpg.table_row():
-                                    dpg.add_text("Peak ID:")
-                                    dpg.add_combo(
-                                        tag="combo_peak_ID",
-                                        default_value = 'fixed',
-                                        width = -1,
-                                        items = ["fixed", "manual", "auto"],
-                                        callback=lambda s, a: gui_utils.cnls_functions.peak_mode(s, a, config)
+                                    dpg.add_text("Peaks")
+                                    dpg.add_button(
+                                        tag="button_select_peaks",
+                                        label="Select from DRT",
+                                        width=-1,
+                                        callback=lambda s, a: gui_utils.cnls_functions.open_peak_select_window(config)
                                     )
                                 with dpg.table_row():
                                     dpg.add_text("Nbr iters:")

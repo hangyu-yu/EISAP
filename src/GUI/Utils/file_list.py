@@ -652,13 +652,13 @@ def display_file(sender, app_data, config, refresh_eis_tab=True, refresh_drt_tab
             _safe_set_value("instrument_type", EIS_tmp.parameter['Sample']['instrument_type'])
             _safe_set_value("check_box_eis_freq_cut", EIS_tmp.parameter['Preprocessing']['freq_cut'])
             if EIS_tmp.parameter['Preprocessing']['freq_cut']:
-                dpg.set_value("text_num_cut_upper", "Upper cut [Hz]:")
-                dpg.set_value("text_num_cut_lower", "Lower cut [Hz]:")
+                _safe_set_value("text_num_cut_upper", "Upper cut [Hz]:")
+                _safe_set_value("text_num_cut_lower", "Lower cut [Hz]:")
                 _safe_set_value("num_cut_upper", f"{float(EIS_tmp.parameter['Preprocessing']['num_cut_upper']):.2f}")
                 _safe_set_value("num_cut_lower", f"{float(EIS_tmp.parameter['Preprocessing']['num_cut_lower']):.2f}")
             else:
-                dpg.set_value("text_num_cut_upper", "Upper cut:")
-                dpg.set_value("text_num_cut_lower", "Lower cut:")
+                _safe_set_value("text_num_cut_upper", "Upper cut:")
+                _safe_set_value("text_num_cut_lower", "Lower cut:")
                 _safe_set_value("num_cut_upper", f"{int(EIS_tmp.parameter['Preprocessing']['num_cut_upper'])}")
                 _safe_set_value("num_cut_lower", f"{int(EIS_tmp.parameter['Preprocessing']['num_cut_lower'])}")
             _safe_set_value("sig_threshold", f"{float(EIS_tmp.parameter['RM_significance']['sig_threshold']):.3f}")
@@ -773,7 +773,6 @@ def display_file(sender, app_data, config, refresh_eis_tab=True, refresh_drt_tab
                 )
                 dpg.configure_item("combo_cnls_data_type", default_value=cnls_data_type)
                 config.store[_file_key]['CNLS'].data_type = cnls_data_type
-                dpg.configure_item("combo_peak_ID", default_value=config.store[_file_key]['CNLS'].f_mode)
                 dpg.configure_item("input_nbr_iters", default_value=config.store[_file_key]['CNLS'].iteration)
                 dpg.configure_item("input_nbr_peaks", default_value=len(config.store[_file_key]['CNLS'].f_fixed)) if config.store[_file_key]['CNLS'].f_fixed is not None else 6
                 gui_utils.cnls_functions.dynamic_peak_ids(0, 0, config)

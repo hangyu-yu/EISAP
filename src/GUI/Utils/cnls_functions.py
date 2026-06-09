@@ -199,7 +199,7 @@ def dynamic_peak_ids(sender, appdata, config):
         config: Configuration object.
     """
     nbr_peaks = dpg.get_value("input_nbr_peaks")
-    enable_state = (dpg.get_value("combo_peak_ID") == "fixed")
+    enable_state = True
     _update_peak_fixed(None, 0, config)
     if 'nbr_peaks' in config.store.keys():
         for i in range(config.store['nbr_peaks']):
@@ -234,21 +234,268 @@ def dynamic_peak_ids(sender, appdata, config):
             )
     config.store['nbr_peaks'] = nbr_peaks
 
-def peak_mode(sender, appdata, config):
-    """Callback function for peak ID selection.
-    
-    Args:
-        sender: Sender of the callback.
-        appdata: Application data.
-        config: Configuration object.
+
+PEAK_SELECT_WINDOW_TAG = "cnls_peak_select_window"
+PEAK_SELECT_HANDLERS_TAG = "cnls_peak_select_handlers"
+
+# Indices (into the DRT point array) currently selected in the open selector window.
+_peak_select_indices = set()
+
+
+def _close_peak_select_window():
+    if dpg.does_item_exist(PEAK_SELECT_HANDLERS_TAG):
+        dpg.delete_item(PEAK_SELECT_HANDLERS_TAG)
+    if dpg.does_item_exist(PEAK_SELECT_WINDOW_TAG):
+        dpg.delete_item(PEAK_SELECT_WINDOW_TAG)
+
+
+def open_peak_select_window(config):
+    """Open a window showing the DRT data points so the user can pick peak positions.
+
+    Points are selected by clicking them on the scatter plot; the left panel lists
+    only the currently selected points. The x-axis follows the 'x-tau' option
+    (frequency or tau). On apply, selected points are ranked from high to low
+    frequency and written into the peak frequency list, with 'Nbr peaks' updated
+    to the number of selected points.
     """
-    if appdata == "fixed":
-        dpg.configure_item("input_nbr_peaks", enabled=True)
-    else:
-        dpg.configure_item("input_nbr_peaks", enabled=False)
-    file_name_no_ext = os.path.splitext(config.display_file)[0]
-    config.store[file_name_no_ext]['CNLS'].f_mode = appdata
-    dynamic_peak_ids(sender, appdata, config)
+    import src.GUI.Utils.progress_modal as _pm
+
+    if config.display_file in (None, "", []):
+        return
+
+    file_key = os.path.splitext(config.display_file)[0]
+    if (file_key not in config.store or 'CNLS' not in config.store[file_key]
+            or config.store[file_key].get('EIS') is None):
+        _pm.show_error_dialog(
+            "CNLS — Select Peaks",
+            f"'{config.display_file}' has no processed CNLS/EIS data.\n"
+            "Please initialize the data before selecting peaks."
+        )
+        return
+
+    CNLS_tmp = config.store[file_key]['CNLS']
+    EIS_tmp = config.store[file_key]['EIS']
+    try:
+        apply_cnls_reference_data(CNLS_tmp, EIS_tmp)
+    except Exception as e:
+        _pm.show_error_dialog("CNLS — Select Peaks", f"DRT reference data unavailable:\n{e}")
+        return
+
+    f_drt = CNLS_tmp.f_drt if getattr(CNLS_tmp, "f_drt", None) is not None else CNLS_tmp.f
+    drt = CNLS_tmp.DRTmes
+    if f_drt is None or drt is None or len(f_drt) == 0:
+        _pm.show_error_dialog("CNLS — Select Peaks", "No DRT data points available for this file.")
+        return
+
+    f_drt = np.asarray(f_drt, dtype=float)
+    drt = np.asarray(drt, dtype=float)
+    n = len(f_drt)
+
+    use_tau = dpg.get_value("check_box_cnls_tau")
+    x_vals = f_drt if not use_tau else 1.0 / (2.0 * np.pi * f_drt)
+    x_label = "Frequency [Hz]" if not use_tau else "tau [s]"
+
+    # Pre-select grid points nearest to the stored fixed frequencies, but only when
+    # an existing CNLS data file is present. For a fresh file (no saved CNLS .xlsx),
+    # start with a cleared selection instead of mapping the default frequencies.
+    _peak_select_indices.clear()
+    _folder = getattr(CNLS_tmp, "file_folder", None) or config.folder_path
+    _fname = getattr(CNLS_tmp, "filename", None) or config.display_file
+    has_existing_cnls = False
+    try:
+        if _folder and _fname:
+            _cnls_file = os.path.join(_folder, "CNLS", os.path.splitext(os.path.basename(_fname))[0] + ".xlsx")
+            has_existing_cnls = os.path.exists(_cnls_file)
+    except Exception:
+        has_existing_cnls = False
+
+    # Pre-select when a saved CNLS file exists OR the user already applied a
+    # selection for this file in this session; otherwise start cleared.
+    applied = config.store.get("cnls_peaks_applied", set())
+    if has_existing_cnls or file_key in applied:
+        f_fixed = getattr(CNLS_tmp, "f_fixed", None)
+        if f_fixed is not None:
+            for ff in f_fixed:
+                try:
+                    _peak_select_indices.add(int(np.argmin(np.abs(f_drt - float(ff)))))
+                except Exception:
+                    continue
+
+    # Precompute log-x for robust nearest-point detection on a log axis.
+    with np.errstate(divide='ignore', invalid='ignore'):
+        log_x = np.log10(np.where(x_vals > 0, x_vals, np.nan))
+    x_range = (np.nanmax(log_x) - np.nanmin(log_x)) or 1.0
+    y_range = (np.nanmax(drt) - np.nanmin(drt)) or 1.0
+
+    def _update_sel_series():
+        sel = sorted(_peak_select_indices)
+        sx = [float(x_vals[i]) for i in sel]
+        sy = [float(drt[i]) for i in sel]
+        if dpg.does_item_exist("cnls_peak_select_series_sel"):
+            dpg.set_value("cnls_peak_select_series_sel", [sx, sy])
+        if dpg.does_item_exist("cnls_peak_select_count"):
+            dpg.set_value("cnls_peak_select_count", f"Selected peaks: {len(sel)}")
+
+    def _refresh_selected_table():
+        if not dpg.does_item_exist("cnls_peak_select_table"):
+            return
+        dpg.delete_item("cnls_peak_select_table", children_only=True, slot=1)
+        # Rank selected points high -> low frequency.
+        for rank, i in enumerate(sorted(_peak_select_indices, key=lambda k: f_drt[k], reverse=True)):
+            with dpg.table_row(parent="cnls_peak_select_table"):
+                dpg.add_text(str(rank + 1))
+                dpg.add_text(f"{float(f_drt[i]):.4e}")
+                dpg.add_text(f"{1.0 / (2.0 * np.pi * float(f_drt[i])):.4e}")
+                dpg.add_text(f"{float(drt[i]):.4e}")
+                dpg.add_button(label="x", small=True, user_data=i, callback=_remove_index)
+
+    def _remove_index(sender, app_data, user_data):
+        _peak_select_indices.discard(int(user_data))
+        _update_sel_series()
+        _refresh_selected_table()
+
+    def _nearest_idx(mx, my):
+        lmx = np.log10(mx) if mx > 0 else np.nanmin(log_x)
+        dist = ((log_x - lmx) / x_range) ** 2 + ((drt - my) / y_range) ** 2
+        return int(np.nanargmin(dist))
+
+    def _hover():
+        if not dpg.is_item_hovered("cnls_peak_select_plot"):
+            return
+        mx, my = dpg.get_plot_mouse_pos()
+        idx = _nearest_idx(mx, my)
+        # Pointer marker follows the nearest data point under the cursor.
+        if dpg.does_item_exist("cnls_peak_select_series_ptr"):
+            dpg.set_value("cnls_peak_select_series_ptr", [[float(x_vals[idx])], [float(drt[idx])]])
+        dpg.set_value(
+            "cnls_peak_select_hover",
+            f"Pointer -> Index: {idx + 1} | f: {f_drt[idx]:.3e} Hz | "
+            f"tau: {1.0 / (2.0 * np.pi * f_drt[idx]):.3e} s | gamma: {drt[idx]:.3e}"
+        )
+
+    def _toggle_nearest():
+        if not dpg.is_item_hovered("cnls_peak_select_plot"):
+            return
+        mx, my = dpg.get_plot_mouse_pos()
+        idx = _nearest_idx(mx, my)
+        if idx in _peak_select_indices:
+            _peak_select_indices.discard(idx)
+        else:
+            _peak_select_indices.add(idx)
+        _update_sel_series()
+        _refresh_selected_table()
+
+    _close_peak_select_window()
+
+    dpg.add_window(
+        tag=PEAK_SELECT_WINDOW_TAG,
+        label="Select DRT Peaks: " + config.display_file,
+        modal=True,
+        width=1200,
+        height=700,
+        no_collapse=True,
+        no_resize=False,
+    )
+
+    dpg.add_group(parent=PEAK_SELECT_WINDOW_TAG, tag="cnls_peak_select_group", horizontal=True)
+    dpg.add_child_window(parent="cnls_peak_select_group", tag="cnls_peak_select_left", width=420, height=-55, border=True)
+    dpg.add_child_window(parent="cnls_peak_select_group", tag="cnls_peak_select_right", width=-1, height=-55, border=True)
+
+    # ---- LEFT: selected points only ----
+    dpg.add_text(parent="cnls_peak_select_left", default_value="Click points on the plot to select.")
+    dpg.add_table(
+        parent="cnls_peak_select_left",
+        tag="cnls_peak_select_table",
+        header_row=True,
+        resizable=True,
+        scrollX=True,
+        scrollY=True,
+        borders_innerV=True,
+        borders_outerV=True,
+        borders_outerH=True,
+        policy=dpg.mvTable_SizingFixedFit,
+        height=-1,
+    )
+    dpg.add_table_column(parent="cnls_peak_select_table", label="Peak", width_fixed=True, init_width_or_weight=45)
+    dpg.add_table_column(parent="cnls_peak_select_table", label="Freq [Hz]", width_fixed=True, init_width_or_weight=110)
+    dpg.add_table_column(parent="cnls_peak_select_table", label="tau [s]", width_fixed=True, init_width_or_weight=110)
+    dpg.add_table_column(parent="cnls_peak_select_table", label="gamma", width_fixed=True, init_width_or_weight=110)
+    dpg.add_table_column(parent="cnls_peak_select_table", label="", width_fixed=True, init_width_or_weight=30)
+
+    # ---- PLOT ----
+    dpg.add_plot(parent="cnls_peak_select_right", tag="cnls_peak_select_plot", width=-1, height=-1, no_menus=False)
+    dpg.add_plot_axis(dpg.mvXAxis, parent="cnls_peak_select_plot", tag="cnls_peak_select_x", label=x_label, log_scale=True)
+    dpg.add_plot_axis(dpg.mvYAxis, parent="cnls_peak_select_plot", tag="cnls_peak_select_y", label="gamma [ohm·s·cm2]")
+    # DRT drawn as a scatter-line (single line series with circle markers) so the
+    # default palette keeps the original blue for DRT and orange for Selected.
+    # Labels starting with "##" stay plotted but are hidden from the legend.
+    dpg.add_line_series(x_vals.tolist(), drt.tolist(), parent="cnls_peak_select_y", tag="cnls_peak_select_series_drt_line", label="DRT")
+    dpg.add_scatter_series([], [], parent="cnls_peak_select_y", tag="cnls_peak_select_series_sel", label="Selected")
+    dpg.add_scatter_series([], [], parent="cnls_peak_select_y", tag="cnls_peak_select_series_ptr", label="##pointer")
+    dpg.add_plot_legend(parent="cnls_peak_select_plot")
+
+    # Show hollow circle markers on the DRT line and keep the Selected markers hollow,
+    # leaving marker outline colors on the default palette (original blue / orange).
+    with dpg.theme() as _drt_line_theme:
+        with dpg.theme_component(dpg.mvLineSeries):
+            dpg.add_theme_style(dpg.mvPlotStyleVar_Marker, dpg.mvPlotMarker_Circle, category=dpg.mvThemeCat_Plots)
+            dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0, 0, 0, 0), category=dpg.mvThemeCat_Plots)
+    with dpg.theme() as _sel_scatter_theme:
+        with dpg.theme_component(dpg.mvScatterSeries):
+            dpg.add_theme_color(dpg.mvPlotCol_MarkerFill, (0, 0, 0, 0), category=dpg.mvThemeCat_Plots)
+    dpg.bind_item_theme("cnls_peak_select_series_drt_line", _drt_line_theme)
+    dpg.bind_item_theme("cnls_peak_select_series_sel", _sel_scatter_theme)
+
+    dpg.add_text(parent="cnls_peak_select_right", default_value="Selected peaks: 0", tag="cnls_peak_select_count")
+    dpg.add_text(parent="cnls_peak_select_right", default_value="Pointer -> Index: -", tag="cnls_peak_select_hover")
+
+    dpg.add_handler_registry(tag=PEAK_SELECT_HANDLERS_TAG)
+    dpg.add_mouse_move_handler(parent=PEAK_SELECT_HANDLERS_TAG, callback=lambda s, a: _hover())
+    dpg.add_mouse_click_handler(parent=PEAK_SELECT_HANDLERS_TAG, button=dpg.mvMouseButton_Left, callback=lambda s, a: _toggle_nearest())
+
+    _update_sel_series()
+    _refresh_selected_table()
+    dpg.fit_axis_data("cnls_peak_select_x")
+    dpg.fit_axis_data("cnls_peak_select_y")
+
+    # ---- Buttons ----
+    dpg.add_separator(parent=PEAK_SELECT_WINDOW_TAG)
+    dpg.add_group(parent=PEAK_SELECT_WINDOW_TAG, tag="cnls_peak_select_buttons", horizontal=True)
+    dpg.add_button(parent="cnls_peak_select_buttons", label="Apply selection", callback=lambda: _apply_peak_selection(config, f_drt))
+    dpg.add_button(parent="cnls_peak_select_buttons", label="Clear", callback=lambda: (_peak_select_indices.clear(), _update_sel_series(), _refresh_selected_table()))
+    dpg.add_button(parent="cnls_peak_select_buttons", label="Cancel", callback=lambda: _close_peak_select_window())
+
+
+def _apply_peak_selection(config, f_drt):
+    """Write the selected DRT points into the peak frequency list (ranked high->low)."""
+    import src.GUI.Utils.progress_modal as _pm
+
+    indices = sorted(_peak_select_indices)
+    if not indices:
+        _pm.show_warning_dialog(
+            "CNLS — Select Peaks",
+            "No DRT points selected. Please select at least one point."
+        )
+        return
+
+    freqs = sorted((float(f_drt[i]) for i in indices), reverse=True)
+
+    file_key = os.path.splitext(config.display_file)[0]
+    CNLS_tmp = config.store[file_key]['CNLS']
+    config.store["peak_fixed_frequencies"] = list(freqs)
+    CNLS_tmp.f_fixed = list(freqs)
+    CNLS_tmp.f_mode = "fixed"
+    # Remember that this file has a user-applied selection so reopening the
+    # window restores it instead of auto-clearing.
+    config.store.setdefault("cnls_peaks_applied", set()).add(file_key)
+
+    if dpg.does_item_exist("input_nbr_peaks"):
+        dpg.set_value("input_nbr_peaks", len(freqs))
+    dynamic_peak_ids(None, 0, config)
+
+    _close_peak_select_window()
+    print(f"---- {len(freqs)} peak frequencies set from DRT selection.")
+
 
 def update_data_type(sender, appdata, config):
     """Update the data type for CNLS fitting.
@@ -1028,7 +1275,7 @@ def initialize_parameters(sender, appdata, config):
 
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
-            CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
+            CNLS_tmp.f_mode = "fixed"
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
             CNLS_tmp.R_cons = None if not dpg.get_value("checkbox_cnls_R_percentage") else dpg.get_value("input_constraints_R_percentage")
             CNLS_tmp.Tau_cons = None if not dpg.get_value("checkbox_cnls_Tau_percentage") else dpg.get_value("input_constraints_Tau_percentage")
@@ -1199,7 +1446,7 @@ def load_parameters(sender, appdata, config):
                 dpg.set_value("check_box_cnls_rs_lb_drt", bool(getattr(CNLS_tmp, "Rs_LB_DRT", False)))
             CNLS_tmp.iteration = dpg.get_value('input_nbr_iters')
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
-            CNLS_tmp.f_mode = dpg.get_value("combo_peak_ID")
+            CNLS_tmp.f_mode = "fixed"
             CNLS_tmp.RC_fit_switch = dpg.get_value("check_box_cnls_rc_initialization")
             CNLS_tmp.R_cons = None if not dpg.get_value("checkbox_cnls_R_percentage") else dpg.get_value("input_constraints_R_percentage")
             CNLS_tmp.Tau_cons = None if not dpg.get_value("checkbox_cnls_Tau_percentage") else dpg.get_value("input_constraints_Tau_percentage")
