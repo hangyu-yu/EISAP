@@ -381,8 +381,25 @@ def launch_iv_viewer(config):
     except Exception as e:
         print(f"Failed to launch IV viewer: {e}")
 
+def _ensure_streamlit_no_email_prompt():
+    """Pre-create ~/.streamlit/credentials.toml so Streamlit skips its one-time
+    email prompt on first run. An empty email is accepted by Streamlit as a valid
+    (anonymous) activation, so the prompt never appears and the background-launched
+    viewer is not blocked. An existing file is left untouched (respects a user who
+    already registered)."""
+    try:
+        cred_path = Path.home() / ".streamlit" / "credentials.toml"
+        if cred_path.exists():
+            return
+        cred_path.parent.mkdir(parents=True, exist_ok=True)
+        cred_path.write_text('[general]\nemail = ""\n', encoding="utf-8")
+    except Exception as e:
+        print(f"[Warning] Could not pre-configure Streamlit credentials: {e}")
+
+
 def launch_eis_viewer(config):
     """Launch the EIS viewer (SOCEIS_view.py) Streamlit app."""
+    _ensure_streamlit_no_email_prompt()
     current_file_path = Path(__file__).resolve()
     viewer_script = current_file_path.parent.parent / "Functions" / "SOCEIS_view.py"
 
@@ -407,6 +424,7 @@ def launch_eis_viewer(config):
 
 def launch_beckhoff_viewer(config):
     """Launch the Beckhoff Data Viewer (Beckhoff_view.py) Streamlit app."""
+    _ensure_streamlit_no_email_prompt()
     current_file_path = Path(__file__).resolve()
     viewer_script = current_file_path.parent.parent / "Functions" / "Beckhoff_view.py"
 

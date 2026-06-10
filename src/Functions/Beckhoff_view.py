@@ -267,6 +267,13 @@ def _is_datetime_like(series) -> bool:
     return pd.api.types.is_datetime64_any_dtype(series)
 
 
+def _range_from(vmin, vmax):
+    """Return [vmin, vmax] only when both bounds are provided, else None (auto-scale)."""
+    if vmin is not None and vmax is not None:
+        return [float(vmin), float(vmax)]
+    return None
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Data loading
 # ═════════════════════════════════════════════════════════════════════════════
@@ -335,7 +342,8 @@ def _plot_cols(data: pd.DataFrame) -> List[str]:
 
 def build_beckhoff_figure(data, time_x, y1_cols, y2_cols, colors, time_label,
                           legend_pos_cfg, show_legend, legend_font_size, line_width,
-                          legend_names=None, x_range=None, y1_title="", y2_title=""):
+                          legend_names=None, x_range=None, y1_title="", y2_title="",
+                          y1_range=None, y2_range=None):
     if legend_names is None:
         legend_names = {}
     has_y2 = bool(y2_cols)
@@ -376,6 +384,14 @@ def build_beckhoff_figure(data, time_x, y1_cols, y2_cols, colors, time_label,
     )
     if x_range is not None:
         fig.update_xaxes(range=x_range)
+
+    if has_y2:
+        if y1_range is not None:
+            fig.update_yaxes(range=y1_range, secondary_y=False)
+        if y2_range is not None:
+            fig.update_yaxes(range=y2_range, secondary_y=True)
+    elif y1_range is not None:
+        fig.update_yaxes(range=y1_range)
     return fig
 
 
@@ -389,7 +405,8 @@ def _mpl_fig_to_bytes(mpl_fig, fmt: str) -> bytes:
 
 def _build_mpl_figure(data, time_x, y1_cols, y2_cols, colors, time_label,
                       show_legend, legend_font_size, line_width, legend_names=None,
-                      x_range=None, y1_title="", y2_title=""):
+                      x_range=None, y1_title="", y2_title="",
+                      y1_range=None, y2_range=None):
     if legend_names is None:
         legend_names = {}
     has_y2 = bool(y2_cols)
@@ -421,6 +438,8 @@ def _build_mpl_figure(data, time_x, y1_cols, y2_cols, colors, time_label,
                      label=legend_names.get(col, col))
         auto_y2 = ", ".join(y2_cols[:2]) + ("…" if len(y2_cols) > 2 else "")
         ax2.set_ylabel(y2_title.strip() or auto_y2, fontsize=9)
+        if y2_range is not None:
+            ax2.set_ylim(y2_range[0], y2_range[1])
         if show_legend:
             h1, l1 = ax1.get_legend_handles_labels()
             h2, l2 = ax2.get_legend_handles_labels()
@@ -431,6 +450,8 @@ def _build_mpl_figure(data, time_x, y1_cols, y2_cols, colors, time_label,
 
     if x_range is not None:
         ax1.set_xlim(x_range[0], x_range[1])
+    if y1_range is not None:
+        ax1.set_ylim(y1_range[0], y1_range[1])
 
     fig.tight_layout()
     return fig
@@ -580,10 +601,17 @@ _x_range = None
 if st.session_state.get("bk_xlim"):
     _xmin_h = float(st.session_state.get("bk_xmin", 0.0))
     _xmax_h = float(st.session_state.get("bk_xmax", 24.0))
-    _x_range = [
-        _hours_to_axis(_xmin_h, use_abs_time, epoch_str, time_unit),
-        _hours_to_axis(_xmax_h, use_abs_time, epoch_str, time_unit),
-    ]
+    if use_abs_time:
+        _x_range = [
+            _hours_to_axis(_xmin_h, use_abs_time, epoch_str, time_unit),
+            _hours_to_axis(_xmax_h, use_abs_time, epoch_str, time_unit),
+        ]
+    else:
+        # Elapsed mode: re-base the axis so the lower bound reads 0 on the tick labels
+        _xmin_axis = _hours_to_axis(_xmin_h, False, epoch_str, time_unit)
+        _xmax_axis = _hours_to_axis(_xmax_h, False, epoch_str, time_unit)
+        time_x = time_x - _xmin_axis
+        _x_range = [0.0, _xmax_axis - _xmin_axis]
 
 # ── Multi-plot state ──────────────────────────────────────────────────────────
 if "bk_n_plots" not in st.session_state:
@@ -658,6 +686,20 @@ def _plot_panel(i: int, data: pd.DataFrame, time_x, plottable: List[str],
             key=f"bk_ytitle2_{i}",
         )
 
+    with st.expander("Y-axis limits", expanded=False):
+        st.caption("Leave blank for auto-scaling")
+        yl_c1, yl_c2 = st.columns(2)
+        y1_min_i = yl_c1.number_input("Left Y min", value=None, placeholder="auto", key=f"bk_y1min_{i}")
+        y1_max_i = yl_c2.number_input("Left Y max", value=None, placeholder="auto", key=f"bk_y1max_{i}")
+        yr_c1, yr_c2 = st.columns(2)
+        y2_min_i = yr_c1.number_input("Right Y min", value=None, placeholder="auto",
+                                      disabled=not use_y2_i, key=f"bk_y2min_{i}")
+        y2_max_i = yr_c2.number_input("Right Y max", value=None, placeholder="auto",
+                                      disabled=not use_y2_i, key=f"bk_y2max_{i}")
+
+    y1_range_i = _range_from(y1_min_i, y1_max_i)
+    y2_range_i = _range_from(y2_min_i, y2_max_i) if use_y2_i else None
+
     legend_names_i: dict = {
         col: st.session_state.get(f"bk_lgnd_{i}_{col}", col) for col in all_cols_i
     }
@@ -675,6 +717,7 @@ def _plot_panel(i: int, data: pd.DataFrame, time_x, plottable: List[str],
             data, time_x, y1_cols_i, y2_cols_i, colors_i, time_label,
             legend_pos_cfg, show_legend, legend_font_size, line_width, legend_names_i,
             x_range=x_range, y1_title=y1_title_i, y2_title=y2_title_i,
+            y1_range=y1_range_i, y2_range=y2_range_i,
         )
     else:
         fig_i = go.Figure()
@@ -715,11 +758,16 @@ for _i in range(n_plots):
     _lgnd    = {col: st.session_state.get(f"bk_lgnd_{_i}_{col}", col) for col in _y1 + _y2}
     _ytitle1 = st.session_state.get(f"bk_ytitle1_{_i}", "")
     _ytitle2 = st.session_state.get(f"bk_ytitle2_{_i}", "")
-    _plot_configs.append((_y1, _y2, _lgnd, _ytitle1, _ytitle2))
+    _y1rng   = _range_from(st.session_state.get(f"bk_y1min_{_i}"),
+                           st.session_state.get(f"bk_y1max_{_i}"))
+    _y2rng   = (_range_from(st.session_state.get(f"bk_y2min_{_i}"),
+                            st.session_state.get(f"bk_y2max_{_i}"))
+                if st.session_state.get(f"bk_use_y2_{_i}", False) else None)
+    _plot_configs.append((_y1, _y2, _lgnd, _ytitle1, _ytitle2, _y1rng, _y2rng))
 
 if save_zip:
-    active = [(i, y1, y2, lgnd, yt1, yt2)
-              for i, (y1, y2, lgnd, yt1, yt2) in enumerate(_plot_configs) if y1 or y2]
+    active = [(i, y1, y2, lgnd, yt1, yt2, y1r, y2r)
+              for i, (y1, y2, lgnd, yt1, yt2, y1r, y2r) in enumerate(_plot_configs) if y1 or y2]
     if not active:
         st.warning("No channels selected — nothing to export.")
     else:
@@ -729,13 +777,14 @@ if save_zip:
             zip_path = export_folder / f"Beckhoff_figures_{ts_str}.zip"
 
             with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-                for idx, y1, y2, lgnd, yt1, yt2 in active:
+                for idx, y1, y2, lgnd, yt1, yt2, y1r, y2r in active:
                     n_ch     = max(2, len(y1) + len(y2))
                     colors_i = sample_palette_colors(st.session_state.bk_palette, n=n_ch)
                     mpl_fig  = _build_mpl_figure(
                         data, time_x, y1, y2, colors_i,
                         time_label, show_legend, int(legend_font_size), line_width, lgnd,
                         x_range=_x_range, y1_title=yt1, y2_title=yt2,
+                        y1_range=y1r, y2_range=y2r,
                     )
                     suffix = f"_plot{idx+1}" if len(active) > 1 else ""
                     for fmt in export_formats:

@@ -437,6 +437,11 @@ with st.sidebar:
         st.session_state.iv_selected_files = []
         st.session_state["custom_names"]    = {}
         st.session_state["iv_last_root"]    = str(root)
+        # Keep the export folder following the data folder
+        st.session_state.iv_export_input    = (
+            str(root / "IV_figures") if root.is_dir()
+            else str(DEFAULT_ROOT_FOLDER / "IV_figures")
+        )
 
     if "iv_selected_files" not in st.session_state:
         st.session_state.iv_selected_files = []

@@ -1198,10 +1198,14 @@ def drt_plotly(datasets, title):
             line=dict(color=COLOR_PALETTE[i % len(COLOR_PALETTE)]),
         )
 
+    _yaxis = dict(title="γ [Ω·s·cm²]")
+    if st.session_state.get("drt_y_from_zero", True):
+        _yaxis["range"] = [0, ymax]
+
     fig.update_layout(
         title=f"DRT – {title}",
         xaxis=dict(title="Frequency [Hz]", type="log"),
-        yaxis=dict(title="γ [Ω·s·cm²]", range=[0, ymax]),
+        yaxis=_yaxis,
         template="plotly_dark",
     )
 
@@ -2804,7 +2808,8 @@ def add_drt_png(zf: zipfile.ZipFile, datasets, title: str):
     if all_freq:
         ax.set_xlim(min(all_freq), max(all_freq))
 
-    ax.set_ylim(0, 1.05 * ymax if ymax > 0 else 1)
+    if st.session_state.get("drt_y_from_zero", True):
+        ax.set_ylim(0, 1.05 * ymax if ymax > 0 else 1)
 
     ax.set_xlabel("Frequency [Hz]")
     ax.set_ylabel("γ [Ω·cm²·s]")
@@ -3613,6 +3618,12 @@ with st.sidebar:
     st.header("DRT")
     drt_selected = st.multiselect("DRT types", DRT_TYPES, default=["Truncated"])
     drt_show_params = st.checkbox("Parameters", value=False, key="drt_params")
+    st.checkbox(
+        "DRT y-axis from 0",
+        value=True,
+        key="drt_y_from_zero",
+        help="When enabled, the DRT γ-axis starts at 0. Disable for a loose (auto-scaled) y-axis.",
+    )
 
     drt_res_plot = st.multiselect(
         "Resistances across files (DRT, ReIm)",

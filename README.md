@@ -184,6 +184,14 @@ SOCEIS will start and offer to create a desktop shortcut automatically. Click **
 
 5. **Single / All view** — Every tab provides a toggle between analysing a single selected file and overlaying all files in the project, enabling direct comparison across operating conditions or time steps.
 
+### Interactive EIS viewer (Streamlit)
+
+In addition to the main DearPyGui interface, SOCEIS includes an interactive **EIS viewer** — a [Streamlit](https://streamlit.io/) web app for comparing processed spectra across many files. It is opened from the **SOCEIS** home tab via the **EIS viewer** button (the **Data viewer** button behaves the same way).
+
+> **Note:** Streamlit normally asks for an email address the very first time it runs, and because SOCEIS launches the viewer in the background (terminal output hidden) this prompt would otherwise block the viewer from opening. SOCEIS **handles this automatically** — before launching, it writes an anonymous (empty-email) `~/.streamlit/credentials.toml` so the prompt is skipped. No action is required, and any existing Streamlit registration is left untouched.
+>
+> If you ever launch the viewer manually instead (`streamlit run src/Functions/SOCEIS_view.py`) on a machine where Streamlit has never been activated, run `streamlit hello` once first and **leave the `Email:` prompt blank** (press Enter).
+
 ### First run on Windows
 
 On Windows, SOCEIS will offer to create a desktop shortcut the first time it starts. The shortcut invokes `python -m soceis` and includes the application icon automatically.
