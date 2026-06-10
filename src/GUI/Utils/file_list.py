@@ -827,6 +827,35 @@ def update_file_list_and_display(sender, app_data, config, tag_name, parent_tag)
         callback=lambda s, a: gui_utils.file_list.display_file(s, a, config)
     )
 
+def step_display_file(config, direction):
+    """
+    Switch the displayed file to the previous (direction=-1) or next (direction=+1)
+    entry in config.selected_files. Clamps at the ends (no wrap). Reuses display_file()
+    so every tab's combo, table and plots refresh exactly as if the combo was changed.
+    """
+    files = list(config.selected_files or [])
+    if not files:
+        return
+
+    current = config.display_file
+    idx = files.index(current) if current in files else 0
+    new_idx = idx + direction
+    if new_idx < 0 or new_idx >= len(files):
+        return
+
+    new_file = files[new_idx]
+    if new_file == current:
+        return
+
+    display_file(
+        None,
+        new_file,
+        config,
+        refresh_eis_tab=dpg.does_item_exist("tab_eis"),
+        refresh_drt_tab=dpg.does_item_exist("tab_drt"),
+        refresh_cnls_tab=dpg.does_item_exist("tab_cnls"),
+    )
+
 def file_alignment(config):
     """
     Align the file list and display file in the GUI.

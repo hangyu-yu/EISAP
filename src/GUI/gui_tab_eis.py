@@ -464,6 +464,10 @@ def gui_tab_eis(config, EIS, CNLS):
                         
                     with dpg.group(horizontal=True, tag="group_eis_display_file"):
                         dpg.add_text("Displayed file:")
+                        dpg.add_button(arrow=True, direction=dpg.mvDir_Left, tag="button_prev_display_file_eis",
+                                       callback=lambda: gui_utils.file_list.step_display_file(config, -1))
+                        dpg.add_button(arrow=True, direction=dpg.mvDir_Right, tag="button_next_display_file_eis",
+                                       callback=lambda: gui_utils.file_list.step_display_file(config, +1))
                         gui_utils.file_list.update_file_list_and_display(0, 0, config, "combo_eis_plot_file", "group_eis_display_file")
                 
                 # Window for the data display
