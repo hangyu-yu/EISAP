@@ -823,7 +823,83 @@ def extract_cnls_parameters(cnls_file: Path) -> Optional[Dict[str, float]]:
     r_values = [v for k, v in result.items() if k.startswith("R")]
     result["ASR"] = float(np.nansum(r_values)) if r_values else np.nan
 
+    # ---- Compute R_pol (polarization resistance = sum of RQ resistances, excludes ohmic) ----
+    rq_values = [v for k, v in result.items() if re.fullmatch(r"R\d+", k)]
+    result["R_pol"] = float(np.nansum(rq_values)) if rq_values else np.nan
+
     return result
+
+
+def extract_eis_resistances(xls: pd.ExcelFile) -> Optional[Dict[str, float]]:
+    """R_ohm / R_pol from the KK 'Resistance' sheet of an EIS file. ASR = R_ohm + R_pol."""
+    if "Resistance" not in xls.sheet_names:
+        return None
+    df = pd.read_excel(xls, "Resistance")
+    if df.empty:
+        return None
+    row = df.iloc[0]
+    res: Dict[str, float] = {}
+    for col in df.columns:
+        c = str(col).strip()
+        if c.startswith("Rohm"):
+            res["R_ohm"] = float(pd.to_numeric(row[col], errors="coerce"))
+        elif c.startswith("Rp"):
+            res["R_pol"] = float(pd.to_numeric(row[col], errors="coerce"))
+    if not res:
+        return None
+    res["ASR"] = float(np.nansum([res.get("R_ohm", np.nan), res.get("R_pol", np.nan)]))
+    return res
+
+
+DRT_RES_SHEET_MAP = {
+    "Truncated": "Resistance_truncated",
+    "Smooth": "Resistance_smooth",
+    "LCcorrect": "Resistance_LCcorrect",
+    "Extrapolation": "Resistance_extrapolation",
+    "Z-HIT": "Resistance_zhit",
+    "RBF": "RBF_Resistance_truncated",
+    "RBF Smooth": "RBF_Resistance_smooth",
+    "RBF LCcorrect": "RBF_Resistance_LCcorrect",
+    "RBF Extrapolation": "RBF_Resistance_extrapolation",
+    "RBF Z-HIT": "RBF_Resistance_zhit",
+}
+
+
+def extract_drt_resistances(xls: pd.ExcelFile, method: str, mode: str = "ReIm") -> Optional[Dict[str, float]]:
+    """R_ohm / R_pol from a DRT 'Resistance_<method>' sheet (DRT_<mode> columns). ASR = R_ohm + R_pol."""
+    sheet = DRT_RES_SHEET_MAP.get(method)
+    if sheet is None or sheet not in xls.sheet_names:
+        return None
+    df = pd.read_excel(xls, sheet)
+    if df.empty:
+        return None
+    row = df.iloc[0]
+    suffix = f"- DRT_{mode}"
+    res: Dict[str, float] = {}
+    for col in df.columns:
+        c = str(col).strip()
+        if not c.endswith(suffix):
+            continue
+        if c.startswith("Rohm"):
+            res["R_ohm"] = float(pd.to_numeric(row[col], errors="coerce"))
+        elif c.startswith("Rp"):
+            res["R_pol"] = float(pd.to_numeric(row[col], errors="coerce"))
+    if not res:
+        return None
+    res["ASR"] = float(np.nansum([res.get("R_ohm", np.nan), res.get("R_pol", np.nan)]))
+    return res
+
+
+def render_resistance_table(df_res: pd.DataFrame, columns, rename=None):
+    """Render a table with the file label as the first column + the given resistance columns."""
+    cols = [c for c in columns if c in df_res.columns]
+    if not cols:
+        return
+    tbl = df_res[cols].copy()
+    if rename:
+        tbl = tbl.rename(columns=rename)
+    tbl.insert(0, "Label", df_res.index)
+    st.dataframe(tbl, width="stretch", hide_index=True)
 
 
 # ===============================
@@ -1487,7 +1563,7 @@ def cnls_bar_plotly(series: pd.Series, ylim=None):
 
     # Detect all Rn columns dynamically (excluding R_ohmic)
     r_keys = sorted(
-        [k for k in series.index if k.startswith("R") and k != "R_ohmic"],
+        [k for k in series.index if k.startswith("R") and k not in ("R_ohmic", "R_pol")],
         key=lambda x: int(x[1:])
     )
 
@@ -1676,7 +1752,7 @@ def cnls_heatmap_plotly(df_cnls: pd.DataFrame, palette_choice: str, param_groups
 
     y_labels = [latex_label(i) for i in df_cnls.index.tolist()]
     r_indices = sorted(
-        {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k != "R_ohmic"}
+        {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k not in ("R_ohmic", "R_pol")}
     )
 
     figures = []
@@ -2761,7 +2837,7 @@ def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str, ylim=No
 
     # Detect dynamic Rn keys
     r_keys = sorted(
-        [k for k in series.index if k.startswith("R") and k != "R_ohmic"],
+        [k for k in series.index if k.startswith("R") and k not in ("R_ohmic", "R_pol")],
         key=lambda x: int(x[1:])
     )
 
@@ -2796,7 +2872,8 @@ def add_cnls_bar_png(zf: zipfile.ZipFile, series: pd.Series, fname: str, ylim=No
             _fig_to_bytes(fig, fmt)
         )
 
-def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str, ylim=None):
+def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str, ylim=None,
+                      folder: str = "CNLS/LinePlots"):
 
     x = np.arange(1, len(df_cnls) + 1)
     y = df_cnls[param].values
@@ -2886,7 +2963,7 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str, yl
     
     for fmt in st.session_state.export_formats:
         zf.writestr(
-            f"CNLS/LinePlots/{param}.{fmt}",
+            f"{folder}/{param}.{fmt}",
             _fig_to_bytes(fig, fmt)
         )
    
@@ -3273,7 +3350,7 @@ def add_cnls_heatmap_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, palette_cho
     cmap_name = PALETTE_LIBRARY.get(palette_choice, "viridis") if palette_choice in PLOTLY_SEQ else "viridis"
     y_labels = [latex_label(i) for i in df_cnls.index.tolist()]
     r_indices = sorted(
-        {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k != "R_ohmic"}
+        {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k not in ("R_ohmic", "R_pol")}
     )
     no_grid = st.session_state.get("export_no_grid", False)
 
@@ -3521,6 +3598,14 @@ with st.sidebar:
 
     nyquist_show_params = st.checkbox("Parameters", value=False, key="nyq_params")
 
+    eis_res_plot = st.multiselect(
+        "Resistances across files (KK)",
+        ["R_ohm", "R_pol", "ASR"],
+        default=[],
+        key="eis_res_plot",
+        help="Plots each selected resistance across the selected files (from the KK 'Resistance' sheet) and shows a table with your custom labels."
+    )
+
     st.header("Bode")
     bode_selected = st.multiselect("Bode types", BODE_TYPES, default=[])
     zhit_show = st.checkbox("Z-HIT", value=False, key="zhit_show")
@@ -3528,6 +3613,23 @@ with st.sidebar:
     st.header("DRT")
     drt_selected = st.multiselect("DRT types", DRT_TYPES, default=["Truncated"])
     drt_show_params = st.checkbox("Parameters", value=False, key="drt_params")
+
+    drt_res_plot = st.multiselect(
+        "Resistances across files (DRT, ReIm)",
+        ["R_ohm", "R_pol", "ASR"],
+        default=[],
+        key="drt_res_plot",
+        help="Plots each selected resistance across the selected files (DRT ReIm result) and shows a table with your custom labels."
+    )
+    if drt_res_plot:
+        drt_res_method = st.selectbox(
+            "Resistance method",
+            DRT_TYPES,
+            index=0,
+            key="drt_res_method",
+        )
+    else:
+        drt_res_method = None
 
 
     st.header("CNLS")
@@ -3722,6 +3824,8 @@ if show_legend_table:
 eis_param_rows: List[Dict] = []
 drt_param_rows: List[Dict] = []
 cnls_rows: List[Dict] = []
+eis_res_rows: List[Dict] = []
+drt_res_rows: List[Dict] = []
 
 nyquist_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in nyquist_selected}
 bode_data: Dict[str, List[Tuple[str, pd.DataFrame]]] = {p: [] for p in bode_selected}
@@ -3734,6 +3838,12 @@ for eis_file in files_to_process:
 
     # EIS parameters
     eis_param_rows.append(extract_eis_parameters(xls, fname))
+
+    # EIS resistances (KK) across files
+    if eis_res_plot:
+        eis_res = extract_eis_resistances(xls)
+        if eis_res:
+            eis_res_rows.append({"Label": display_name_map.get(fname, fname), **eis_res})
 
     # Nyquist
     for p in nyquist_selected:
@@ -3766,6 +3876,12 @@ for eis_file in files_to_process:
         lam_row = extract_drt_lambda(drt_xls, fname)
         if lam_row is not None:
             drt_param_rows.append(lam_row)
+
+        # DRT resistances (ReIm) across files
+        if drt_res_plot and drt_res_method:
+            drt_res = extract_drt_resistances(drt_xls, drt_res_method, "ReIm")
+            if drt_res:
+                drt_res_rows.append({"Label": display_name_map.get(fname, fname), **drt_res})
 
         for p in drt_selected:
             sheet = DRT_SHEET_MAP[p]
@@ -3844,6 +3960,18 @@ if nyquist_compare_selected:
         )
         st.plotly_chart(fig, width="stretch")
 
+# ---- EIS resistances (KK) across files: one figure per resistance + table ----
+if eis_res_plot:
+    st.subheader("EIS resistances (KK)")
+    if eis_res_rows:
+        df_eis_res = pd.DataFrame(eis_res_rows).set_index("Label")
+        for param in eis_res_plot:
+            if param in df_eis_res.columns:
+                st.plotly_chart(cnls_line_plotly(df_eis_res, param), width="stretch", key=f"eis_res_{param}")
+        render_resistance_table(df_eis_res, eis_res_plot)
+    else:
+        st.info("No KK 'Resistance' sheet found in the selected EIS files.")
+
 if bode_selected:
     st.subheader("Bode")
 
@@ -3902,7 +4030,19 @@ if drt_selected:
             if drt_3d:
                 st.plotly_chart(drt_3d_plotly(data, p), width="stretch")
             else:
-                st.plotly_chart(drt_plotly(data, p), width="stretch")       
+                st.plotly_chart(drt_plotly(data, p), width="stretch")
+
+# ---- DRT resistances (ReIm) across files: one figure per resistance + table ----
+if drt_res_plot:
+    st.subheader(f"DRT resistances ({drt_res_method}, ReIm)")
+    if drt_res_rows:
+        df_drt_res = pd.DataFrame(drt_res_rows).set_index("Label")
+        for param in drt_res_plot:
+            if param in df_drt_res.columns:
+                st.plotly_chart(cnls_line_plotly(df_drt_res, param), width="stretch", key=f"drt_res_{param}")
+        render_resistance_table(df_drt_res, drt_res_plot)
+    else:
+        st.info(f"No '{DRT_RES_SHEET_MAP.get(drt_res_method, drt_res_method)}' resistance sheet found in the selected DRT files.")
 
 # CNLS section
 df_cnls = None
@@ -3913,9 +4053,9 @@ if analyze_cnls:
         df_cnls = pd.DataFrame(cnls_rows).set_index("File")
         if len(df_cnls) > 1:
             _r_idx_set = sorted(
-                {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k != "R_ohmic"}
+                {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k not in ("R_ohmic", "R_pol")}
             )
-            plotable_columns = ["ASR", "R_ohmic"]
+            plotable_columns = ["ASR", "R_pol", "R_ohmic"]
             for _i in _r_idx_set:
                 for _pfx in ("R", "tau", "alpha"):
                     _col = f"{_pfx}{_i}"
@@ -3932,7 +4072,7 @@ if analyze_cnls:
 
         # ---- Dynamic column ordering ----
         r_indices = sorted(
-            {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k != "R_ohmic"}
+            {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k not in ("R_ohmic", "R_pol")}
         )
 
         ordered_cols = ["ASR", "R_ohmic"]
@@ -4006,7 +4146,7 @@ if analyze_cnls:
                         _ylim = cnls_tau_limit
                     elif param.startswith("alpha"):
                         _ylim = cnls_alpha_limit
-                    elif param == "ASR":
+                    elif param in ("ASR", "R_pol"):
                         _ylim = None
                     else:
                         _ylim = cnls_r_limit
@@ -4014,6 +4154,13 @@ if analyze_cnls:
                         cnls_line_plotly(df_cnls, param, ylim=_ylim),
                         width="stretch"
                     )
+
+                # Resistance table for the resistance subset of the plotted parameters
+                res_in_sel = [
+                    p for p in cnls_line_selection
+                    if p in ("ASR", "R_pol", "R_ohmic") or re.fullmatch(r"R\d+", p)
+                ]
+                render_resistance_table(df_cnls, res_in_sel, rename={"R_ohmic": "R_ohm"})
 
         # ---- CNLS compare ----
         if "CNLS compare" in cnls_plot_modes:
@@ -4094,6 +4241,13 @@ if save_zip:
                     display_name_map
                 )
 
+        # EIS resistances (KK) across files
+        if eis_res_plot and eis_res_rows:
+            df_eis_res = pd.DataFrame(eis_res_rows).set_index("Label")
+            for param in eis_res_plot:
+                if param in df_eis_res.columns:
+                    add_cnls_line_png(zf, df_eis_res, param, folder="EIS/Resistances")
+
         # Bode
         for p, data in bode_data.items():
             if data:
@@ -4107,6 +4261,13 @@ if save_zip:
                     add_drt_3d_png(zf, data, p)
                 else:
                     add_drt_png(zf, data, p)
+
+        # DRT resistances (ReIm) across files
+        if drt_res_plot and drt_res_rows:
+            df_drt_res = pd.DataFrame(drt_res_rows).set_index("Label")
+            for param in drt_res_plot:
+                if param in df_drt_res.columns:
+                    add_cnls_line_png(zf, df_drt_res, param, folder="DRT/Resistances")
 
 
         # CNLS
