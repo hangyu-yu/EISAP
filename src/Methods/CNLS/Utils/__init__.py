@@ -5,6 +5,7 @@ import types
 # Create an empty ImpedanceFunctions module object
 ImpedanceFunctions = types.ModuleType('ImpedanceFunctions')
 PeakDerivative = types.ModuleType('PeakDerivative')
+Topology = types.ModuleType('Topology')
 
 # Get the current package path
 package_path = os.path.dirname(__file__)
@@ -37,6 +38,8 @@ for root, dirs, files in os.walk(package_path):
                             setattr(ImpedanceFunctions, attr_name, attr)
                         if module_name == 'PeakDerivative':
                             setattr(PeakDerivative, attr_name, attr)
+                        if module_name == 'Topology':
+                            setattr(Topology, attr_name, attr)
                 
                 # If it is the ImpedanceFunctions module, store the entire module
                 if module_name == 'ImpedanceFunctions':
@@ -47,6 +50,10 @@ for root, dirs, files in os.walk(package_path):
                     # Retain the original module's docstring
                     if module.__doc__:
                         PeakDerivative.__doc__ = module.__doc__
+                if module_name == 'Topology':
+                    # Retain the original module's docstring
+                    if module.__doc__:
+                        Topology.__doc__ = module.__doc__
             
             except Exception as e:
                 print(f"Error loading module {module_name}: {e}")
@@ -55,3 +62,4 @@ for root, dirs, files in os.walk(package_path):
 __all__ = [name for name in globals() if callable(globals()[name]) and not name.startswith("__")]
 __all__.append("ImpedanceFunctions")
 __all__.append("PeakDerivative")
+__all__.append("Topology")

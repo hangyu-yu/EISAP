@@ -1,4 +1,5 @@
 import os
+import re
 import copy
 import math
 import numpy as np
@@ -13,6 +14,8 @@ CNLS_SELECTOR_DRAWLIST_TAG = "cnls_selector_preview_drawlist"
 CNLS_SELECTOR_REMOVE_LIST_TAG = "cnls_selector_remove_list"
 CNLS_SELECTOR_ADD_TABLE_TAG = "cnls_selector_add_table"
 CNLS_SELECTOR_REMOVE_STATUS_TAG = "cnls_selector_remove_status"
+CNLS_SELECTOR_TOPOLOGY_INPUT_TAG = "cnls_selector_topology_input"
+CNLS_SELECTOR_TOPOLOGY_STATUS_TAG = "cnls_selector_topology_status"
 CNLS_SELECTOR_EDIT_KEY = "_selector_elements_buffer"
 
 
@@ -191,6 +194,28 @@ def constraint_percentage(CNLS_tmp):
         CNLS_tmp.Elements[idx]['Param'] = CNLS_tmp.ElementsParamValues[start_idx:end_idx]
         CNLS_tmp.Elements[idx]['Ub'] = CNLS_tmp.UpperBound[start_idx:end_idx].tolist()
         CNLS_tmp.Elements[idx]['Lb'] = CNLS_tmp.LowerBound[start_idx:end_idx].tolist()
+
+
+def sync_elements_from_params(CNLS_tmp):
+    """Write the fitted ElementsParamValues back into the .Elements dicts.
+
+    FitCircuit only updates the flat parameter vector; the element table is rebuilt
+    from .Elements, so without this each file keeps showing its pre-fit values and
+    switching the displayed file appears to change nothing.
+
+    Only 'Param' is written: a fit never changes the bounds, so Ub/Lb are left as
+    the user/initialization configured them (per file). Overwriting them here would
+    force every file's bounds to be identical, which is not intended — bounds sync
+    across files only when the user explicitly edits one in the table.
+    """
+    # Use Python floats (.tolist()) — the element table's formatter compares
+    # values against [], which raises on numpy scalars.
+    params = np.asarray(CNLS_tmp.ElementsParamValues, dtype=float)
+    for idx in range(len(CNLS_tmp.Elements)):
+        s = CNLS_tmp.ElementsStartIndex[idx]
+        e = CNLS_tmp.ElementsEndIndex[idx] + 1
+        CNLS_tmp.Elements[idx]['Param'] = params[s:e].tolist()
+
 
 def dynamic_peak_ids(sender, appdata, config):
     """Dynamically generate peak frequency input columns.
@@ -569,6 +594,7 @@ def _selector_add_element_callback(sender, appdata, user_data):
     _selector_add_element_to_buffer(config, element_type)
     refresh_selector_preview(config)
     refresh_selector_remove_window(config)
+    _selector_refresh_topology_default(config)
 
 
 def _selector_get_elements(config):
@@ -655,6 +681,7 @@ def _selector_remove_selected_callback(sender, appdata, config):
     _selector_remove_selected_names.clear()
     refresh_selector_preview(config)
     refresh_selector_remove_window(config)
+    _selector_refresh_topology_default(config)
 
 
 def refresh_selector_remove_window(config):
@@ -694,15 +721,158 @@ def refresh_selector_remove_window(config):
     _update_remove_status_text()
 
 
+def _rename_in_topology(expr, old, new):
+    """Replace a whole element name token in a topology expression."""
+    return re.sub(r'(?<![A-Za-z0-9_])' + re.escape(old) + r'(?![A-Za-z0-9_])', new, expr)
+
+
+def sync_topology_after_elements_change(config, rename=None):
+    """Keep config.store['topology'] consistent when the parameter table changes.
+
+    Optionally apply a single element rename (old -> new) first; then, if the
+    expression is no longer a valid partition of the current elements, drop it
+    back to None (the default all-in-series behaviour).
+    """
+    topo = config.store.get("topology")
+    if topo:
+        if rename and rename[0] and rename[1] and rename[0] != rename[1]:
+            topo = _rename_in_topology(topo, rename[0], rename[1])
+        names = {str(e.get("name", "")) for e in config.store.get("Elements", [])}
+        z_stub = {name: np.ones(1, dtype=complex) for name in names}
+        try:
+            CNLS_fn.Topology.evaluate(topo, z_stub)
+            config.store["topology"] = topo
+        except ValueError:
+            config.store["topology"] = None
+            print("---- Custom topology no longer matches the elements; reset to series (default).")
+
+    # Propagate the resolved topology to every selected file so their per-file
+    # CNLS objects (used by load_parameters / fit / export) stay consistent.
+    resolved = config.store.get("topology")
+    for _fn in getattr(config, "selected_files", []) or []:
+        _fk = os.path.splitext(_fn)[0]
+        _entry = config.store.get(_fk)
+        if isinstance(_entry, dict) and 'CNLS' in _entry:
+            _entry['CNLS'].topology = resolved
+
+
+def _selector_default_topology_expr(config):
+    """Default series expression for the current selector elements, e.g. 'RQ1 + RC2 + L1'."""
+    elements = _selector_get_elements(config)
+    names = [str(e.get("name", "")) for e in elements if e.get("name")]
+    return " + ".join(names)
+
+
+def _selector_refresh_topology_default(config):
+    """Keep the topology box mirroring the default series expression while the
+    user has not entered a custom one (so Add/Remove stays consistent)."""
+    if not dpg.does_item_exist(CNLS_SELECTOR_TOPOLOGY_INPUT_TAG):
+        return
+    if not config.store.get("_topology_custom", False):
+        dpg.set_value(CNLS_SELECTOR_TOPOLOGY_INPUT_TAG, _selector_default_topology_expr(config))
+    _selector_validate_topology(config)
+
+
+def _selector_validate_topology(config, expr=None):
+    """Validate the topology expression against the current buffer elements.
+
+    Returns (ok, cleaned_expr). An empty expression means default series and is
+    valid (cleaned_expr is None). Updates the status text when it exists.
+    """
+    if expr is None and dpg.does_item_exist(CNLS_SELECTOR_TOPOLOGY_INPUT_TAG):
+        expr = dpg.get_value(CNLS_SELECTOR_TOPOLOGY_INPUT_TAG)
+    expr = (expr or "").strip()
+
+    def _set_status(text, color):
+        if dpg.does_item_exist(CNLS_SELECTOR_TOPOLOGY_STATUS_TAG):
+            dpg.configure_item(CNLS_SELECTOR_TOPOLOGY_STATUS_TAG, default_value=text, color=color)
+
+    if expr == "":
+        _set_status("Empty -> all elements in series (default).", (170, 170, 170, 255))
+        return True, None
+
+    elements = _selector_get_elements(config)
+    names = {str(e.get("name", "")) for e in elements}
+    z_stub = {name: np.ones(1, dtype=complex) for name in names}
+    try:
+        CNLS_fn.Topology.evaluate(expr, z_stub)
+    except ValueError as e:
+        hint = " Add it from the buttons above first." if "unknown element" in str(e) else ""
+        _set_status(f"Invalid: {e}{hint}", (235, 120, 120, 255))
+        return False, None
+    _set_status("Valid topology.", (120, 200, 120, 255))
+    return True, expr
+
+
+def _selector_topology_changed_callback(sender, appdata, config):
+    # A non-empty user edit marks the expression as custom; clearing it returns
+    # to the auto-mirrored default series.
+    config.store["_topology_custom"] = bool((appdata or "").strip())
+    _selector_validate_topology(config, appdata)
+    refresh_selector_preview(config)
+
+
+def _merge_structure_keep_values(new_elements, existing_elements):
+    """Apply the selector's structure (names/types/order) while keeping a file's
+    own Param/Ub/Lb for elements whose type is unchanged at the same position.
+
+    Added or retyped elements take the selector's default values. This lets the
+    selector change the circuit structure/topology without overwriting per-file
+    fitted values and bounds.
+    """
+    existing = existing_elements if isinstance(existing_elements, list) else []
+    merged = []
+    for idx, be in enumerate(new_elements):
+        if idx < len(existing) and existing[idx].get('type') == be.get('type'):
+            merged.append({
+                'name': be.get('name'),
+                'type': be.get('type'),
+                'Param': copy.deepcopy(existing[idx].get('Param', be.get('Param'))),
+                'Ub': copy.deepcopy(existing[idx].get('Ub', be.get('Ub'))),
+                'Lb': copy.deepcopy(existing[idx].get('Lb', be.get('Lb'))),
+            })
+        else:
+            merged.append(copy.deepcopy(be))
+    return merged
+
+
 def _selector_confirm_callback(sender, appdata, config):
     """Apply Selector edits to CNLS parameter table and file CNLS objects."""
+    ok, topology = _selector_validate_topology(config)
+    if not ok:
+        # Keep the window open so the user can fix the expression.
+        return
+
+    # Collapse the plain default series back to None so it stays adaptive to
+    # later element add/remove (None == all-in-series in EvaluateCircuit).
+    if topology is not None:
+        default_expr = _selector_default_topology_expr(config)
+        if topology.replace(" ", "") == default_expr.replace(" ", ""):
+            topology = None
+
     edited = copy.deepcopy(config.store.get(CNLS_SELECTOR_EDIT_KEY, []))
     config.store["Elements"] = edited
+    config.store["topology"] = topology
 
     for _fn in config.selected_files:
         _fk = os.path.splitext(_fn)[0]
         if _fk in config.store and 'CNLS' in config.store[_fk]:
-            config.store[_fk]['CNLS'].Elements = copy.deepcopy(edited)
+            # Keep the displayed file sharing the same Elements object the table
+            # edits, so its element names never diverge from config.store. The
+            # buffer was seeded from the displayed file, so it already carries
+            # that file's Param/bounds.
+            if _fn == config.display_file:
+                config.store[_fk]['CNLS'].Elements = config.store["Elements"]
+            else:
+                # The selector only changes structure + topology (it has no
+                # Param/bound editors), so preserve each other file's own
+                # Param/Ub/Lb for elements whose type is unchanged. Only added or
+                # retyped elements take the selector defaults. This stops the
+                # confirm from synchronizing every file's values/bounds.
+                config.store[_fk]['CNLS'].Elements = _merge_structure_keep_values(
+                    edited, config.store[_fk]['CNLS'].Elements
+                )
+            config.store[_fk]['CNLS'].topology = topology
 
     gui_utils.cnls_elements.update_elements(config)
     _selector_end_session(config)
@@ -989,6 +1159,146 @@ def _draw_element_symbol(parent, element_type, x0, x1, y, color, fill):
         _draw_generic_block(parent, x0, x1, y, color, fill)
 
 
+def _selector_topology_ast(config):
+    """Return the parsed AST for the current topology input if it is a valid
+    partition of the existing elements; otherwise None."""
+    if not dpg.does_item_exist(CNLS_SELECTOR_TOPOLOGY_INPUT_TAG):
+        return None
+    expr = (dpg.get_value(CNLS_SELECTOR_TOPOLOGY_INPUT_TAG) or "").strip()
+    if expr == "":
+        return None
+    elements = _selector_get_elements(config)
+    names = {str(e.get("name", "")) for e in elements}
+    z_stub = {name: np.ones(1, dtype=complex) for name in names}
+    try:
+        CNLS_fn.Topology.evaluate(expr, z_stub)  # full validity (partition) check
+        return CNLS_fn.Topology.parse_topology(expr)
+    except ValueError:
+        return None
+
+
+def _topo_has_parallel(node):
+    """True if the AST contains any parallel branch."""
+    if node[0] == 'leaf':
+        return False
+    if node[0] == 'parallel':
+        return True
+    return any(_topo_has_parallel(c) for c in node[1])
+
+
+def _topo_measure(node, units_by_name):
+    """Return (width_units, height_units) for an AST node.
+    Series: widths add, height is the max. Parallel: heights add, width is the max."""
+    if node[0] == 'leaf':
+        return (units_by_name.get(node[1], 1.0), 1.0)
+    sizes = [_topo_measure(c, units_by_name) for c in node[1]]
+    if node[0] == 'series':
+        return (sum(w for w, _ in sizes), max(h for _, h in sizes))
+    return (max(w for w, _ in sizes), sum(h for _, h in sizes))  # parallel
+
+
+def _topo_draw(node, x0, x1, yc, branch_h, ctx):
+    """Recursively draw an AST node into the horizontal range [x0, x1], centered at yc."""
+    tag = CNLS_SELECTOR_DRAWLIST_TAG
+    if node[0] == 'leaf':
+        name = node[1]
+        etype = ctx['type_by_name'].get(name, 'Resistor')
+        # Cap the symbol to a sane width centered in the branch, filling the
+        # remaining space with wire, so a wide branch does not stretch the
+        # symbol (e.g. inductor coils scaling with the full span).
+        units = ctx['units_by_name'].get(name, 1.0)
+        sym_w = min(x1 - x0, ctx['symbol_w'] * units)
+        cx = (x0 + x1) / 2.0
+        bx0, bx1 = cx - sym_w / 2.0, cx + sym_w / 2.0
+        if bx0 > x0:
+            dpg.draw_line((x0, yc), (bx0, yc), color=ctx['wire_color'], thickness=ctx['wire_thickness'], parent=tag)
+        if bx1 < x1:
+            dpg.draw_line((bx1, yc), (x1, yc), color=ctx['wire_color'], thickness=ctx['wire_thickness'], parent=tag)
+        _draw_element_symbol(tag, etype, bx0, bx1, yc, ctx['symbol_color'], ctx['symbol_fill'])
+        # Label just under the symbol for this branch.
+        font = ctx['label_font']
+        label_y = min(ctx['draw_h'] - font - 4.0, yc + branch_h * 0.30)
+        label_w = max(18.0, len(name) * (font * 0.52))
+        dpg.draw_text((cx - label_w / 2.0, label_y), name,
+                      color=(225, 235, 245, 255), parent=tag, size=font)
+        return
+
+    children = node[1]
+    sizes = [_topo_measure(c, ctx['units_by_name']) for c in children]
+
+    if node[0] == 'series':
+        total_w = max(1e-9, sum(w for w, _ in sizes))
+        gap = ctx['gap']
+        inner = (x1 - x0) - gap * (len(children) - 1)
+        cursor = x0
+        for idx, (child, (cw, _)) in enumerate(zip(children, sizes)):
+            seg = inner * (cw / total_w)
+            cx0, cx1 = cursor, cursor + seg
+            _topo_draw(child, cx0, cx1, yc, branch_h, ctx)
+            if idx < len(children) - 1:
+                dpg.draw_line((cx1, yc), (cx1 + gap, yc),
+                              color=ctx['wire_color'], thickness=ctx['wire_thickness'], parent=tag)
+            cursor = cx1 + gap
+        return
+
+    # parallel: stack children vertically, join with left/right vertical buses.
+    total_h = max(1e-9, sum(h for _, h in sizes))
+    H_px = total_h * branch_h
+    lead_w = min(22.0, max(10.0, (x1 - x0) * 0.10))
+    xL, xR = x0 + lead_w, x1 - lead_w
+    top = yc - H_px / 2.0
+    centers, cum = [], 0.0
+    for _, ch in sizes:
+        band = ch * branch_h
+        centers.append(top + cum + band / 2.0)
+        cum += band
+    # Entry/exit leads to the surrounding wire.
+    dpg.draw_line((x0, yc), (xL, yc), color=ctx['wire_color'], thickness=ctx['wire_thickness'], parent=tag)
+    dpg.draw_line((xR, yc), (x1, yc), color=ctx['wire_color'], thickness=ctx['wire_thickness'], parent=tag)
+    # Vertical buses connecting all branches.
+    dpg.draw_line((xL, centers[0]), (xL, centers[-1]), color=ctx['wire_color'], thickness=ctx['wire_thickness'], parent=tag)
+    dpg.draw_line((xR, centers[0]), (xR, centers[-1]), color=ctx['wire_color'], thickness=ctx['wire_thickness'], parent=tag)
+    for child, cyc in zip(children, centers):
+        _topo_draw(child, xL, xR, cyc, branch_h, ctx)
+
+
+def _draw_topology_preview(ast, elements, draw_w, draw_h):
+    """Draw the series/parallel structure described by a valid topology AST."""
+    tag = CNLS_SELECTOR_DRAWLIST_TAG
+    type_by_name = {str(e.get('name', '')): str(e.get('type', '')) for e in elements}
+    units_by_name = {n: (2.0 if t.startswith('Randle') else 1.0) for n, t in type_by_name.items()}
+
+    W, H = _topo_measure(ast, units_by_name)
+
+    margin = 26.0
+    term_lead = 16.0
+    top_pad = 18.0
+    label_room = 26.0
+    branch_h = min(72.0, max(40.0, (draw_h - top_pad - label_room) / max(1.0, H)))
+    H_px = H * branch_h
+    yc = max(top_pad + H_px / 2.0, (draw_h - label_room) / 2.0)
+
+    ctx = {
+        'type_by_name': type_by_name,
+        'units_by_name': units_by_name,
+        'wire_color': (195, 195, 195, 255),
+        'symbol_color': (94, 170, 220, 255),
+        'symbol_fill': (25, 41, 52, 180),
+        'wire_thickness': 2.0,
+        'gap': 18.0,
+        'label_font': 14,
+        'draw_h': draw_h,
+        'symbol_w': 84.0,
+    }
+
+    x0 = margin + term_lead
+    x1 = draw_w - margin - term_lead
+    # Terminal leads at the circuit ends.
+    dpg.draw_line((margin, yc), (x0, yc), color=ctx['wire_color'], thickness=ctx['wire_thickness'], parent=tag)
+    dpg.draw_line((x1, yc), (draw_w - margin, yc), color=ctx['wire_color'], thickness=ctx['wire_thickness'], parent=tag)
+    _topo_draw(ast, x0, x1, yc, branch_h, ctx)
+
+
 def refresh_selector_preview(config):
     """Refresh equivalent-circuit preview in Selector window."""
     if not dpg.does_item_exist(CNLS_SELECTOR_DRAWLIST_TAG):
@@ -1011,6 +1321,14 @@ def refresh_selector_preview(config):
                     draw_h = max(150, int(rect_size[1]))
         except Exception:
             pass
+
+    # When the user has a valid custom topology that includes a parallel
+    # branch, draw its series/parallel structure. Pure-series circuits keep the
+    # existing flat chain rendering below.
+    ast = _selector_topology_ast(config)
+    if ast is not None and _topo_has_parallel(ast):
+        _draw_topology_preview(ast, elements, draw_w, draw_h)
+        return
 
     n = len(elements)
     # Adaptive sizing keeps symbol proportions readable across resolutions.
@@ -1069,8 +1387,14 @@ def open_selector_window(sender, appdata, config):
     _ensure_store_elements(config)
     _selector_start_session(config)
 
+    _stored_topology = config.store.get("topology")
+    config.store["_topology_custom"] = bool(_stored_topology)
+
     if dpg.does_item_exist(CNLS_SELECTOR_WINDOW_TAG):
         dpg.show_item(CNLS_SELECTOR_WINDOW_TAG)
+        if dpg.does_item_exist(CNLS_SELECTOR_TOPOLOGY_INPUT_TAG):
+            dpg.set_value(CNLS_SELECTOR_TOPOLOGY_INPUT_TAG, _stored_topology or _selector_default_topology_expr(config))
+        _selector_validate_topology(config)
         refresh_selector_preview(config)
         refresh_selector_remove_window(config)
         return
@@ -1083,8 +1407,9 @@ def open_selector_window(sender, appdata, config):
     add_h = 130
     remove_h = 150
     action_h = 56
+    topology_h = 112
     fixed_overhead = 210
-    preview_h = max(170, win_height - (add_h + remove_h + action_h + fixed_overhead))
+    preview_h = max(170, win_height - (add_h + remove_h + action_h + topology_h + fixed_overhead))
 
     with dpg.window(
         tag=CNLS_SELECTOR_WINDOW_TAG,
@@ -1149,6 +1474,27 @@ def open_selector_window(sender, appdata, config):
         dpg.add_spacer(height=8)
         dpg.add_separator()
         dpg.add_spacer(height=6)
+
+        dpg.add_text("Custom Topology (optional)")
+        with dpg.child_window(height=92, border=True, no_scrollbar=True):
+            dpg.add_text(
+                "Combine element names with '+' (series) and '//' (parallel); "
+                "'//' binds tighter. Empty = all in series.",
+                color=(170, 170, 170, 255),
+            )
+            dpg.add_input_text(
+                tag=CNLS_SELECTOR_TOPOLOGY_INPUT_TAG,
+                hint="e.g. (RQ1+RC2)//L1",
+                default_value=_stored_topology or _selector_default_topology_expr(config),
+                width=-1,
+                callback=_selector_topology_changed_callback,
+                user_data=config,
+            )
+            dpg.add_text(tag=CNLS_SELECTOR_TOPOLOGY_STATUS_TAG, default_value="", color=(170, 170, 170, 255))
+
+        dpg.add_spacer(height=8)
+        dpg.add_separator()
+        dpg.add_spacer(height=6)
         with dpg.child_window(height=action_h, border=True, no_scrollbar=True):
             with dpg.group(horizontal=True):
                 dpg.add_button(label="Confirm", width=180, callback=_selector_confirm_callback, user_data=config)
@@ -1156,6 +1502,7 @@ def open_selector_window(sender, appdata, config):
 
     refresh_selector_remove_window(config)
     refresh_selector_preview(config)
+    _selector_refresh_topology_default(config)
 
 def _apply_rc_fit_initialization(CNLS_tmp):
     rc_cnls = copy.deepcopy(CNLS_tmp)
@@ -1277,6 +1624,7 @@ def initialize_parameters(sender, appdata, config):
             CNLS_tmp.f_fixed = config.store["peak_fixed_frequencies"]
             CNLS_tmp.f_mode = "fixed"
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
+            CNLS_tmp.topology = config.store.get("topology") or None
             CNLS_tmp.R_cons = None if not dpg.get_value("checkbox_cnls_R_percentage") else dpg.get_value("input_constraints_R_percentage")
             CNLS_tmp.Tau_cons = None if not dpg.get_value("checkbox_cnls_Tau_percentage") else dpg.get_value("input_constraints_Tau_percentage")
             # Disable RC_fit_switch if Randle elements exist
@@ -1552,6 +1900,7 @@ def load_parameters(sender, appdata, config):
             CNLS_tmp.R_cons = None if not dpg.get_value("checkbox_cnls_R_percentage") else dpg.get_value("input_constraints_R_percentage")
             CNLS_tmp.Tau_cons = None if not dpg.get_value("checkbox_cnls_Tau_percentage") else dpg.get_value("input_constraints_Tau_percentage")
             CNLS_tmp.constraint_type = config.store["segment_constraints"]
+            CNLS_tmp.topology = config.store.get("topology") or None
             CNLS_tmp.ElementsNames = []
             CNLS_tmp.data_type = normalize_cnls_data_type(dpg.get_value('combo_cnls_data_type'))
             EIS_tmp = config.store[file_name_no_ext]['EIS']
@@ -1596,6 +1945,8 @@ def cnls_fit(sender, appdata, config):
                 step += 1
                 _pm.update_progress(progress, step, f"{file_name_no_ext}  iter {iter_i + 1}/{CNLS_tmp.iteration}")
             CNLS_tmp.EvaluateCircuitDRT()
+            # Reflect the fitted values in the element table (per file).
+            sync_elements_from_params(CNLS_tmp)
         _success = True
     except Exception as _e:
         import traceback as _tb
@@ -1607,6 +1958,11 @@ def cnls_fit(sender, appdata, config):
     if not _success:
         return
     try:
+        # Refresh the element table so the displayed file shows its fitted values.
+        _dfk = os.path.splitext(config.display_file)[0] if config.display_file else None
+        if _dfk in config.store and 'CNLS' in config.store[_dfk] and isinstance(config.store[_dfk]['CNLS'].Elements, list):
+            config.store["Elements"] = config.store[_dfk]['CNLS'].Elements
+            gui_utils.cnls_elements.update_elements(config)
         gui_utils.cnls_table.table_update(config)
         gui_utils.cnls_plots.update_single_plots(config)
         gui_utils.cnls_plots.update_all_plots(config)

@@ -1,8 +1,31 @@
 import os
+import re
 import copy
 import numpy as np
 import dearpygui.dearpygui as dpg
 import src.GUI.Utils as gui_utils
+
+
+def _trailing_number(name):
+    """0-based index parsed from the trailing digits of an element name.
+    'RQ10' -> 9, 'L11' -> 10, 'R2' -> 1. Names always end with their position."""
+    m = re.search(r'(\d+)$', str(name))
+    return int(m.group(1)) - 1 if m else 0
+
+
+def _sync_display_file_elements(config):
+    """Keep the displayed file's CNLS.Elements pointing at config.store['Elements'].
+
+    The Selector replaces config.store['Elements'] with a fresh copy, breaking the
+    shared reference the table edits rely on; this restores it so the displayed
+    file's element names stay consistent with the table (and the topology)."""
+    df = getattr(config, 'display_file', None)
+    if not df:
+        return
+    dfk = os.path.splitext(df)[0]
+    entry = config.store.get(dfk)
+    if isinstance(entry, dict) and 'CNLS' in entry:
+        entry['CNLS'].Elements = config.store['Elements']
 
 
 _PARAM_LIST = {
@@ -39,7 +62,9 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
         config: Configuration object.
     """
     # Get the selected element type
-    element_nbr = element['name'][-1]
+    old_name = element['name']
+    element_idx = _trailing_number(old_name)
+    element_nbr = element_idx + 1
     element['type'] = app_data
     if app_data == "Resistor":
         name_short = "R"
@@ -61,7 +86,7 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
     element['Param'] = [element['Param'][0]]
     element['Ub'] = [element['Ub'][0]]
     element['Lb'] = [element['Lb'][0]]
-    config.store["Elements"][int(element_nbr)-1] = element
+    config.store["Elements"][element_idx] = element
     type_list = [element['type'] for element in config.store["Elements"]]
     if any('Randle' in s for s in type_list):
         dpg.configure_item("checkbox_cnls_segement_constraints", enabled = False, default_value = False)
@@ -106,8 +131,12 @@ def _element_table_change_callback(sender, app_data, config, element, _PARAM_RUL
                     'Lb':    [(_ol[i] if i < len(_ol) else _default_lb[i]) for i in range(_full_param_count)],
                 }
     menu_remove_elements(config)
-    if hasattr(gui_utils, "cnls_functions") and hasattr(gui_utils.cnls_functions, "refresh_selector_preview"):
-        gui_utils.cnls_functions.refresh_selector_preview(config)
+    _sync_display_file_elements(config)
+    if hasattr(gui_utils, "cnls_functions"):
+        if hasattr(gui_utils.cnls_functions, "sync_topology_after_elements_change"):
+            gui_utils.cnls_functions.sync_topology_after_elements_change(config, rename=(old_name, element['name']))
+        if hasattr(gui_utils.cnls_functions, "refresh_selector_preview"):
+            gui_utils.cnls_functions.refresh_selector_preview(config)
 
 def _update_param_callback(sender, app_data, config, element, i):
     """Callback function for updating the parameter in the table.
@@ -120,7 +149,7 @@ def _update_param_callback(sender, app_data, config, element, i):
     """
     # Update the parameter value
     element['Param'][i] = app_data
-    element_idx = int(element['name'][-1])-1
+    element_idx = _trailing_number(element['name'])
     config.store["Elements"][element_idx]['Param'][i] = app_data
 
 def _update_ub_callback(sender, app_data, config, element, i):
@@ -134,7 +163,7 @@ def _update_ub_callback(sender, app_data, config, element, i):
     """
     # Update the parameter value
     element['Ub'][i] = app_data
-    element_idx = int(element['name'][-1])-1
+    element_idx = _trailing_number(element['name'])
     config.store["Elements"][element_idx]['Ub'][i] = app_data
     _sync_element_field_to_selected_files(config, element_idx, 'Ub', i, app_data)
 
@@ -149,18 +178,22 @@ def _update_lb_callback(sender, app_data, config, element, i):
     """
     # Update the parameter value
     element['Lb'][i] = app_data
-    element_idx = int(element['name'][-1])-1
+    element_idx = _trailing_number(element['name'])
     config.store["Elements"][element_idx]['Lb'][i] = app_data
     _sync_element_field_to_selected_files(config, element_idx, 'Lb', i, app_data)
 
 def _smart_format(value):
     """Smartly choose format: use scientific notation for very small or very large
     magnitudes (so signed bounds like -1e8 display as -1.00e+08), otherwise use a
-    standard floating-point format."""
-    if value != [] and value != 0 and (abs(value) < 0.001 or abs(value) >= 1e4):
+    standard floating-point format. Coerces to float first so numpy scalars/lists
+    don't trigger array-truth comparisons."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return "%.3f"
+    if v != 0 and (abs(v) < 0.001 or abs(v) >= 1e4):
         return "%.2e"  # Scientific notation (e.g., 1.23e-05 or -1.00e+08)
-    else:
-        return "%.3f"  # Standard floating-point format (e.g., 0.001)
+    return "%.3f"  # Standard floating-point format (e.g., 0.001)
 
 def _add_parameters_bounds(config, element, idx, _PARAM_RULES, element_idx):
     param_name = None
@@ -322,8 +355,12 @@ def add_element_by_type(config, element_type):
             dpg.configure_item("check_box_cnls_rc_initialization", default_value=False, enabled=False)
             config.store['RC_fit_switch'] = False
 
-    if hasattr(gui_utils, "cnls_functions") and hasattr(gui_utils.cnls_functions, "refresh_selector_preview"):
-        gui_utils.cnls_functions.refresh_selector_preview(config)
+    _sync_display_file_elements(config)
+    if hasattr(gui_utils, "cnls_functions"):
+        if hasattr(gui_utils.cnls_functions, "sync_topology_after_elements_change"):
+            gui_utils.cnls_functions.sync_topology_after_elements_change(config)
+        if hasattr(gui_utils.cnls_functions, "refresh_selector_preview"):
+            gui_utils.cnls_functions.refresh_selector_preview(config)
 
 def menu_remove_elements(config):
     """Create a menu for removing elements from the CNLS fitting table.
@@ -387,6 +424,10 @@ def remove_element_by_name(config, name_to_remove):
         if dpg.does_item_exist("check_box_cnls_rc_initialization"):
             dpg.configure_item("check_box_cnls_rc_initialization", enabled=True)
 
-    if hasattr(gui_utils, "cnls_functions") and hasattr(gui_utils.cnls_functions, "refresh_selector_preview"):
-        gui_utils.cnls_functions.refresh_selector_preview(config)
+    _sync_display_file_elements(config)
+    if hasattr(gui_utils, "cnls_functions"):
+        if hasattr(gui_utils.cnls_functions, "sync_topology_after_elements_change"):
+            gui_utils.cnls_functions.sync_topology_after_elements_change(config)
+        if hasattr(gui_utils.cnls_functions, "refresh_selector_preview"):
+            gui_utils.cnls_functions.refresh_selector_preview(config)
     return True

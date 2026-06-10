@@ -798,6 +798,12 @@ def display_file(sender, app_data, config, refresh_eis_tab=True, refresh_drt_tab
                 if config.store[_file_key]['CNLS'].Elements is not None:
                     config.store["Elements"] = config.store[_file_key]['CNLS'].Elements
 
+                # Adopt the displayed file's saved topology as the current GUI
+                # topology, so a reloaded custom circuit is retained (the selector
+                # and fit/load paths read config.store["topology"]).
+                config.store["topology"] = getattr(config.store[_file_key]['CNLS'], 'topology', None)
+                config.store["_topology_custom"] = bool(config.store["topology"])
+
                 gui_utils.cnls_elements.update_elements(config)
             # Always refresh table + plots so they clear when file has no CNLS data
             gui_utils.cnls_table.table_update(config)

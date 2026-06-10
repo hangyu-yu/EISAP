@@ -97,6 +97,7 @@ class Circuit:
         self.f_fixed = None # Fixed frequencies for peak identification
         self.f_mode = 'fixed'
         self.constraint_type = 'segment'
+        self.topology = None # Optional circuit topology expression over element names (e.g. "(RQ1+RC2)//L1"). None -> all elements in series.
         
         # Initialize lists to store circuit elements configuration
         self.Elements = Elements     # List to store circuit elements
@@ -345,8 +346,14 @@ class Circuit:
             else:
                 print(f'Element type {type} not recognized')
         
-        # Compute the total impedance
-        Ztot=np.array(np.sum(Z,axis=1))
+        # Compute the total impedance. With no topology, all elements are in
+        # series (default behaviour). A topology expression combines the same
+        # per-element columns with series ('+') / parallel ('//') instead.
+        if getattr(self, 'topology', None):
+            z_dict = {name: Z[name].to_numpy() for name in Z.columns}
+            Ztot = CNLS_fn.Topology.evaluate(self.topology, z_dict)
+        else:
+            Ztot = np.array(np.sum(Z, axis=1))
 
         return Ztot, Z
 
@@ -852,6 +859,7 @@ class Circuit:
                 "data_type": [self.data_type],
                 "fixed_frequencies": [self.f_fixed if self.f_fixed is not None else None],
                 "constraint_type": [self.constraint_type],
+                "topology": [self.topology],
                 "f_mode": [self.f_mode],
                 "ElementsEndIndex": [self.ElementsEndIndex],
                 "ElementsStartIndex": [self.ElementsStartIndex],
@@ -977,6 +985,7 @@ class Circuit:
         if summary_df is not None:
             self.data_type = safe_get(summary_df, "data_type", self.data_type, str)
             self.constraint_type = safe_get(summary_df, "constraint_type", self.constraint_type, str)
+            self.topology = safe_get(summary_df, "topology", None, str)
             self.f_mode = safe_get(summary_df, "f_mode", self.f_mode, str)
             self.SumNormResiduals = safe_get(summary_df, "SumNormResiduals", None, float)
             self.dof = safe_get(summary_df, "dof", None, int)
