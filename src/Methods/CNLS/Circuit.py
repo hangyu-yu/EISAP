@@ -393,15 +393,18 @@ class Circuit:
         # Flatten the initial parameter values
         initial_params = np.array(self.ElementsParamValues)
 
-        # Perform the weighted least squares fit
+        # Perform the weighted least squares fit.
+        # Nudge any out-of-bounds initial guess just inside its bound. The nudge
+        # direction depends on the sign of the bound (so it also works for negative
+        # bounds, e.g. negative-resistance elements), and is fully vectorized.
+        lb = np.asarray(self.LowerBound, dtype=float)
+        ub = np.asarray(self.UpperBound, dtype=float)
+        lb_inside = np.where(lb >= 0, lb * 1.001, lb * 0.999)  # just above the lower bound
+        ub_inside = np.where(ub >= 0, ub * 0.999, ub * 1.001)  # just below the upper bound
         adjusted_x0 = np.where(
-            initial_params < self.LowerBound,
-            self.LowerBound * 1.001,  # 低于下界 → 设为下界的 110%
-            np.where(
-                initial_params > self.UpperBound,
-                self.UpperBound * 0.9999,  # 高于上界 → 设为上界的 90%
-                initial_params  # 否则保持原值
-            )
+            initial_params < lb,
+            lb_inside,
+            np.where(initial_params > ub, ub_inside, initial_params)
         )
         result = opt.least_squares(residuals, adjusted_x0,
                         bounds=(self.LowerBound, self.UpperBound))

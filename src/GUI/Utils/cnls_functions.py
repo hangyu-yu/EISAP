@@ -1288,12 +1288,81 @@ def initialize_parameters(sender, appdata, config):
                 CNLS_tmp.RC_fit_switch = config.store.get("RC_fit_switch", False)
 
             _orig_drtmes = CNLS_tmp.DRTmes
-            # NO longer use abs(DRTmes); analyze DRT as-is
-            R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_tmp.PeakDerivative(CNLS_tmp.f_mode, f_fixed=CNLS_tmp.f_fixed, nbr_peaks_fixed=len(CNLS_tmp.f_fixed))
+            # Detect which fixed peak frequencies sit on a negative DRT (gamma < 0)
+            # directly from the data — no stored marking required. For these
+            # negative-resistance peaks the DRT is temporarily made positive in a
+            # 3-point window (the point + its two neighbours, clipped to the dataset
+            # bounds at the edges) so PeakDerivative — whose Gaussian amplitude is
+            # bound to be non-negative — can estimate the peak magnitude. The DRT is
+            # always restored afterwards (never changed permanently); the corresponding
+            # resistance is negated below. Neighbouring negative points are handled
+            # naturally because their windows union.
+            _f_for_peak = CNLS_tmp.f_drt if getattr(CNLS_tmp, "f_drt", None) is not None else CNLS_tmp.f
+            neg_freqs = []
+            if _orig_drtmes is not None and _f_for_peak is not None and CNLS_tmp.f_fixed is not None:
+                _f_det = np.asarray(_f_for_peak, dtype=float)
+                _drt_det = np.asarray(_orig_drtmes, dtype=float)
+                for _ff in CNLS_tmp.f_fixed:
+                    _di = int(np.argmin(np.abs(_f_det - float(_ff))))
+                    if _drt_det[_di] < 0:
+                        neg_freqs.append(float(_ff))
+            try:
+                if neg_freqs and _orig_drtmes is not None and _f_for_peak is not None:
+                    _drt_tmp = np.array(_orig_drtmes, dtype=float).copy()
+                    _f_arr = np.asarray(_f_for_peak, dtype=float)
+                    _n_drt = len(_drt_tmp)
+                    for _fn in neg_freqs:
+                        _idx = int(np.argmin(np.abs(_f_arr - float(_fn))))
+                        _lo = max(0, _idx - 1)
+                        _hi = min(_n_drt - 1, _idx + 1)
+                        _drt_tmp[_lo:_hi + 1] = np.abs(_drt_tmp[_lo:_hi + 1])
+                    CNLS_tmp.DRTmes = _drt_tmp
+                R_est, freq_est, alpha_est, nbr_peaks, tau_est = CNLS_tmp.PeakDerivative(CNLS_tmp.f_mode, f_fixed=CNLS_tmp.f_fixed, nbr_peaks_fixed=len(CNLS_tmp.f_fixed))
+            finally:
+                CNLS_tmp.DRTmes = _orig_drtmes
             R_est_sum = np.sum(R_est)
             rp_reim = rl_data.get('Rp_ReIm', None)
             if rp_reim is not None and R_est_sum not in [None, 0]:
                 R_est = R_est * rp_reim / R_est_sum
+
+            # Identify which returned peaks are the user-marked negative ones
+            # (peaks are returned high->low frequency, matching f_fixed order) and
+            # map each consumed peak to its circuit element exactly as the
+            # assignment loop below does.
+            R_est = np.array(R_est, dtype=float)
+            freq_arr = np.asarray(freq_est, dtype=float)
+            neg_peak_mask = [False] * len(freq_arr)
+            # Assign each negative frequency to a distinct nearest peak so that two
+            # neighbouring negative points cannot collapse onto the same peak index.
+            _used_peaks = set()
+            for _fn in neg_freqs:
+                if len(freq_arr) == 0:
+                    break
+                for _cand in np.argsort(np.abs(freq_arr - float(_fn))):
+                    if int(_cand) not in _used_peaks:
+                        neg_peak_mask[int(_cand)] = True
+                        _used_peaks.add(int(_cand))
+                        break
+
+            _peak_to_elem = []
+            for _ei, _elem in enumerate(CNLS_tmp.Elements):
+                _nm = _elem.get('name', '')
+                _ty = _elem.get('type', '')
+                if _nm in ('L1', 'R2'):
+                    continue
+                if _ty not in ('Capacitor', 'CPE') and 'Randle' not in _nm:
+                    _peak_to_elem.append((_ei, True))
+                elif 'Randle' in _nm:
+                    _peak_to_elem.append((_ei, True))
+                    _peak_to_elem.append((_ei, False))
+
+            neg_element_indices = set()
+            for _pk in range(min(len(neg_peak_mask), len(_peak_to_elem))):
+                # Only the element's first (R) peak carries the negative resistance.
+                if neg_peak_mask[_pk] and _peak_to_elem[_pk][1]:
+                    R_est[_pk] = -abs(R_est[_pk])
+                    neg_element_indices.add(_peak_to_elem[_pk][0])
+
             param_list = list(zip(R_est, tau_est, alpha_est))
             param_list = [[float(x) for x in tup] for tup in param_list]
             
@@ -1396,7 +1465,39 @@ def initialize_parameters(sender, appdata, config):
                     if rs_param_idx < len(CNLS_tmp.LowerBound):
                         CNLS_tmp.LowerBound[rs_param_idx] = rs_value
                         CNLS_tmp.Elements[r2_idx]['Lb'] = [rs_value]
-            
+
+            # Enforce negative-resistance settings for negative-gamma peaks: the
+            # resistance stays negative while tau/alpha are left untouched. When the
+            # R-constraint percentage is active it is applied around the negative
+            # value (with sign-correct min/max ordering, mirroring the positive case);
+            # otherwise a wide negative band is used (Ub = -10e-9, Lb = -1e8 — a large
+            # finite lower bound instead of -inf so a later initialize_elements call
+            # cannot invert it). Applied last because initialize_elements and
+            # constraint_percentage would otherwise reset these bounds.
+            for _ei in neg_element_indices:
+                if _ei >= len(CNLS_tmp.ElementsStartIndex):
+                    continue
+                _ri = CNLS_tmp.ElementsStartIndex[_ei]
+                if _ri >= len(CNLS_tmp.UpperBound):
+                    continue
+                _r_val = -abs(float(CNLS_tmp.ElementsParamValues[_ri]))
+                if CNLS_tmp.R_cons is not None:
+                    _p = float(CNLS_tmp.R_cons) / 100.0
+                    _b1, _b2 = _r_val * (1 + _p), _r_val * (1 - _p)
+                    _ub_val, _lb_val = max(_b1, _b2), min(_b1, _b2)
+                else:
+                    _ub_val, _lb_val = -10e-9, -1e8
+                CNLS_tmp.ElementsParamValues[_ri] = _r_val
+                CNLS_tmp.UpperBound[_ri] = _ub_val
+                CNLS_tmp.LowerBound[_ri] = _lb_val
+                _elem = CNLS_tmp.Elements[_ei]
+                if isinstance(_elem.get('Param'), list) and len(_elem['Param']) > 0:
+                    _elem['Param'][0] = _r_val
+                if isinstance(_elem.get('Ub'), list) and len(_elem['Ub']) > 0:
+                    _elem['Ub'][0] = _ub_val
+                if isinstance(_elem.get('Lb'), list) and len(_elem['Lb']) > 0:
+                    _elem['Lb'][0] = _lb_val
+
             _pm.update_progress(progress, i + 1, file_name)
         _success = True
     except Exception as _e:

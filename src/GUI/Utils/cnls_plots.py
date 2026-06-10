@@ -508,7 +508,14 @@ def update_all_plots(config):
                         label_pairs = tuple(zip(file_name_list, x_data))
                         dpg.add_line_series(x_data, data_list, parent=y_axis)
                         dpg.add_scatter_series(x_data, data_list, parent=y_axis)
-                        dpg.set_axis_limits(y_axis, y_min_value * 0.5, y_max_value * 1.1)
+                        # Pad additively so negative values (e.g. negative resistance)
+                        # are enclosed; multiplicative padding on a negative minimum
+                        # would raise the lower bound toward zero and clip the curve.
+                        span = y_max_value - y_min_value
+                        pad = span * 0.1 if span > 0 else max(abs(y_min_value), abs(y_max_value), 1e-6) * 0.1
+                        y_low = y_min_value - pad if y_min_value < 0 else 0.0
+                        y_high = y_max_value + pad if y_max_value > 0 else pad
+                        dpg.set_axis_limits(y_axis, y_low, y_high)
                         dpg.set_axis_limits(x_axis, 0, len(file_name_list) + 1)
                         dpg.set_axis_ticks(x_axis, label_pairs)
 

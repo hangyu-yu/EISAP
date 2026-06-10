@@ -154,9 +154,11 @@ def _update_lb_callback(sender, app_data, config, element, i):
     _sync_element_field_to_selected_files(config, element_idx, 'Lb', i, app_data)
 
 def _smart_format(value):
-    """Smartly choose format: use scientific notation for values less than 0.001, otherwise use standard floating-point format."""
-    if value != [] and abs(value) < 0.001 and value != 0 :
-        return "%.2e"  # Scientific notation (e.g., 1.234e-05)
+    """Smartly choose format: use scientific notation for very small or very large
+    magnitudes (so signed bounds like -1e8 display as -1.00e+08), otherwise use a
+    standard floating-point format."""
+    if value != [] and value != 0 and (abs(value) < 0.001 or abs(value) >= 1e4):
+        return "%.2e"  # Scientific notation (e.g., 1.23e-05 or -1.00e+08)
     else:
         return "%.3f"  # Standard floating-point format (e.g., 0.001)
 
