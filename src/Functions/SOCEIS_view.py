@@ -49,6 +49,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
 from matplotlib import colormaps
 import plotly.colors as pc
 from pathlib import Path
@@ -285,6 +286,8 @@ def cnls_line_plotly(df_cnls: pd.DataFrame, param: str, ylim=None):
         _ylabel = "τ [s]"
     elif param.startswith("alpha"):
         _ylabel = "Dispersion factor"
+    elif param == "L_hf" or re.fullmatch(r"L\d+", param):
+        _ylabel = "L [H·cm²]"
     else:
         _ylabel = "R [Ω·cm²]"
 
@@ -762,6 +765,579 @@ def _add_mpl_colorbar(fig, ax, datasets):
     cbar.outline.set_visible(False)
 
 
+# ===============================
+# CNLS topology helpers
+# ===============================
+def _parse_summary_elements(xls: pd.ExcelFile):
+    """Return (names, type_map) from a CNLS 'Summary' sheet.
+
+    names follow the order stored in ElementsNames; type_map maps each name to
+    its ElementsType string (e.g. 'Resistor', 'Inductor', 'RQ'). Robust to the
+    list being stored as a Python-list repr in a single cell.
+    """
+    if "Summary" not in xls.sheet_names:
+        return [], {}
+    summary = pd.read_excel(xls, "Summary", header=None)
+    if summary.shape[0] < 2:
+        return [], {}
+
+    names_raw = str(summary.iloc[1, 0])
+    names = re.findall(r"'([^']*)'", names_raw)
+    if not names:
+        # Fall back to bare tokens (e.g. RQ3, R8, L1).
+        names = re.findall(r"[A-Za-z]+\d+", names_raw)
+
+    types = []
+    if summary.shape[1] > 1:
+        types = re.findall(r"'([^']*)'", str(summary.iloc[1, 1]))
+    type_map = {}
+    for i, n in enumerate(names):
+        type_map[n] = types[i] if i < len(types) else None
+    return names, type_map
+
+
+def cnls_topology_elements(xls: pd.ExcelFile):
+    """Resolve every CNLS element to its Z/DRT columns by header name.
+
+    Returns an ordered list of dicts (order from Summary.ElementsNames):
+        {name, type, z_re, z_im, drt}
+    where z_re/z_im are 'Z'-sheet column labels and drt is a 'DRT'-sheet column
+    label; any may be None when the corresponding column is absent. Robust to
+    arbitrary custom topologies (no fixed offsets, no RQ-only assumption).
+    """
+    names, type_map = _parse_summary_elements(xls)
+    if not names:
+        return []
+
+    z_cols = []
+    if "Z" in xls.sheet_names:
+        z_cols = list(pd.read_excel(xls, "Z", nrows=0).columns)
+    drt_cols = []
+    if "DRT" in xls.sheet_names:
+        drt_cols = list(pd.read_excel(xls, "DRT", nrows=0).columns)
+
+    def _find(cols, pattern):
+        for c in cols:
+            if re.match(pattern, str(c)):
+                return c
+        return None
+
+    elements = []
+    for name in names:
+        esc = re.escape(name)
+        elements.append({
+            "name": name,
+            "type": type_map.get(name),
+            "z_re": _find(z_cols, rf"{esc}_Re(/|$)"),
+            "z_im": _find(z_cols, rf"{esc}_Im(/|$)"),
+            "drt": _find(drt_cols, rf"DRT{esc}(/|$)"),
+        })
+    return elements
+
+
+def _element_index(name: str):
+    """Trailing integer index of an element name (e.g. 'RQ3' -> 3); None if absent."""
+    m = re.search(r"(\d+)$", str(name))
+    return int(m.group(1)) if m else None
+
+
+# ===============================
+# Equivalent-circuit schematic
+# ===============================
+# Self-contained copy of the topology grammar (see src/Methods/CNLS/Utils/Topology.py)
+# so the standalone viewer has no import-path dependency.
+#   '+'  series      '//' parallel (binds tighter)      () grouping
+# AST nodes: ('leaf', name) | ('series', (..)) | ('parallel', (..))
+def _topo_tokenize(expr):
+    tokens, i, n = [], 0, len(expr)
+    while i < n:
+        c = expr[i]
+        if c.isspace():
+            i += 1
+        elif c in "()+":
+            tokens.append(c); i += 1
+        elif c == "/":
+            if i + 1 < n and expr[i + 1] == "/":
+                tokens.append("//"); i += 2
+            else:
+                raise ValueError("Use '//' for parallel.")
+        elif c.isalnum() or c == "_":
+            j = i
+            while j < n and (expr[j].isalnum() or expr[j] == "_"):
+                j += 1
+            tokens.append(expr[i:j]); i = j
+        else:
+            raise ValueError(f"Unexpected character '{c}'.")
+    return tokens
+
+
+def parse_topology_ast(expr):
+    """Parse a topology string into a (kind, ...) AST. Raises ValueError on bad syntax."""
+    tokens = _topo_tokenize(expr)
+    pos = 0
+
+    def peek():
+        return tokens[pos] if pos < len(tokens) else None
+
+    def expr_rule():
+        nonlocal pos
+        terms = [term_rule()]
+        while peek() == "+":
+            pos += 1
+            terms.append(term_rule())
+        return terms[0] if len(terms) == 1 else ("series", tuple(terms))
+
+    def term_rule():
+        nonlocal pos
+        factors = [factor_rule()]
+        while peek() == "//":
+            pos += 1
+            factors.append(factor_rule())
+        return factors[0] if len(factors) == 1 else ("parallel", tuple(factors))
+
+    def factor_rule():
+        nonlocal pos
+        tok = peek()
+        if tok is None:
+            raise ValueError("Unexpected end of expression.")
+        if tok == "(":
+            pos += 1
+            node = expr_rule()
+            if peek() != ")":
+                raise ValueError("Missing ')'.")
+            pos += 1
+            return node
+        if tok in ("+", "//", ")"):
+            raise ValueError(f"Unexpected '{tok}'.")
+        pos += 1
+        return ("leaf", tok)
+
+    node = expr_rule()
+    if pos != len(tokens):
+        raise ValueError(f"Unexpected token '{tokens[pos]}'.")
+    return node
+
+
+def get_cnls_topology(xls: pd.ExcelFile):
+    """Return the topology string from a CNLS 'Summary' sheet (or a series fallback)."""
+    names, _ = _parse_summary_elements(xls)
+    if "Summary" in xls.sheet_names:
+        summary = pd.read_excel(xls, "Summary", header=None)
+        if summary.shape[0] >= 2:
+            headers = [str(h) for h in summary.iloc[0].tolist()]
+            if "topology" in headers:
+                topo = summary.iloc[1, headers.index("topology")]
+                if isinstance(topo, str) and topo.strip():
+                    return topo.strip()
+    # Fallback: all elements in series.
+    return " + ".join(names) if names else ""
+
+
+# --- Schematic rendering (matplotlib port of the CNLS Selector preview) ---
+# The Selector window (src/GUI/Utils/cnls_functions.py) draws the equivalent
+# circuit on a dearpygui drawlist using pixel coordinates with y pointing down.
+# This block reproduces that exact visual style on a matplotlib axis: we work in
+# the same pixel/y-down space and invert the y-axis at the end. Colours match the
+# Selector (light-blue symbols on a dark canvas, light-grey wires).
+_SCH_DPI = 150.0
+_SCH_WIRE_COLOR = (0, 0, 0, 255)
+_SCH_SYMBOL_COLOR = (0, 0, 0, 255)
+_SCH_SYMBOL_FILL = (255, 255, 255, 255)
+_SCH_RESISTOR_FILL = (255, 255, 255, 255)
+_SCH_LABEL_COLOR = (0, 0, 0, 255)
+_SCH_BG_COLOR = (255, 255, 255, 255)
+_SCH_SYMBOL_W = 84.0
+
+
+def _sch_rgba(c):
+    """Convert a 0-255 RGBA tuple to a matplotlib 0-1 RGBA tuple."""
+    if len(c) == 3:
+        return (c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, 1.0)
+    return (c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, c[3] / 255.0)
+
+
+class _SchDraw:
+    """dearpygui-style draw adapter over a matplotlib axis (pixel/y-down units)."""
+
+    def __init__(self, ax):
+        self.ax = ax
+
+    def _lw(self, thickness):
+        return max(0.6, float(thickness) * 72.0 / _SCH_DPI)
+
+    def line(self, p0, p1, color, thickness):
+        self.ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color=_sch_rgba(color),
+                     lw=self._lw(thickness), solid_capstyle="round")
+
+    def polyline(self, points, color, thickness):
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        self.ax.plot(xs, ys, color=_sch_rgba(color), lw=self._lw(thickness),
+                     solid_capstyle="round", solid_joinstyle="round")
+
+    def rect(self, p0, p1, color, fill, thickness):
+        x = min(p0[0], p1[0])
+        y = min(p0[1], p1[1])
+        w = abs(p1[0] - p0[0])
+        h = abs(p1[1] - p0[1])
+        self.ax.add_patch(mpatches.Rectangle(
+            (x, y), w, h, linewidth=self._lw(thickness),
+            edgecolor=_sch_rgba(color),
+            facecolor=_sch_rgba(fill) if fill is not None else "none",
+        ))
+
+    def circle(self, center, radius, color, fill, thickness):
+        self.ax.add_patch(mpatches.Circle(
+            center, radius, linewidth=self._lw(thickness),
+            edgecolor=_sch_rgba(color),
+            facecolor=_sch_rgba(fill) if fill is not None else "none",
+        ))
+
+    def text(self, pos, text, color, size):
+        # dearpygui anchors text at its top-left; replicate with va='top'.
+        self.ax.text(pos[0], pos[1], str(text), color=_sch_rgba(color),
+                     fontsize=size * 72.0 / _SCH_DPI, ha="left", va="top")
+
+
+def _estimate_text_width(label, font_size):
+    """Estimate drawlist text width (ported from the Selector)."""
+    width_units = 0.0
+    for ch in str(label):
+        if ch in "WwMm@#%&":
+            width_units += 0.88
+        elif ch in "firtjlI1|":
+            width_units += 0.38
+        elif ch.isupper():
+            width_units += 0.66
+        elif ch.islower():
+            width_units += 0.56
+        elif ch.isdigit():
+            width_units += 0.58
+        else:
+            width_units += 0.60
+    return max(6.0, width_units * float(font_size))
+
+
+def _sch_resistor(D, x0, x1, y, color, thickness):
+    width = max(12.0, x1 - x0)
+    mid = (x0 + x1) / 2.0
+    lead_target = 15.0
+    max_body_from_lead = max(8.0, width - 2.0 * lead_target)
+    body_w = min(42.0, max(14.0, width * 0.34), max_body_from_lead)
+    r0 = mid - body_w / 2.0
+    r1 = mid + body_w / 2.0
+    rect_h = min(7.0, max(4.6, body_w * 0.16))
+    D.line((x0, y), (r0, y), color, thickness)
+    D.line((r1, y), (x1, y), color, thickness)
+    D.rect((r0, y - rect_h), (r1, y + rect_h), color, _SCH_RESISTOR_FILL, 1.8)
+
+
+def _sch_capacitor(D, x0, x1, y, color, thickness):
+    mid = (x0 + x1) / 2.0
+    gap = min(7.0, max(4.0, (x1 - x0) / 6.0))
+    plate_h = 16
+    D.line((x0, y), (mid - gap, y), color, thickness)
+    D.line((mid - gap, y - plate_h), (mid - gap, y + plate_h), color, thickness)
+    D.line((mid + gap, y - plate_h), (mid + gap, y + plate_h), color, thickness)
+    D.line((mid + gap, y), (x1, y), color, thickness)
+
+
+def _sch_inductor(D, x0, x1, y, color, thickness):
+    coil_count = 4
+    span = max(20.0, x1 - x0)
+    radius = span / (coil_count * 2.0)
+    left = (x0 + x1) / 2.0 - coil_count * radius
+    D.line((x0, y), (left, y), color, thickness)
+    for i in range(coil_count):
+        cx = left + radius * (2 * i + 1)
+        D.circle((cx, y), radius, color, None, thickness)
+    D.line((left + coil_count * 2.0 * radius, y), (x1, y), color, thickness)
+
+
+def _sch_cpe(D, x0, x1, y, color, thickness):
+    width = max(14.0, x1 - x0)
+    min_inner_span = 6.0
+    max_lead = max(2.0, (width - min_inner_span) / 2.0)
+    lead = min(max_lead, max(15.0, width * 0.20))
+    c0 = x0 + lead
+    c1 = x1 - lead
+    D.line((x0, y), (c0, y), color, thickness)
+    D.line((c1, y), (x1, y), color, thickness)
+    span = max(10.0, c1 - c0)
+    h = min(6.8, max(4.2, span * 0.19))
+    left_center = c0 + span * 0.40
+    right_center = c0 + span * 0.60
+    half = max(2.4, span * 0.10)
+    D.polyline([(left_center + half, y - h), (left_center - half, y), (left_center + half, y + h)], color, thickness)
+    D.polyline([(right_center + half, y - h), (right_center - half, y), (right_center + half, y + h)], color, thickness)
+
+
+def _sch_abbrev_series(D, x0, x1, y, color, label, thickness=2):
+    width = max(12.0, x1 - x0)
+    min_inner_span = 6.0
+    max_lead = max(2.0, (width - min_inner_span) / 2.0)
+    lead = min(max_lead, max(15.0, width * 0.20))
+    t0 = x0 + lead
+    t1 = x1 - lead
+    D.line((x0, y), (t0, y), color, thickness)
+    D.line((t1, y), (x1, y), color, thickness)
+    label_str = str(label)
+    inner_span = max(8.0, t1 - t0)
+    if label_str in ["W", "G", "FLW", "fFLW"]:
+        factor = 0.52 if label_str == "W" else 0.56
+        font_size = int(max(18, min(24, inner_span * factor)))
+    elif len(label_str) <= 2:
+        font_size = int(max(16, min(22, inner_span * 0.40)))
+    elif len(label_str) <= 4:
+        font_size = int(max(14, min(19, inner_span * 0.31)))
+    else:
+        font_size = int(max(12, min(17, inner_span * 0.25)))
+    text_w = _estimate_text_width(label_str, font_size)
+    tx = (x0 + x1) / 2.0 - text_w / 2.0
+    ty = y - font_size * 0.46
+    D.text((tx, ty), label_str, _SCH_LABEL_COLOR, font_size)
+
+
+def _sch_generic_block(D, x0, x1, y, color, fill):
+    D.rect((x0, y - 13), (x1, y + 13), color, fill, 1.5)
+
+
+def _sch_label_block(D, x0, x1, y, color, fill, label):
+    _sch_generic_block(D, x0, x1, y, color, fill)
+    tx = (x0 + x1) / 2.0 - 5
+    D.text((tx, y - 7), str(label), _SCH_LABEL_COLOR, 13)
+
+
+def _sch_parallel_branch(D, x0, x1, y, color, fill, lower_type):
+    top_y = y - 16
+    bot_y = y + 16
+    D.line((x0, top_y), (x0, bot_y), color, 2)
+    D.line((x1, top_y), (x1, bot_y), color, 2)
+    D.circle((x0, y), 1.8, color, color, 1)
+    D.circle((x1, y), 1.8, color, color, 1)
+    _sch_resistor(D, x0, x1, top_y, color, 2)
+    if lower_type == "capacitor":
+        _sch_capacitor(D, x0, x1, bot_y, color, 2)
+    elif lower_type == "cpe":
+        _sch_cpe(D, x0, x1, bot_y, color, 2)
+    elif lower_type == "label_w":
+        _sch_label_block(D, x0 + 4, x1 - 4, bot_y, color, fill, "W")
+    elif lower_type == "label_g":
+        _sch_label_block(D, x0 + 4, x1 - 4, bot_y, color, fill, "G")
+    else:
+        _sch_generic_block(D, x0 + 4, x1 - 4, bot_y, color, fill)
+
+
+def _sch_randle_symbol(D, x0, x1, y, color, fill, cpe=False, warburg_is_fractal=False):
+    width = max(44.0, x1 - x0)
+    lead = min(8.0, max(4.0, width * 0.08))
+    core0 = x0 + lead
+    core1 = x1 - lead
+    core_w = max(24.0, core1 - core0)
+    top_y = y - 16
+    bot_y = y + 16
+    D.line((x0, y), (core0, y), color, 2)
+    D.line((core1, y), (x1, y), color, 2)
+    D.line((core0, top_y), (core0, bot_y), color, 2)
+    D.line((core1, top_y), (core1, bot_y), color, 2)
+    D.circle((core0, y), 1.8, color, color, 1)
+    D.circle((core1, y), 1.8, color, color, 1)
+    if cpe:
+        _sch_cpe(D, core0, core1, top_y, color, 2)
+    else:
+        _sch_capacitor(D, core0, core1, top_y, color, 2)
+    r_end = core0 + core_w * 0.46
+    w_start = r_end + core_w * 0.08
+    _sch_resistor(D, core0, r_end, bot_y, color, 2)
+    D.line((r_end, bot_y), (w_start, bot_y), color, 2)
+    if w_start < core1 - 2:
+        warburg_label = "fFLW" if warburg_is_fractal else "FLW"
+        _sch_abbrev_series(D, w_start, core1, bot_y, color, warburg_label, thickness=2)
+    else:
+        D.line((w_start, bot_y), (core1, bot_y), color, 2)
+
+
+def _sch_element_symbol(D, element_type, x0, x1, y, color, fill):
+    sx0, sx1 = x0, x1
+    width = max(1.0, x1 - x0)
+    pad = min(8.0, max(2.0, width * 0.08))
+    x0 = x0 + pad
+    x1 = x1 - pad
+    D.line((sx0, y), (x0, y), color, 2)
+    D.line((x1, y), (sx1, y), color, 2)
+    thickness = 2
+    et = str(element_type)
+    if et == "Resistor":
+        _sch_resistor(D, x0, x1, y, color, thickness)
+    elif et == "RC":
+        _sch_parallel_branch(D, x0, x1, y, color, fill, lower_type="capacitor")
+    elif et == "RQ":
+        _sch_parallel_branch(D, x0, x1, y, color, fill, lower_type="cpe")
+    elif et == "Gerisher":
+        _sch_abbrev_series(D, x0, x1, y, color, "G", thickness=thickness)
+    elif et == "FLW":
+        _sch_abbrev_series(D, x0, x1, y, color, "FLW", thickness=thickness)
+    elif et == "fFLW":
+        _sch_abbrev_series(D, x0, x1, y, color, "fFLW", thickness=thickness)
+    elif et in ["Capacitor", "CPE"]:
+        if et == "CPE":
+            _sch_cpe(D, x0, x1, y, color, thickness)
+        else:
+            _sch_capacitor(D, x0, x1, y, color, thickness)
+    elif et in ["Inductor", "Inductor_a"]:
+        _sch_inductor(D, x0, x1, y, color, thickness)
+    elif et == "Warburg":
+        _sch_abbrev_series(D, x0, x1, y, color, "W", thickness=thickness)
+    elif et == "RandleC":
+        _sch_randle_symbol(D, x0, x1, y, color, fill, cpe=False, warburg_is_fractal=False)
+    elif et == "RandleCPE":
+        _sch_randle_symbol(D, x0, x1, y, color, fill, cpe=True, warburg_is_fractal=False)
+    elif et == "RandleCfFLW":
+        _sch_randle_symbol(D, x0, x1, y, color, fill, cpe=False, warburg_is_fractal=True)
+    elif et == "RandleCPEfFLW":
+        _sch_randle_symbol(D, x0, x1, y, color, fill, cpe=True, warburg_is_fractal=True)
+    else:
+        _sch_generic_block(D, x0, x1, y, color, fill)
+
+
+def _sch_measure(node, units_by_name):
+    """Return (width_units, height_units). Series: widths add, height max.
+    Parallel: heights add, width max. (Ported from the Selector.)"""
+    if node[0] == "leaf":
+        return (units_by_name.get(node[1], 1.0), 1.0)
+    sizes = [_sch_measure(c, units_by_name) for c in node[1]]
+    if node[0] == "series":
+        return (sum(w for w, _ in sizes), max(h for _, h in sizes))
+    return (max(w for w, _ in sizes), sum(h for _, h in sizes))
+
+
+def _sch_draw(D, node, x0, x1, yc, branch_h, ctx):
+    """Recursively draw an AST node into [x0, x1] centered at yc (Selector port)."""
+    if node[0] == "leaf":
+        name = node[1]
+        etype = ctx["type_by_name"].get(name, "Resistor")
+        units = ctx["units_by_name"].get(name, 1.0)
+        sym_w = min(x1 - x0, ctx["symbol_w"] * units)
+        cx = (x0 + x1) / 2.0
+        bx0, bx1 = cx - sym_w / 2.0, cx + sym_w / 2.0
+        if bx0 > x0:
+            D.line((x0, yc), (bx0, yc), ctx["wire_color"], ctx["wire_thickness"])
+        if bx1 < x1:
+            D.line((bx1, yc), (x1, yc), ctx["wire_color"], ctx["wire_thickness"])
+        _sch_element_symbol(D, etype, bx0, bx1, yc, ctx["symbol_color"], ctx["symbol_fill"])
+        font = ctx["label_font"]
+        label_y = min(ctx["draw_h"] - font - 4.0, yc + branch_h * 0.30)
+        label_w = max(18.0, len(name) * (font * 0.52))
+        D.text((cx - label_w / 2.0, label_y), name, _SCH_LABEL_COLOR, font)
+        return
+
+    children = node[1]
+    sizes = [_sch_measure(c, ctx["units_by_name"]) for c in children]
+
+    if node[0] == "series":
+        total_w = max(1e-9, sum(w for w, _ in sizes))
+        gap = ctx["gap"]
+        inner = (x1 - x0) - gap * (len(children) - 1)
+        cursor = x0
+        for idx, (child, (cw, _)) in enumerate(zip(children, sizes)):
+            seg = inner * (cw / total_w)
+            cx0, cx1 = cursor, cursor + seg
+            _sch_draw(D, child, cx0, cx1, yc, branch_h, ctx)
+            if idx < len(children) - 1:
+                D.line((cx1, yc), (cx1 + gap, yc), ctx["wire_color"], ctx["wire_thickness"])
+            cursor = cx1 + gap
+        return
+
+    # parallel: stack children vertically, join with left/right vertical buses.
+    total_h = max(1e-9, sum(h for _, h in sizes))
+    H_px = total_h * branch_h
+    lead_w = min(22.0, max(10.0, (x1 - x0) * 0.10))
+    xL, xR = x0 + lead_w, x1 - lead_w
+    top = yc - H_px / 2.0
+    centers, cum = [], 0.0
+    for _, ch in sizes:
+        band = ch * branch_h
+        centers.append(top + cum + band / 2.0)
+        cum += band
+    D.line((x0, yc), (xL, yc), ctx["wire_color"], ctx["wire_thickness"])
+    D.line((xR, yc), (x1, yc), ctx["wire_color"], ctx["wire_thickness"])
+    D.line((xL, centers[0]), (xL, centers[-1]), ctx["wire_color"], ctx["wire_thickness"])
+    D.line((xR, centers[0]), (xR, centers[-1]), ctx["wire_color"], ctx["wire_thickness"])
+    for child, cyc in zip(children, centers):
+        _sch_draw(D, child, xL, xR, cyc, branch_h, ctx)
+
+
+def cnls_circuit_figure(cnls_file: Path):
+    """Build a matplotlib equivalent-circuit schematic matching the CNLS Selector."""
+    if not cnls_file.exists():
+        return None
+    try:
+        xls = pd.ExcelFile(_normalize_path(cnls_file))
+    except Exception:
+        return None
+
+    topo = get_cnls_topology(xls)
+    if not topo:
+        return None
+    try:
+        ast_root = parse_topology_ast(topo)
+    except ValueError:
+        return None
+
+    _, type_map = _parse_summary_elements(xls)
+    type_by_name = {str(n): str(t or "") for n, t in type_map.items()}
+    units_by_name = {n: (2.0 if t.startswith("Randle") else 1.0) for n, t in type_by_name.items()}
+
+    W, H = _sch_measure(ast_root, units_by_name)
+
+    margin = 26.0
+    term_lead = 16.0
+    top_pad = 18.0
+    label_room = 30.0
+    gap = 18.0
+    symbol_w = _SCH_SYMBOL_W
+    branch_h = 72.0
+
+    # Size the canvas so symbols keep their natural width and wires fill the rest.
+    draw_w = 2.0 * (margin + term_lead) + W * (symbol_w + gap)
+    draw_h = top_pad + H * branch_h + label_room
+
+    fig, ax = plt.subplots(figsize=(draw_w / _SCH_DPI, draw_h / _SCH_DPI), dpi=_SCH_DPI)
+    fig.patch.set_facecolor(_sch_rgba(_SCH_BG_COLOR))
+    ax.set_facecolor(_sch_rgba(_SCH_BG_COLOR))
+
+    H_px = H * branch_h
+    yc = max(top_pad + H_px / 2.0, (draw_h - label_room) / 2.0)
+
+    ctx = {
+        "type_by_name": type_by_name,
+        "units_by_name": units_by_name,
+        "wire_color": _SCH_WIRE_COLOR,
+        "symbol_color": _SCH_SYMBOL_COLOR,
+        "symbol_fill": _SCH_SYMBOL_FILL,
+        "wire_thickness": 2.0,
+        "gap": gap,
+        "label_font": 14,
+        "draw_h": draw_h,
+        "symbol_w": symbol_w,
+    }
+
+    D = _SchDraw(ax)
+    x0 = margin + term_lead
+    x1 = draw_w - margin - term_lead
+    D.line((margin, yc), (x0, yc), _SCH_WIRE_COLOR, 2.0)
+    D.line((x1, yc), (draw_w - margin, yc), _SCH_WIRE_COLOR, 2.0)
+    _sch_draw(D, ast_root, x0, x1, yc, branch_h, ctx)
+
+    ax.set_xlim(0, draw_w)
+    ax.set_ylim(0, draw_h)
+    ax.invert_yaxis()  # match dearpygui's y-down convention
+    ax.set_aspect("equal", adjustable="box")
+    ax.axis("off")
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    return fig
+
+
 def extract_cnls_parameters(cnls_file: Path) -> Optional[Dict[str, float]]:
 
     if not cnls_file.exists():
@@ -785,47 +1361,58 @@ def extract_cnls_parameters(cnls_file: Path) -> Optional[Dict[str, float]]:
 
     result: Dict[str, float] = {}
 
-    # ---- R_ohmic ----
-    mask_ohm = names == "R2_R"
-    if mask_ohm.any():
-        result["R_ohmic"] = float(vals[mask_ohm].iloc[0])
-    else:
-        result["R_ohmic"] = np.nan
+    # Element name for each parameter is the name minus its trailing suffix
+    # (e.g. 'RQ3_tau0' -> 'RQ3', 'R8_R' -> 'R8', 'L1_L' -> 'L1').
+    element_names = {n.rsplit("_", 1)[0] for n in names if "_" in n}
 
-    # ---- Dynamic RQ extraction ----
+    # Ohmic resistor = lowest-index pure series resistor (matches the R2 convention);
+    # HF inductor = lowest-index inductor (the L1 convention). All other R/L elements
+    # are extra standalone elements introduced by custom topology.
+    pure_resistors = sorted(
+        (e for e in element_names if re.fullmatch(r"R\d+", e)),
+        key=lambda e: _element_index(e) or 0,
+    )
+    inductors = sorted(
+        (e for e in element_names if re.fullmatch(r"L\d+", e)),
+        key=lambda e: _element_index(e) or 0,
+    )
+    ohmic_name = pure_resistors[0] if pure_resistors else None
+    hf_inductor_name = inductors[0] if inductors else None
+
+    result["R_ohmic"] = np.nan
+    if hf_inductor_name is not None:
+        result["L_hf"] = np.nan
+
     for name, value in zip(names, vals):
-
-        if pd.isna(value):
+        if pd.isna(value) or "_" not in name:
             continue
+        element, suffix = name.rsplit("_", 1)
+        idx = _element_index(element)
 
-        # RQn_R
-        match_r = re.match(r"RQ(\d+)_R$", name)
-        if match_r:
-            idx = int(match_r.group(1))
-            result[f"R{idx}"] = float(value)
-            continue
-
-        # RQn_tau0
-        match_tau = re.match(r"RQ(\d+)_tau0$", name)
-        if match_tau:
-            idx = int(match_tau.group(1))
+        if suffix == "R":
+            if element == ohmic_name:
+                result["R_ohmic"] = float(value)
+            elif idx is not None:
+                # RQ resistances and extra standalone resistors (e.g. R8).
+                result[f"R{idx}"] = float(value)
+        elif suffix == "tau0" and idx is not None:
             result[f"tau{idx}"] = float(value)
-            continue
-
-        # RQn_alpha
-        match_alpha = re.match(r"RQ(\d+)_alpha$", name)
-        if match_alpha:
-            idx = int(match_alpha.group(1))
+        elif suffix == "alpha" and idx is not None:
             result[f"alpha{idx}"] = float(value)
-            continue
+        elif suffix == "L":
+            if element == hf_inductor_name:
+                result["L_hf"] = float(value)
+            elif idx is not None:
+                result[f"L{idx}"] = float(value)
 
-    # ---- Compute ASR (only R values) ----
-    r_values = [v for k, v in result.items() if k.startswith("R")]
-    result["ASR"] = float(np.nansum(r_values)) if r_values else np.nan
-
-    # ---- Compute R_pol (polarization resistance = sum of RQ resistances, excludes ohmic) ----
+    # ---- R_pol = whole-circuit resistance except ohmic (R2) and HF inductance (L1) ----
+    # i.e. every R{idx}: RQ resistances and extra standalone resistors.
     rq_values = [v for k, v in result.items() if re.fullmatch(r"R\d+", k)]
     result["R_pol"] = float(np.nansum(rq_values)) if rq_values else np.nan
+
+    # ---- ASR = R_ohmic + R_pol ----
+    asr_values = [result.get("R_ohmic", np.nan)] + rq_values
+    result["ASR"] = float(np.nansum(asr_values)) if not all(pd.isna(v) for v in asr_values) else np.nan
 
     return result
 
@@ -946,7 +1533,8 @@ def nyquist_compare_plotly(compare_mode, files_to_process, display_name_map):
         "Smooth vs Truncated": ("Truncated", "Smooth"),
         "LC corrected vs Truncated": ("Truncated", "LC corrected"),
         "Extended vs Truncated": ("Truncated", "Extended"),
-        "DRT Fit vs Truncated": ("Truncated", "DRT Fit")
+        "DRT Fit vs Truncated": ("Truncated", "DRT Fit"),
+        "CNLS Fit vs Truncated": ("Truncated", "CNLS Fit"),
     }
 
     sheet_trunc, sheet_other = mapping[compare_mode]
@@ -977,6 +1565,12 @@ def nyquist_compare_plotly(compare_mode, files_to_process, display_name_map):
                 drt_xls = pd.ExcelFile(_normalize_path(drt_file))
                 if "Tknv_ReIm_s" in drt_xls.sheet_names:
                     df_other = pd.read_excel(drt_xls, "Tknv_ReIm_s")
+        elif sheet_other == "CNLS Fit":
+            cnls_file = sibling_file(eis_file, "CNLS")
+            if cnls_file.exists():
+                cnls_xls = pd.ExcelFile(_normalize_path(cnls_file))
+                if "Z" in cnls_xls.sheet_names:
+                    df_other = pd.read_excel(cnls_xls, "Z")
         else:
             if sheet_other in xls.sheet_names:
                 df_other = pd.read_excel(xls, sheet_other)
@@ -1045,6 +1639,10 @@ def nyquist_compare_plotly(compare_mode, files_to_process, display_name_map):
                 if sheet_other == "DRT Fit":
                     xcol = 2
                     ycol = 3
+                elif sheet_other == "CNLS Fit":
+                    # CNLS 'Z' sheet: Ztot_Re (col 3), Ztot_Im (col 4).
+                    xcol = 3
+                    ycol = 4
                 else:
                     xcol = 1
                     ycol = 2
@@ -1432,21 +2030,28 @@ def drt_3d_plotly(datasets, title):
     return fig
 
 
-def cnls_nyquist_fit_plotly(cnls_file: Path, fname: str):
+# Element types whose real part anchors the inductor offset (ported from the
+# dearpygui element-Nyquist view).
+_RESISTOR_LIKE_TYPES = {"Resistor", "Gerisher", "fFLW", "FLW"}
+
+
+def cnls_nyquist_fit_plotly(cnls_file: Path, fname: str, xlim=None, ylim=None):
 
     if not cnls_file.exists():
         return None
 
     xls = pd.ExcelFile(_normalize_path(cnls_file))
 
-    if "Z" not in xls.sheet_names or "Summary" not in xls.sheet_names:
+    if "Z" not in xls.sheet_names:
         return None
 
-    summary_df = pd.read_excel(xls, "Summary", header=None)
-    elements_raw = summary_df.iloc[1, 0]
-    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
-
     df = pd.read_excel(xls, "Z")
+
+    # Every element resolved to its Z columns by header name (any topology).
+    elements = [
+        e for e in cnls_topology_elements(xls)
+        if e["z_re"] is not None and e["z_im"] is not None
+    ]
 
     # ---- Main Nyquist ----
     z_real_total = pd.to_numeric(df.iloc[:, 1], errors="coerce")
@@ -1463,58 +2068,62 @@ def cnls_nyquist_fit_plotly(cnls_file: Path, fname: str):
         line=dict(color="white", width=3)
     )
 
-    # ---- Ohmic real column (col 12 -> index 11)
-    z_ohmic = pd.to_numeric(df.iloc[:, 11], errors="coerce")
-    offset = z_ohmic.iloc[-1]  # last value only
+    re_map = {e["name"]: pd.to_numeric(df[e["z_re"]], errors="coerce") for e in elements}
+    im_map = {e["name"]: pd.to_numeric(df[e["z_im"]], errors="coerce") for e in elements}
 
-    start_col = 13
     element_colors = sample_palette_colors(
         st.session_state.palette_choice,
-        n=len(rq_elements)
+        n=max(1, len(elements))
     )
-    for i, rq in enumerate(rq_elements):
 
-        real_col = start_col + 2*i
-        imag_col = start_col + 2*i + 1
+    for i, e in enumerate(elements):
+        name = e["name"]
+        etype = str(e["type"] or "")
+        z_r = re_map[name]
+        z_i = -im_map[name]
 
-        if imag_col >= df.shape[1]:
-            break
-
-        z_r = pd.to_numeric(df.iloc[:, real_col], errors="coerce")
-        z_i = -pd.to_numeric(df.iloc[:, imag_col], errors="coerce")
-
-        # Shift by offset (constant shift)
-        shifted_real = z_r + offset
+        # Series stacking: shift each element by the cumulative real part of the
+        # preceding elements. Inductors are anchored to the resistor-like elements.
+        if etype == "Inductor":
+            offset = float(np.nansum([
+                re_map[o["name"]].iloc[0]
+                for o in elements
+                if str(o["type"] or "") in _RESISTOR_LIKE_TYPES
+            ]))
+        else:
+            offset = float(np.nansum([re_map[elements[j]["name"]].iloc[-1] for j in range(i)]))
 
         fig.add_scatter(
-            x=shifted_real,
+            x=z_r + offset,
             y=z_i,
             mode="lines",
-            name=rq,
+            name=name,
             line=dict(color=element_colors[i])
         )
 
-        # Update offset using LAST value of this element real part
-        offset += z_r.iloc[-1]
+    # Keep a 1:1 data aspect ratio (daspect [1 1 1]) even when manual limits are
+    # applied, so circles stay circular. scaleanchor stays active alongside range.
+    xaxis_cfg = dict(title="Z′ [Ω·cm²]", scaleanchor="y", scaleratio=1, constrain="domain")
+    yaxis_cfg = dict(title="−Z″ [Ω·cm²]", constrain="domain")
+    if xlim is not None and xlim[0] is not None and xlim[1] is not None:
+        xaxis_cfg["range"] = [xlim[0], xlim[1]]
+    if ylim is not None and ylim[0] is not None and ylim[1] is not None:
+        yaxis_cfg["range"] = [ylim[0], ylim[1]]
 
-        fig.update_layout(
-            title=f"CNLS Nyquist Fit – {fname}",
-            xaxis=dict(
-                title="Z′ [Ω·cm²]",
-                scaleanchor="y",
-                scaleratio=1
-            ),
-            yaxis=dict(title="−Z″ [Ω·cm²]"),
-            legend=dict(
-                orientation="v",
-                y=1,
-                yanchor="top",
-                x=1.02,
-                xanchor="left",
-                font=dict(size=11)
-            ),
-            template="plotly_dark"
-        )
+    fig.update_layout(
+        title=f"CNLS Nyquist Fit – {fname}",
+        xaxis=xaxis_cfg,
+        yaxis=yaxis_cfg,
+        legend=dict(
+            orientation="v",
+            y=1,
+            yanchor="top",
+            x=1.02,
+            xanchor="left",
+            font=dict(size=11)
+        ),
+        template="plotly_dark"
+    )
 
     return fig
 
@@ -1609,15 +2218,14 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
     if "DRT" not in xls.sheet_names or "Summary" not in xls.sheet_names:
         return None
 
-    summary_df = pd.read_excel(xls, "Summary", header=None)
-    elements_raw = summary_df.iloc[1, 0]  # A2 cell
-    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
-
     df = pd.read_excel(xls, "DRT")
 
-    # Need at least: freq(0), total(1), ... contributions start at col 5
-    if df.shape[1] <= 5:
+    # Need at least: freq(0), total(1)
+    if df.shape[1] < 2:
         return None
+
+    # Every element resolved to its DRT contribution column by header name.
+    elements = [e for e in cnls_topology_elements(xls) if e["drt"] is not None]
 
     freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
     gamma_total = pd.to_numeric(df.iloc[:, 1], errors="coerce")
@@ -1631,36 +2239,19 @@ def cnls_elements_fitting_plotly(cnls_file: Path, fname: str):
         line=dict(color="white", width=3)
     )
 
-    # How many contribution columns actually exist?
-    contrib_start = 5
-    n_available = df.shape[1] - contrib_start
-    n_use = min(len(rq_elements), n_available)
-
     element_colors = sample_palette_colors(
         st.session_state.palette_choice,
-        n=max(1, n_use)
+        n=max(1, len(elements))
     )
 
-    for i in range(n_use):
-        rq = rq_elements[i]
-        gamma_elem = pd.to_numeric(df.iloc[:, contrib_start + i], errors="coerce")
-
+    for i, e in enumerate(elements):
+        gamma_elem = pd.to_numeric(df[e["drt"]], errors="coerce")
         fig.add_scatter(
             x=freq,
             y=gamma_elem,
             mode="lines",
-            name=rq,
+            name=e["name"],
             line=dict(color=element_colors[i])
-        )
-    
-    # Optional: warn in the UI if mismatch (helps debugging)
-    if len(rq_elements) > n_available:
-        dropped = ", ".join(rq_elements[n_available:])
-        st.warning(
-            f"Summary lists {len(rq_elements)} RQ elements but DRT sheet provides only "
-            f"{n_available} contribution columns.\n\n"
-            f"Plotted: {', '.join(rq_elements[:n_available])}\n"
-            f"Omitted: {dropped}"
         )
 
     fig.update_layout(
@@ -1679,14 +2270,13 @@ def cnls_elements_im_bode_plotly(cnls_file: Path, fname: str):
 
     xls = pd.ExcelFile(_normalize_path(cnls_file))
 
-    if "Z" not in xls.sheet_names or "Summary" not in xls.sheet_names:
+    if "Z" not in xls.sheet_names:
         return None
 
-    summary_df = pd.read_excel(xls, "Summary", header=None)
-    elements_raw = summary_df.iloc[1, 0]
-    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
-
     df = pd.read_excel(xls, "Z")
+
+    # Every element resolved to its imaginary column by header name.
+    elements = [e for e in cnls_topology_elements(xls) if e["z_im"] is not None]
 
     freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
     zmes_im = -pd.to_numeric(df.iloc[:, 2], errors="coerce")
@@ -1701,32 +2291,20 @@ def cnls_elements_im_bode_plotly(cnls_file: Path, fname: str):
         name="Measure"
     )
 
-    # Map RQn → imaginary column using header names (robust to circuit variations)
-    rq_im_map = {}
-    for col in df.columns:
-        m = re.match(r"(RQ\d+)_Im", col)
-        if m:
-            rq_im_map[m.group(1)] = col
-
-    n_elems = sum(1 for rq in rq_elements if rq in rq_im_map)
     element_colors = sample_palette_colors(
         st.session_state.palette_choice,
-        n=max(1, n_elems)
+        n=max(1, len(elements))
     )
 
-    color_idx = 0
-    for rq in rq_elements:
-        if rq not in rq_im_map:
-            continue
-        z_im = -pd.to_numeric(df[rq_im_map[rq]], errors="coerce")
+    for i, e in enumerate(elements):
+        z_im = -pd.to_numeric(df[e["z_im"]], errors="coerce")
         fig.add_scatter(
             x=freq,
             y=z_im,
             mode="lines",
-            name=rq,
-            line=dict(color=element_colors[color_idx])
+            name=e["name"],
+            line=dict(color=element_colors[i])
         )
-        color_idx += 1
 
     fig.update_layout(
         title=f"Imaginary Bode – {fname}",
@@ -1931,7 +2509,8 @@ def add_nyquist_compare_png(
         "Smooth vs Truncated": ("Truncated", "Smooth"),
         "LC corrected vs Truncated": ("Truncated", "LC corrected"),
         "Extended vs Truncated": ("Truncated", "Extended"),
-        "DRT Fit vs Truncated": ("Truncated", "DRT Fit")
+        "DRT Fit vs Truncated": ("Truncated", "DRT Fit"),
+        "CNLS Fit vs Truncated": ("Truncated", "CNLS Fit"),
     }
 
     sheet_trunc, sheet_other = mapping[compare_mode]
@@ -1959,6 +2538,12 @@ def add_nyquist_compare_png(
                 drt_xls = pd.ExcelFile(_normalize_path(drt_file))
                 if "Tknv_ReIm_s" in drt_xls.sheet_names:
                     df_other = pd.read_excel(drt_xls, "Tknv_ReIm_s")
+        elif sheet_other == "CNLS Fit":
+            cnls_file = sibling_file(eis_file, "CNLS")
+            if cnls_file.exists():
+                cnls_xls = pd.ExcelFile(_normalize_path(cnls_file))
+                if "Z" in cnls_xls.sheet_names:
+                    df_other = pd.read_excel(cnls_xls, "Z")
         else:
             if sheet_other in xls.sheet_names:
                 df_other = pd.read_excel(xls, sheet_other)
@@ -2036,6 +2621,10 @@ def add_nyquist_compare_png(
                 if sheet_other == "DRT Fit":
                     xcol = 2
                     ycol = 3
+                elif sheet_other == "CNLS Fit":
+                    # CNLS 'Z' sheet: Ztot_Re (col 3), Ztot_Im (col 4).
+                    xcol = 3
+                    ycol = 4
                 else:
                     xcol = 1
                     ycol = 2
@@ -2930,6 +3519,8 @@ def add_cnls_line_png(zf: zipfile.ZipFile, df_cnls: pd.DataFrame, param: str, yl
         _ylabel = "τ [s]"
     elif param.startswith("alpha"):
         _ylabel = "Dispersion factor"
+    elif param == "L_hf" or re.fullmatch(r"L\d+", param):
+        _ylabel = "L [H·cm²]"
     else:
         _ylabel = "R [Ω·cm²]"
 
@@ -2986,15 +3577,13 @@ def add_cnls_elements_fitting_png(
     if "DRT" not in xls.sheet_names or "Summary" not in xls.sheet_names:
         return
 
-    # ---- Detect RQ elements from Summary ----
-    summary_df = pd.read_excel(xls, "Summary", header=None)
-    elements_raw = summary_df.iloc[1, 0]
-    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
-
     df = pd.read_excel(xls, "DRT")
 
-    if df.shape[1] < 6:
+    if df.shape[1] < 2:
         return
+
+    # Every element resolved to its DRT contribution column by header name.
+    elements = [e for e in cnls_topology_elements(xls) if e["drt"] is not None]
 
     freq = pd.to_numeric(df.iloc[:, 0], errors="coerce")
     gamma_total = pd.to_numeric(df.iloc[:, 1], errors="coerce")
@@ -3012,25 +3601,21 @@ def add_cnls_elements_fitting_png(
     )
 
     ymax = np.nanmax(gamma_total)
-    # Generate enough distinct colors for all RQ elements
     element_colors = sample_palette_colors(
         st.session_state.palette_choice,
-        n=len(rq_elements)
+        n=max(1, len(elements))
     )
-    # ---- Individual RQ contributions ----
-    for i, rq in enumerate(rq_elements):
+    # ---- Individual element contributions ----
+    for i, e in enumerate(elements):
 
-        gamma_elem = pd.to_numeric(
-            df.iloc[:, 5 + i],
-            errors="coerce"
-        )
+        gamma_elem = pd.to_numeric(df[e["drt"]], errors="coerce")
 
         ax.semilogx(
             freq,
             gamma_elem,
             linewidth=1.5,
             color=element_colors[i],
-            label=rq
+            label=e["name"]
         )
 
         elem_max = np.nanmax(gamma_elem)
@@ -3071,11 +3656,14 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
     fig, ax = plt.subplots(figsize=(6, 6), dpi=600)
 
     xls = pd.ExcelFile(_normalize_path(cnls_file))
-    summary_df = pd.read_excel(xls, "Summary", header=None)
-    elements_raw = summary_df.iloc[1, 0]
-    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
 
     df = pd.read_excel(xls, "Z")
+
+    # Every element resolved to its Z columns by header name (any topology).
+    elements = [
+        e for e in cnls_topology_elements(xls)
+        if e["z_re"] is not None and e["z_im"] is not None
+    ]
 
     # ---- Main Nyquist ----
     z_real_total = pd.to_numeric(df.iloc[:, 1], errors="coerce")
@@ -3090,40 +3678,36 @@ def add_cnls_nyquist_fit_png(zf, cnls_file, fname):
         label="Total Z"
     )
 
-    # ---- Ohmic real column
-    z_ohmic = pd.to_numeric(df.iloc[:, 11], errors="coerce")
-    offset = z_ohmic.iloc[-1]
+    re_map = {e["name"]: pd.to_numeric(df[e["z_re"]], errors="coerce") for e in elements}
+    im_map = {e["name"]: pd.to_numeric(df[e["z_im"]], errors="coerce") for e in elements}
 
-    start_col = 13
-
-    # Generate enough distinct colors for all RQ elements
     element_colors = sample_palette_colors(
         st.session_state.palette_choice,
-        n=len(rq_elements)
+        n=max(1, len(elements))
     )
 
-    for i, rq in enumerate(rq_elements):
+    for i, e in enumerate(elements):
+        name = e["name"]
+        etype = str(e["type"] or "")
+        z_r = re_map[name]
+        z_i = -im_map[name]
 
-        real_col = start_col + 2*i
-        imag_col = start_col + 2*i + 1
-
-        if imag_col >= df.shape[1]:
-            break
-
-        z_r = pd.to_numeric(df.iloc[:, real_col], errors="coerce")
-        z_i = -pd.to_numeric(df.iloc[:, imag_col], errors="coerce")
-
-        shifted_real = z_r + offset
+        if etype == "Inductor":
+            offset = float(np.nansum([
+                re_map[o["name"]].iloc[0]
+                for o in elements
+                if str(o["type"] or "") in _RESISTOR_LIKE_TYPES
+            ]))
+        else:
+            offset = float(np.nansum([re_map[elements[j]["name"]].iloc[-1] for j in range(i)]))
 
         ax.plot(
-            shifted_real,
+            z_r + offset,
             z_i,
             linewidth=1.5,
             color=element_colors[i],
-            label=rq
+            label=name
         )
-
-        offset += z_r.iloc[-1]
 
     ax.set_xlabel("Z′ [Ω·cm²]")
     ax.set_ylabel("−Z″ [Ω·cm²]")
@@ -3220,7 +3804,7 @@ def add_cnls_residuals_png(zf, cnls_file, fname):
         )
 
 
-def add_cnls_compare_png(zf: zipfile.ZipFile, cnls_file: Path, fname: str):
+def add_cnls_compare_png(zf: zipfile.ZipFile, cnls_file: Path, fname: str, xlim=None, ylim=None):
     """Export all three CNLS compare plots (imaginary Bode, Nyquist, DRT) to CNLS/Compare/."""
 
     if not cnls_file.exists():
@@ -3231,12 +3815,11 @@ def add_cnls_compare_png(zf: zipfile.ZipFile, cnls_file: Path, fname: str):
     if "Z" not in xls.sheet_names or "Summary" not in xls.sheet_names:
         return
 
-    summary_df = pd.read_excel(xls, "Summary", header=None)
-    elements_raw = summary_df.iloc[1, 0]
-    rq_elements = re.findall(r"RQ\d+", str(elements_raw))
+    # Every element resolved to its Z/DRT columns by header name (any topology).
+    elements = cnls_topology_elements(xls)
     element_colors = sample_palette_colors(
         st.session_state.palette_choice,
-        n=max(1, len(rq_elements))
+        n=max(1, len(elements))
     )
 
     df_z = pd.read_excel(xls, "Z")
@@ -3249,17 +3832,11 @@ def add_cnls_compare_png(zf: zipfile.ZipFile, cnls_file: Path, fname: str):
     marker_kw = {} if st.session_state.get("export_no_nyquist_markers", False) else dict(marker='o', markersize=3)
     ax.semilogx(freq, zmes_im, linewidth=1.0, color="black", label="Measure", **marker_kw)
 
-    rq_im_map = {}
-    for col in df_z.columns:
-        m = re.match(r"(RQ\d+)_Im", col)
-        if m:
-            rq_im_map[m.group(1)] = col
-
-    for i, rq in enumerate(rq_elements):
-        if rq not in rq_im_map:
+    for i, e in enumerate(elements):
+        if e["z_im"] is None:
             continue
-        z_im = -pd.to_numeric(df_z[rq_im_map[rq]], errors="coerce")
-        ax.semilogx(freq, z_im, linewidth=1.5, color=element_colors[i], label=rq)
+        z_im = -pd.to_numeric(df_z[e["z_im"]], errors="coerce")
+        ax.semilogx(freq, z_im, linewidth=1.5, color=element_colors[i], label=e["name"])
 
     ax.set_xlabel("Frequency [Hz]")
     ax.set_ylabel("−Z″ [Ω·cm²]")
@@ -3280,22 +3857,33 @@ def add_cnls_compare_png(zf: zipfile.ZipFile, cnls_file: Path, fname: str):
     z_imag_total = -pd.to_numeric(df_z.iloc[:, 2], errors="coerce")
     ax.plot(z_real_total, z_imag_total, linewidth=1.5, color="black", alpha=0.3, label="Total Z")
 
-    z_ohmic = pd.to_numeric(df_z.iloc[:, 11], errors="coerce")
-    offset = z_ohmic.iloc[-1]
-    start_col = 13
+    z_elements = [e for e in elements if e["z_re"] is not None and e["z_im"] is not None]
+    re_map = {e["name"]: pd.to_numeric(df_z[e["z_re"]], errors="coerce") for e in z_elements}
+    im_map = {e["name"]: pd.to_numeric(df_z[e["z_im"]], errors="coerce") for e in z_elements}
 
-    for i, rq in enumerate(rq_elements):
-        real_col = start_col + 2 * i
-        imag_col = start_col + 2 * i + 1
-        if imag_col >= df_z.shape[1]:
-            break
-        z_r = pd.to_numeric(df_z.iloc[:, real_col], errors="coerce")
-        z_i = -pd.to_numeric(df_z.iloc[:, imag_col], errors="coerce")
-        ax.plot(z_r + offset, z_i, linewidth=1.5, color=element_colors[i], label=rq)
-        offset += z_r.iloc[-1]
+    for i, e in enumerate(z_elements):
+        name = e["name"]
+        etype = str(e["type"] or "")
+        z_r = re_map[name]
+        z_i = -im_map[name]
+        if etype == "Inductor":
+            offset = float(np.nansum([
+                re_map[o["name"]].iloc[0]
+                for o in z_elements
+                if str(o["type"] or "") in _RESISTOR_LIKE_TYPES
+            ]))
+        else:
+            offset = float(np.nansum([re_map[z_elements[j]["name"]].iloc[-1] for j in range(i)]))
+        color = element_colors[elements.index(e)]
+        ax.plot(z_r + offset, z_i, linewidth=1.5, color=color, label=name)
 
     ax.set_xlabel("Z′ [Ω·cm²]")
     ax.set_ylabel("−Z″ [Ω·cm²]")
+    # Keep a 1:1 data aspect (daspect [1 1 1]); apply manual limits if provided.
+    if xlim is not None and xlim[0] is not None and xlim[1] is not None:
+        ax.set_xlim(xlim[0], xlim[1])
+    if ylim is not None and ylim[0] is not None and ylim[1] is not None:
+        ax.set_ylim(ylim[0], ylim[1])
     ax.set_aspect("equal", adjustable="box")
 
     if not st.session_state.get("export_no_grid", False):
@@ -3312,7 +3900,7 @@ def add_cnls_compare_png(zf: zipfile.ZipFile, cnls_file: Path, fname: str):
         return
 
     df_drt = pd.read_excel(xls, "DRT")
-    if df_drt.shape[1] < 6:
+    if df_drt.shape[1] < 2:
         return
 
     freq_drt = pd.to_numeric(df_drt.iloc[:, 0], errors="coerce")
@@ -3322,11 +3910,11 @@ def add_cnls_compare_png(zf: zipfile.ZipFile, cnls_file: Path, fname: str):
     ax.semilogx(freq_drt, gamma_total, linewidth=1.5, color="black", alpha=0.3, label="Total γ")
 
     ymax = float(np.nanmax(gamma_total))
-    for i, rq in enumerate(rq_elements):
-        if 5 + i >= df_drt.shape[1]:
-            break
-        gamma_elem = pd.to_numeric(df_drt.iloc[:, 5 + i], errors="coerce")
-        ax.semilogx(freq_drt, gamma_elem, linewidth=1.5, color=element_colors[i], label=rq)
+    for i, e in enumerate(elements):
+        if e["drt"] is None:
+            continue
+        gamma_elem = pd.to_numeric(df_drt[e["drt"]], errors="coerce")
+        ax.semilogx(freq_drt, gamma_elem, linewidth=1.5, color=element_colors[i], label=e["name"])
         elem_max = float(np.nanmax(gamma_elem))
         if np.isfinite(elem_max):
             ymax = max(ymax, elem_max)
@@ -3595,6 +4183,10 @@ with st.sidebar:
     if drt_fit_available:
         compare_options.append("DRT Fit vs Truncated")
 
+    cnls_fit_available = any(sibling_file(f, "CNLS").exists() for f in files_to_process)
+    if cnls_fit_available:
+        compare_options.append("CNLS Fit vs Truncated")
+
     nyquist_compare_selected = st.multiselect(
         "Compare",
         compare_options,
@@ -3690,6 +4282,18 @@ with st.sidebar:
     cnls_r_limit = (cnls_r_lim_lo, cnls_r_lim_hi) if (cnls_r_lim_lo is not None and cnls_r_lim_hi is not None) else None
     cnls_tau_limit = (cnls_tau_lim_lo, cnls_tau_lim_hi) if (cnls_tau_lim_lo is not None and cnls_tau_lim_hi is not None) else None
     cnls_alpha_limit = (cnls_alpha_lim_lo, cnls_alpha_lim_hi) if (cnls_alpha_lim_lo is not None and cnls_alpha_lim_hi is not None) else None
+
+    with st.expander("CNLS compare axis limits", expanded=False):
+        st.caption("Applies to the CNLS compare Nyquist fit plot. Leave blank for auto-scaling.")
+        _cx1, _cx2 = st.columns(2)
+        cnls_cmp_x_lo = _cx1.number_input("Z′ min", value=None, placeholder="auto", key="cnls_cmp_x_lo")
+        cnls_cmp_x_hi = _cx2.number_input("Z′ max", value=None, placeholder="auto", key="cnls_cmp_x_hi")
+        _cy1, _cy2 = st.columns(2)
+        cnls_cmp_y_lo = _cy1.number_input("−Z″ min", value=None, placeholder="auto", key="cnls_cmp_y_lo")
+        cnls_cmp_y_hi = _cy2.number_input("−Z″ max", value=None, placeholder="auto", key="cnls_cmp_y_hi")
+
+    cnls_cmp_xlim = (cnls_cmp_x_lo, cnls_cmp_x_hi) if (cnls_cmp_x_lo is not None and cnls_cmp_x_hi is not None) else None
+    cnls_cmp_ylim = (cnls_cmp_y_lo, cnls_cmp_y_hi) if (cnls_cmp_y_lo is not None and cnls_cmp_y_hi is not None) else None
 
     analyze_cnls = bool(cnls_plot_modes) or cnls_show_params
 
@@ -4062,6 +4666,17 @@ if analyze_cnls:
 
     if cnls_rows:
         df_cnls = pd.DataFrame(cnls_rows).set_index("File")
+
+        # ---- Equivalent circuit schematic (from the first CNLS file's topology) ----
+        _ecm_file = sibling_file(files_to_process[0], "CNLS")
+        _ecm_fig = cnls_circuit_figure(_ecm_file)
+        if _ecm_fig is not None:
+            st.markdown("**Equivalent circuit model**")
+            if len(df_cnls) > 1:
+                st.caption(f"Topology shown for {display_name_map.get(files_to_process[0].name, files_to_process[0].name)} (first selected file).")
+            st.pyplot(_ecm_fig)
+            plt.close(_ecm_fig)
+
         if len(df_cnls) > 1:
             _r_idx_set = sorted(
                 {int(k[1:]) for k in df_cnls.columns if k.startswith("R") and k not in ("R_ohmic", "R_pol")}
@@ -4072,6 +4687,11 @@ if analyze_cnls:
                     _col = f"{_pfx}{_i}"
                     if _col in df_cnls.columns:
                         plotable_columns.append(_col)
+            # Standalone inductances introduced by custom topology.
+            if "L_hf" in df_cnls.columns:
+                plotable_columns.append("L_hf")
+            for _i in sorted({int(k[1:]) for k in df_cnls.columns if re.fullmatch(r"L\d+", k)}):
+                plotable_columns.append(f"L{_i}")
 
             # Update selectable list dynamically
             if "Line plots" in cnls_plot_modes:
@@ -4095,6 +4715,13 @@ if analyze_cnls:
                 ordered_cols.append(f"tau{idx}")
             if f"alpha{idx}" in df_cnls.columns:
                 ordered_cols.append(f"alpha{idx}")
+
+        # Standalone inductances (HF inductance + extra inductors).
+        l_indices = sorted({int(k[1:]) for k in df_cnls.columns if re.fullmatch(r"L\d+", k)})
+        if "L_hf" in df_cnls.columns:
+            ordered_cols.append("L_hf")
+        for idx in l_indices:
+            ordered_cols.append(f"L{idx}")
 
         df_display = df_cnls[ordered_cols]
 
@@ -4157,7 +4784,7 @@ if analyze_cnls:
                         _ylim = cnls_tau_limit
                     elif param.startswith("alpha"):
                         _ylim = cnls_alpha_limit
-                    elif param in ("ASR", "R_pol"):
+                    elif param in ("ASR", "R_pol") or param == "L_hf" or re.fullmatch(r"L\d+", param):
                         _ylim = None
                     else:
                         _ylim = cnls_r_limit
@@ -4206,7 +4833,8 @@ if analyze_cnls:
                     if fig_im:
                         st.plotly_chart(fig_im, width="stretch")
 
-                    fig_nyq = cnls_nyquist_fit_plotly(compare_cnls_file, compare_fname)
+                    fig_nyq = cnls_nyquist_fit_plotly(compare_cnls_file, compare_fname,
+                                                      xlim=cnls_cmp_xlim, ylim=cnls_cmp_ylim)
                     if fig_nyq:
                         st.plotly_chart(fig_nyq, width="stretch")
 
@@ -4284,6 +4912,13 @@ if save_zip:
         # CNLS
         if analyze_cnls and df_cnls is not None and not df_cnls.empty:
 
+            # Equivalent circuit schematic (from the first CNLS file's topology).
+            _ecm_fig = cnls_circuit_figure(sibling_file(files_to_process[0], "CNLS"))
+            if _ecm_fig is not None:
+                for fmt in st.session_state.export_formats:
+                    zf.writestr(f"CNLS/EquivalentCircuit.{fmt}", _fig_to_bytes(_ecm_fig, fmt))
+                plt.close(_ecm_fig)
+
             if len(files_to_process) == 1:
 
                 cnls_file = sibling_file(files_to_process[0], "CNLS")
@@ -4327,7 +4962,7 @@ if save_zip:
                             _ylim = cnls_tau_limit
                         elif param.startswith("alpha"):
                             _ylim = cnls_alpha_limit
-                        elif param == "ASR":
+                        elif param in ("ASR", "R_pol") or param == "L_hf" or re.fullmatch(r"L\d+", param):
                             _ylim = None
                         else:
                             _ylim = cnls_r_limit
@@ -4337,7 +4972,8 @@ if save_zip:
                 for eis_file in st.session_state.get("cnls_compare_eis_files", []):
                     compare_cnls_file = sibling_file(eis_file, "CNLS")
                     compare_fname = display_name_map[eis_file.name]
-                    add_cnls_compare_png(zf, compare_cnls_file, compare_fname)
+                    add_cnls_compare_png(zf, compare_cnls_file, compare_fname,
+                                         xlim=cnls_cmp_xlim, ylim=cnls_cmp_ylim)
 
 
     st.success(f"ZIP saved at: {zip_path.resolve()}")
