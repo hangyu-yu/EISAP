@@ -1,5 +1,5 @@
 numpy==2.2.6
-scipy
+scipy==1.16.3
 pandas
 matplotlib
 dearpygui
