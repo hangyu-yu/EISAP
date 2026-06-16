@@ -71,12 +71,12 @@ Clone the repository and run the launcher directly. This is useful for developme
 
 ```bash
 # 1. Clone
-git clone https://github.com/hangyu-yu/SOCEIS.git
+git clone https://github.com/hangyu-yu/eisap.git
 cd SOCEIS
 
 # 2. (Optional but recommended) create a virtual environment
-conda create -n soceis python=3.11
-conda activate soceis
+conda create -n eisap python=3.11
+conda activate eisap
 
 # 3. Install dependencies manually
 pip install -r src/GUI/requirements.txt
@@ -107,7 +107,7 @@ Download and install Python 3.11 (64-bit) from https://www.python.org/downloads/
 
 **Step 2 — Download EISAP**
 
-Go to the [SOCEIS GitHub page](https://github.com/hangyu-yu/SOCEIS), click the green **Code** button, then select **Download ZIP**. Extract the ZIP archive to any folder on your computer.
+Go to the [SOCEIS GitHub page](https://github.com/hangyu-yu/eisap), click the green **Code** button, then select **Download ZIP**. Extract the ZIP archive to any folder on your computer.
 
 **Step 3 — Run EISAP**
 
