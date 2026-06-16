@@ -21,7 +21,7 @@
 
 ## Overview
 
-**EISAP** (formerly **SOCEIS**) is an open-source Python desktop application for the complete analysis workflow of Electrochemical Impedance Spectroscopy (EIS) data. It is developed by Dr. Hangyu Yu at the Group of Energy Materials (GEM), École Polytechnique Fédérale de Lausanne (EPFL), Switzerland, in collaboration with Hydro-Québec and the Bern University of Applied Sciences (BFH).
+**EISAP** (alias **SOCEIS**) is an open-source Python desktop application for the complete analysis workflow of Electrochemical Impedance Spectroscopy (EIS) data. It is developed by Dr. Hangyu Yu at the Group of Energy Materials (GEM), École Polytechnique Fédérale de Lausanne (EPFL), Switzerland, in collaboration with Hydro-Québec and the Bern University of Applied Sciences (BFH).
 
 The software integrates three tightly coupled analytical modules into a single graphical environment:
 
