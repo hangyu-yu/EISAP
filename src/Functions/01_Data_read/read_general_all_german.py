@@ -124,7 +124,10 @@ def read_general_all_german(file):
     
     # Convert all columns to numeric where possible
     for col in data.columns:
-        data[col] = pd.to_numeric(data[col], errors='ignore')
+        try:
+            data[col] = pd.to_numeric(data[col])
+        except (ValueError, TypeError):
+            pass
     
     # Sort data by frequency (assuming it's the first column)
     freq_col = [col for col in data.columns if contains_keyword(col, frequency_search_keywords)][0]

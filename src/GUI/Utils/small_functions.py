@@ -286,7 +286,10 @@ def separate_multichannel_zahner(config, EIS, CNLS, output_layout="flat"):
                     
                     # Convert numeric columns
                     for col in data.columns:
-                        data[col] = pd.to_numeric(data[col], errors='ignore')
+                        try:
+                            data[col] = pd.to_numeric(data[col])
+                        except (ValueError, TypeError):
+                            pass
                     
                     # Sort by frequency (descending)
                     # freq_col = next((col for col in data.columns 
