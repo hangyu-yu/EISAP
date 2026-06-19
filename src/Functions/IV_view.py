@@ -356,6 +356,26 @@ def build_iv_figure(entries, display_name_map, colors,
     return fig
 
 
+def apply_current_sign(entries, invert_current: bool):
+    """Return plotting entries with current optionally multiplied by -1."""
+    if not invert_current:
+        return entries
+
+    transformed = []
+    for fname, data in entries:
+        if data is None:
+            transformed.append((fname, data))
+            continue
+        transformed.append((
+            fname,
+            {
+                **data,
+                'current': -1 * data['current'],
+            },
+        ))
+    return transformed
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Export helper — matplotlib-based, identical pattern to SOCEIS_view.py
 # ═════════════════════════════════════════════════════════════════════════════
@@ -488,6 +508,15 @@ with st.sidebar:
     st.markdown("---")
 
     # ── Legend ────────────────────────────────────────────────────────────────
+    st.markdown("### Data")
+    invert_current = st.checkbox(
+        "Plot current x -1",
+        value=False,
+        help="Keep voltage unchanged and multiply current values by -1 before plotting.",
+    )
+
+    st.markdown("---")
+
     st.markdown("### Legend")
     show_legend      = st.checkbox("Show legend on plot", value=True)
     legend_position  = st.selectbox("Position", list(LEGEND_POSITIONS.keys()), index=0,
@@ -628,9 +657,11 @@ if not valid:
     st.error('Could not parse any of the selected files.')
     st.stop()
 
+plot_entries = apply_current_sign(valid, invert_current)
+
 # ── Main plot ─────────────────────────────────────────────────────────────────
 fig = build_iv_figure(
-    valid,
+    plot_entries,
     display_name_map,
     COLOR_PALETTE,
     LEGEND_POSITIONS[legend_position],
@@ -653,7 +684,7 @@ with st.expander('File metadata'):
 
 # ── Raw data preview ──────────────────────────────────────────────────────────
 with st.expander('Raw data preview'):
-    for fname, data in valid:
+    for fname, data in plot_entries:
         if data is None:
             continue
         df = pd.DataFrame({'Potential_V': data['potential'], 'Current_A': data['current']})
@@ -670,7 +701,7 @@ if save_zip:
         zip_path  = export_folder / f"IV_figures_{timestamp}.zip"
 
         mpl_fig = _build_mpl_iv_figure(
-            valid, display_name_map, COLOR_PALETTE,
+            plot_entries, display_name_map, COLOR_PALETTE,
             line_width, show_legend, int(legend_font_size),
         )
 
