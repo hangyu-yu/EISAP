@@ -4758,17 +4758,17 @@ if analyze_cnls:
                 # DRT elements (already done)
                 fig_elem = cnls_elements_fitting_plotly(cnls_file, df_cnls.index[0])
                 if fig_elem:
-                    st.plotly_chart(fig_elem, width="stretch")
+                    st.plotly_chart(fig_elem, width="stretch", key="cnls_single_elements_fit")
 
                 # Nyquist fit
                 fig_nyq = cnls_nyquist_fit_plotly(cnls_file, df_cnls.index[0])
                 if fig_nyq:
-                    st.plotly_chart(fig_nyq, width="stretch")
+                    st.plotly_chart(fig_nyq, width="stretch", key="cnls_single_nyquist_fit")
 
                 # Residuals
                 fig_res = cnls_residuals_plotly(cnls_file, df_cnls.index[0])
                 if fig_res:
-                    st.plotly_chart(fig_res, width="stretch")
+                    st.plotly_chart(fig_res, width="stretch", key="cnls_single_residuals")
         else:
 
             if "Heatmap" in cnls_plot_modes:
@@ -4825,22 +4825,22 @@ if analyze_cnls:
                 selected_eis_files = [compare_label_map[lbl] for lbl in selected_labels]
                 st.session_state["cnls_compare_eis_files"] = selected_eis_files
 
-                for eis_file in selected_eis_files:
+                for compare_idx, eis_file in enumerate(selected_eis_files):
                     compare_cnls_file = sibling_file(eis_file, "CNLS")
                     compare_fname = display_name_map[eis_file.name]
 
                     fig_im = cnls_elements_im_bode_plotly(compare_cnls_file, compare_fname)
                     if fig_im:
-                        st.plotly_chart(fig_im, width="stretch")
+                        st.plotly_chart(fig_im, width="stretch", key=f"cnls_compare_im_bode_{compare_idx}")
 
                     fig_nyq = cnls_nyquist_fit_plotly(compare_cnls_file, compare_fname,
                                                       xlim=cnls_cmp_xlim, ylim=cnls_cmp_ylim)
                     if fig_nyq:
-                        st.plotly_chart(fig_nyq, width="stretch")
+                        st.plotly_chart(fig_nyq, width="stretch", key=f"cnls_compare_nyquist_fit_{compare_idx}")
 
                     fig_drt = cnls_elements_fitting_plotly(compare_cnls_file, compare_fname)
                     if fig_drt:
-                        st.plotly_chart(fig_drt, width="stretch")
+                        st.plotly_chart(fig_drt, width="stretch", key=f"cnls_compare_elements_fit_{compare_idx}")
 
     else:
         st.info("CNLS enabled, but no CNLS files/sheets were found for the selected EIS files.")
