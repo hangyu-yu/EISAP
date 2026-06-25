@@ -225,8 +225,8 @@ def update_single_plots(config):
                 dpg.add_plot_axis(dpg.mvXAxis, label="Frequency [Hz]" if not dpg.get_value("check_box_cnls_tau") else "tau [s]", log_scale=True)
                 y_axis = dpg.add_plot_axis(dpg.mvYAxis, label="Residual [%]")
                 if data.ResidualsReal is not None and data.ResidualsImag is not None and f_fit is not None:
-                    dpg.add_scatter_series(f_fit if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*f_fit), 100 * data.ResidualsReal / np.abs(data.Ztot), parent=y_axis, label="Re")
-                    dpg.add_scatter_series(f_fit if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*f_fit), 100 * data.ResidualsImag / np.abs(data.Ztot), parent=y_axis, label="Im")
+                    dpg.add_scatter_series(f_fit if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*f_fit), 100 * data.ResidualsReal, parent=y_axis, label="Re")
+                    dpg.add_scatter_series(f_fit if not dpg.get_value("check_box_cnls_tau") else 1/(2*np.pi*f_fit), 100 * data.ResidualsImag, parent=y_axis, label="Im")
                     dpg.add_plot_legend()
             with dpg.table(
                 tag=f"table_cnls_plot_residuals",
