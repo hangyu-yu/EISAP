@@ -6,9 +6,9 @@ build-backend = "setuptools.build_meta"
 # Project metadata
 # ─────────────────────────────────────────────────────────────────────────────
 [project]
-name = "soceis"
-version = "1.0.6"
-description = "SOCEIS – Electrochemical Impedance Spectroscopy Analysis Suite"
+name = "eisap"
+version = "1.0.7"
+description = "EISAP – Electrochemical Impedance Spectroscopy Analysis Program"
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.9"
@@ -44,7 +44,8 @@ dependencies = [
 ]
 
 [project.scripts]
-# `soceis` command launches the GUI
+# `eisap` command launches the GUI; `soceis` remains as a compatibility alias.
+eisap = "eisap.__main__:main"
 soceis = "soceis.__main__:main"
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ soceis = "soceis.__main__:main"
 # ─────────────────────────────────────────────────────────────────────────────
 [tool.setuptools.packages.find]
 # Find all packages from the project root: src.* and soceis.*
-include = ["src*", "soceis*"]
+include = ["src*", "soceis*", "eisap*"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Non-Python data files bundled with the package

@@ -1,7 +1,7 @@
 """
 soceis.__main__
 ───────────────
-Entry point for the `soceis` console-script and `python -m soceis`.
+Entry point for the `eisap` / `soceis` console scripts and module launchers.
 
 Workflow
 --------
@@ -108,7 +108,7 @@ def _prompt_windows_desktop_shortcut() -> None:
 def _create_windows_shortcut() -> None:
     """Create SOCEIS.lnk on the Windows desktop via a temporary PowerShell script.
 
-    The shortcut runs `python -m soceis`, so it works regardless of whether the
+    The shortcut runs `python -m eisap`, so it works regardless of whether the
     user installed via pip or cloned the repo.
     """
     import ctypes
@@ -141,7 +141,7 @@ def _create_windows_shortcut() -> None:
         "$ws = New-Object -ComObject WScript.Shell",
         f"$s = $ws.CreateShortcut('{_esc(shortcut_path)}')",
         f"$s.TargetPath    = '{_esc(python_exe)}'",
-        "$s.Arguments     = '-m soceis'",
+        "$s.Arguments     = '-m eisap'",
         "$s.WindowStyle   = 1",
     ]
     if icon_path:
@@ -185,12 +185,12 @@ def _create_windows_shortcut() -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    """Entry point invoked by the `soceis` console script and `python -m soceis`."""
+    """Entry point invoked by the `eisap` / `soceis` console scripts."""
     _check_and_install_dependencies()
     _prompt_windows_desktop_shortcut()
 
     # Import and run the GUI.  `src` is installed as a top-level package, so
-    # `import src.GUI.gui_main` works from any directory after `pip install soceis`.
+    # `import src.GUI.gui_main` works from any directory after `pip install eisap`.
     try:
         gui_main = importlib.import_module("src.GUI.gui_main")
     except ImportError as exc:

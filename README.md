@@ -12,8 +12,8 @@
 <p align="center"><em>Electrochemical Impedance Spectroscopy Analysis Program</em></p>
 <p align="center"><sub>formerly <strong>SOCEIS</strong> — Suite for Operando Characterisation of Electrochemical Impedance Spectra</sub></p>
 <p align="center">
-  <a href="https://pypi.org/project/soceis/"><img src="https://img.shields.io/pypi/v/soceis" alt="PyPI version"/></a>
-  <a href="https://pypi.org/project/soceis/"><img src="https://img.shields.io/pypi/pyversions/soceis" alt="Python versions"/></a>
+  <a href="https://pypi.org/project/eisap/"><img src="https://img.shields.io/pypi/v/eisap" alt="PyPI version"/></a>
+  <a href="https://pypi.org/project/eisap/"><img src="https://img.shields.io/pypi/pyversions/eisap" alt="Python versions"/></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-blue" alt="Platform"/>
 </p>
 
@@ -43,24 +43,24 @@ The graphical interface is built on [DearPyGui](https://github.com/hoffstadt/Dea
 
 ### Option 1 — pip (recommended)
 
-Install the latest stable release directly from [PyPI](https://pypi.org/project/soceis/):
+Install the latest stable release directly from [PyPI](https://pypi.org/project/eisap/):
 
 ```bash
-pip install soceis
+pip install eisap
 ```
 
 Upgrade to a newer release at any time:
 
 ```bash
-pip install --upgrade soceis
+pip install --upgrade eisap
 ```
 
 > **Tip:** It is recommended to install inside a dedicated virtual environment or conda environment to avoid dependency conflicts.
 >
 > ```bash
-> conda create -n soceis python=3.11
-> conda activate soceis
-> pip install soceis
+> conda create -n eisap python=3.11
+> conda activate eisap
+> pip install eisap
 > ```
 
 ---
@@ -82,7 +82,7 @@ conda activate eisap
 pip install -r src/GUI/requirements.txt
 
 # 4. Launch
-python SOCEIS.py
+python EISAP.py
 ```
 
 Missing dependencies are also detected and installed automatically on first launch.
@@ -103,7 +103,7 @@ This is the quickest way to get EISAP running without any command-line tools.
 
 Download and install Python 3.11 (64-bit) from https://www.python.org/downloads/
 
-> **Important (Windows):** During installation, check **"Add Python to PATH"** before clicking Install. Without this, double-clicking `SOCEIS.py` will not work.
+> **Important (Windows):** During installation, check **"Add Python to PATH"** before clicking Install. Without this, double-clicking `EISAP.py` will not work.
 
 **Step 2 — Download EISAP**
 
@@ -111,9 +111,9 @@ Go to the [SOCEIS GitHub page](https://github.com/hangyu-yu/eisap), click the gr
 
 **Step 3 — Run EISAP**
 
-Open the extracted folder and **double-click `SOCEIS.py`**. On first launch, missing dependencies are detected and installed automatically. Once finished, the EISAP window will open.
+Open the extracted folder and **double-click `EISAP.py`**. On first launch, missing dependencies are detected and installed automatically. Once finished, the EISAP window will open.
 
-> If double-clicking opens a text editor instead of running the script, right-click `SOCEIS.py` → **Open with** → **Python**.
+> If double-clicking opens a text editor instead of running the script, right-click `EISAP.py` → **Open with** → **Python**.
 
 ---
 
@@ -139,7 +139,7 @@ Download and install Python 3.11 from the official website: https://www.python.o
 Open a terminal (Windows: press `Win+R`, type `cmd`, press Enter) and run:
 
 ```
-pip install soceis
+pip install eisap
 ```
 
 This automatically downloads EISAP and all its dependencies. Wait for it to finish.
@@ -149,7 +149,7 @@ This automatically downloads EISAP and all its dependencies. Wait for it to fini
 In the same terminal, run:
 
 ```
-soceis
+eisap
 ```
 
 EISAP will start and offer to create a desktop shortcut automatically. Click **Yes**. After that you can launch EISAP at any time by **double-clicking the desktop icon** — no terminal needed.
@@ -157,9 +157,9 @@ EISAP will start and offer to create a desktop shortcut automatically. Click **Y
 **Step 4 — Launch EISAP**
 
 - **Windows:** double-click the `SOCEIS` desktop shortcut created in Step 3.
-- **macOS / Linux:** open a terminal and type `soceis`, then press Enter.
+- **macOS / Linux:** open a terminal and type `eisap`, then press Enter.
 
-> If you ever need to update to a newer version, run `pip install --upgrade soceis` in a terminal.
+> If you ever need to update to a newer version, run `pip install --upgrade eisap` in a terminal.
 
 ---
 
@@ -169,9 +169,9 @@ EISAP will start and offer to create a desktop shortcut automatically. Click **Y
 
 | Method | Command |
 |--------|---------|
-| pip install (any directory) | `soceis` |
-| pip install (module syntax) | `python -m soceis` |
-| Source clone | `python SOCEIS.py` |
+| pip install (any directory) | `eisap` |
+| pip install (module syntax) | `python -m eisap` |
+| Source clone | `python EISAP.py` |
 
 ### Workflow overview
 
@@ -195,7 +195,7 @@ In addition to the main DearPyGui interface, EISAP includes an interactive **EIS
 
 ### First run on Windows
 
-On Windows, EISAP will offer to create a desktop shortcut the first time it starts. The shortcut invokes `python -m soceis` and includes the application icon automatically.
+On Windows, EISAP will offer to create a desktop shortcut the first time it starts. The shortcut invokes `python -m eisap` and includes the application icon automatically.
 
 ---
 
@@ -326,10 +326,11 @@ All three analytical modules support **single-file** and **all-files** views on 
 
 ```
 SOCEIS/
-├── SOCEIS.py                  # Legacy entry point (source-tree launch)
-├── soceis/                    # Installable package (pip)
+├── EISAP.py                   # Source-tree launch entry point
+├── eisap/                     # Public package alias for `python -m eisap`
+├── soceis/                    # Application package and assets
 │   ├── __init__.py
-│   ├── __main__.py            # `python -m soceis` / `soceis` CLI entry point
+│   ├── __main__.py            # Shared GUI launcher used by `eisap` and `soceis`
 │   └── assets/                # Fonts, icons, images
 ├── src/
 │   ├── GUI/                   # DearPyGui interface (tabs, callbacks, plotting)
@@ -456,7 +457,7 @@ If EISAP contributes to published research, please cite the following papers:
 
 ## Changelog
 
-> **Naming note:** The project is now named **EISAP** (Electrochemical Impedance Spectroscopy Analysis Program). It was previously released under the name **SOCEIS** (Suite for Operando Characterisation of Electrochemical Impedance Spectra). The package, CLI command, and source files still use the `soceis` identifier.
+> **Naming note:** The project is now named **EISAP** (Electrochemical Impedance Spectroscopy Analysis Program). It was previously released under the name **SOCEIS** (Suite for Operando Characterisation of Electrochemical Impedance Spectra). The PyPI package and primary CLI command now use `eisap`; `soceis` remains available as a compatibility command and internal package identifier.
 
 ### v1.0.6 (2026-04-24)
 - New CNLS circuit element: **Warburg (W)** — semi-infinite Warburg (single parameter σ, no τ; not subject to segment constraint), intended for Li-BAT equivalent-circuit models
@@ -469,7 +470,7 @@ If EISAP contributes to published research, please cite the following papers:
 - Various small bug fixes across EIS, DRT, and CNLS modules
 
 ### v1.0.5 (2026-03-27)
-- Pip-installable package (`pip install soceis`; `soceis` CLI command)
+- Pip-installable package (`pip install eisap`; `eisap` CLI command)
 - Windows first-run desktop shortcut creation
 - Unified proportional layout for error/warning modal dialogs
 - Post-import warning suppression for default/unpopulated project directories
