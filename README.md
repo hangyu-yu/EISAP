@@ -33,9 +33,6 @@ The software integrates three tightly coupled analytical modules into a single g
 
 The graphical interface is built on [DearPyGui](https://github.com/hoffstadt/DearPyGui) and supports single-spectrum and batch (multi-file) workflows, making it suitable for both exploratory single-cell measurements and long-term degradation campaigns.
 
-<p align="center">
-  <img src="soceis/assets/images/Fig_example_main.png" width="100%">
-</p>
 
 ---
 
