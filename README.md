@@ -72,7 +72,7 @@ Clone the repository and run the launcher directly. This is useful for developme
 ```bash
 # 1. Clone
 git clone https://github.com/hangyu-yu/eisap.git
-cd SOCEIS
+cd EISAP
 
 # 2. (Optional but recommended) create a virtual environment
 conda create -n eisap python=3.11
@@ -107,7 +107,7 @@ Download and install Python 3.11 (64-bit) from https://www.python.org/downloads/
 
 **Step 2 — Download EISAP**
 
-Go to the [SOCEIS GitHub page](https://github.com/hangyu-yu/eisap), click the green **Code** button, then select **Download ZIP**. Extract the ZIP archive to any folder on your computer.
+Go to the [EISAP GitHub page](https://github.com/hangyu-yu/eisap), click the green **Code** button, then select **Download ZIP**. Extract the ZIP archive to any folder on your computer.
 
 **Step 3 — Run EISAP**
 
@@ -156,7 +156,7 @@ EISAP will start and offer to create a desktop shortcut automatically. Click **Y
 
 **Step 4 — Launch EISAP**
 
-- **Windows:** double-click the `SOCEIS` desktop shortcut created in Step 3.
+- **Windows:** double-click the `EISAP` desktop shortcut created in Step 3.
 - **macOS / Linux:** open a terminal and type `eisap`, then press Enter.
 
 > If you ever need to update to a newer version, run `pip install --upgrade eisap` in a terminal.
@@ -325,7 +325,7 @@ All three analytical modules support **single-file** and **all-files** views on 
 ## Repository Structure
 
 ```
-SOCEIS/
+EISAP/
 ├── EISAP.py                   # Source-tree launch entry point
 ├── eisap/                     # Public package alias for `python -m eisap`
 ├── soceis/                    # Application package and assets
