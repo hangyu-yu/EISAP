@@ -4224,7 +4224,7 @@ with st.sidebar:
     drt_show_params = st.checkbox("Parameters", value=False, key="drt_params")
     st.checkbox(
         "DRT y-axis from 0",
-        value=True,
+        value=False,
         key="drt_y_from_zero",
         help="When enabled, the DRT γ-axis starts at 0. Disable for a loose (auto-scaled) y-axis.",
     )
