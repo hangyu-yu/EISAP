@@ -33,6 +33,13 @@ _DEFAULT_METHOD = "Polynomial"
 _DEFAULT_DEGREE = 1
 _DEFAULT_CONFIDENCE = 0.95
 
+# Physical range for CPE/RQ dispersion exponents.  Mirrors the element defaults
+# in cnls_elements.py and the clamp in Circuit.initialize_elements, so a CF
+# reset cannot seed the next CNLS fit outside the range either load path allows.
+_ALPHA_MIN = 0.4
+_ALPHA_MAX = 1.0
+_ALPHA_MIN_SPAN = 1e-6
+
 
 def _display_cnls(config):
     """Return the displayed file's CNLS circuit, or None."""
@@ -149,6 +156,36 @@ def _locate_param(cnls, para_idx):
         if start <= para_idx <= end:
             return elem_idx, para_idx - start
     return None, None
+
+
+def _is_alpha_parameter(cnls, para_idx):
+    """True when a flat parameter index refers to a dispersion exponent.
+
+    Uses the same name test as Circuit.initialize_elements, so the CF reset and
+    the circuit's own alpha clamp agree on which parameters are exponents.
+    """
+    names = cnls.ElementsParamNames or []
+    return para_idx < len(names) and "alpha" in str(names[para_idx])
+
+
+def clamp_alpha_bounds(value, lb, ub):
+    """Constrain a fitted alpha seed and its CI bounds to the physical range.
+
+    A trend fitted through alphas that sit on the 0.4 floor or the 1.0 ceiling
+    produces a confidence band that straddles the limit, which would otherwise
+    be written into the element as an unphysical bound.  Returns
+    (value, lb, ub) with _ALPHA_MIN <= lb < ub <= _ALPHA_MAX and the seed inside
+    its own bounds.  A band lying entirely outside the range collapses onto the
+    nearest edge, where a minimum span is re-opened because scipy's
+    least_squares requires each lower bound to be strictly below its upper one.
+    """
+    lb = min(max(float(lb), _ALPHA_MIN), _ALPHA_MAX)
+    ub = min(max(float(ub), _ALPHA_MIN), _ALPHA_MAX)
+    if ub - lb < _ALPHA_MIN_SPAN:
+        centre = min(max(float(value), _ALPHA_MIN), _ALPHA_MAX)
+        lb = max(_ALPHA_MIN, min(centre - _ALPHA_MIN_SPAN / 2.0, _ALPHA_MAX - _ALPHA_MIN_SPAN))
+        ub = lb + _ALPHA_MIN_SPAN
+    return min(max(float(value), lb), ub), lb, ub
 
 
 def _fit_text(fit):
@@ -493,6 +530,8 @@ def _on_reset_parameters(config):
             elem_idx, offset = _locate_param(cnls, para_idx)
             if elem_idx is None:
                 continue
+            if _is_alpha_parameter(cnls, para_idx):
+                yhat, lb, ub = clamp_alpha_bounds(yhat, lb, ub)
             cnls.Elements[elem_idx]["Param"][offset] = float(yhat)
             cnls.Elements[elem_idx]["Ub"][offset] = float(ub)
             cnls.Elements[elem_idx]["Lb"][offset] = float(lb)

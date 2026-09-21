@@ -231,8 +231,20 @@ LEGEND_POSITIONS = {
 # File detection & parsing
 # ═════════════════════════════════════════════════════════════════════════════
 
+# Zahner exports steady-state IV scans as whitespace-delimited .txt or as
+# comma-delimited .csv (the latter prefixed with a "sep=," line). Both carry the
+# same metadata block and are handled by the same parser.
+IV_FILE_SUFFIXES = ('.txt', '.csv')
+
+# Display units for the current-density x axis → factor converting A/cm²
+CURRENT_DENSITY_UNITS = {
+    'A/cm²':  1.0,
+    'mA/cm²': 1e3,
+}
+
+
 def _is_iv_file(path):
-    """Return True if the file is a Zahner steady-state IV text file."""
+    """Return True if the file is a Zahner steady-state IV file."""
     try:
         with open(path, 'r', encoding='utf-8', errors='replace') as f:
             for i, line in enumerate(f):
@@ -326,8 +338,9 @@ def parse_iv_file(path):
 # ═════════════════════════════════════════════════════════════════════════════
 
 def build_iv_figure(entries, display_name_map, colors,
-                    legend_pos_cfg, show_legend, legend_font_size, line_width):
-    """Plot current [A] vs voltage [V] for all data points, no sweep split."""
+                    legend_pos_cfg, show_legend, legend_font_size, line_width,
+                    x_label='Current [A]'):
+    """Plot current (or current density) vs voltage [V] for all data points, no sweep split."""
     fig = go.Figure()
 
     for i, (fname, data) in enumerate(entries):
@@ -345,7 +358,7 @@ def build_iv_figure(entries, display_name_map, colors,
         ))
 
     fig.update_layout(
-        xaxis_title='Current [A]',
+        xaxis_title=x_label,
         yaxis_title='Voltage [V]',
         template='plotly_white',
         showlegend=show_legend,
@@ -376,6 +389,30 @@ def apply_current_sign(entries, invert_current: bool):
     return transformed
 
 
+def apply_current_density(entries, area_cm2: float, unit_scale: float):
+    """Return plotting entries with current divided by the electrode area.
+
+    area_cm2   : electrode area in cm², must be > 0
+    unit_scale : factor converting A/cm² to the requested display unit
+                 (1.0 for A/cm², 1e3 for mA/cm²)
+    """
+    factor = unit_scale / area_cm2
+
+    transformed = []
+    for fname, data in entries:
+        if data is None:
+            transformed.append((fname, data))
+            continue
+        transformed.append((
+            fname,
+            {
+                **data,
+                'current': factor * data['current'],
+            },
+        ))
+    return transformed
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Export helper — matplotlib-based, identical pattern to SOCEIS_view.py
 # ═════════════════════════════════════════════════════════════════════════════
@@ -390,7 +427,7 @@ def _mpl_fig_to_bytes(mpl_fig, fmt: str) -> bytes:
 
 
 def _build_mpl_iv_figure(entries, display_name_map, colors, line_width,
-                          show_legend, legend_font_size):
+                          show_legend, legend_font_size, x_label="Current [A]"):
     """Recreate the IV figure in matplotlib for file export."""
     fig, ax = plt.subplots(figsize=(8, 5), dpi=300)
     for i, (fname, data) in enumerate(entries):
@@ -400,7 +437,7 @@ def _build_mpl_iv_figure(entries, display_name_map, colors, line_width,
         label  = display_name_map.get(fname, Path(fname).stem)
         ax.plot(data['current'], data['potential'],
                 color=color, linewidth=line_width, label=label)
-    ax.set_xlabel("Current [A]", fontsize=12)
+    ax.set_xlabel(x_label, fontsize=12)
     ax.set_ylabel("Voltage [V]", fontsize=12)
     ax.grid(True, alpha=0.3)
     if show_legend:
@@ -441,12 +478,13 @@ with st.sidebar:
     root = Path(st.session_state.iv_root_input)
 
     # ── File discovery & selection ────────────────────────────────────────────
-    # Deduplicate by lowercase name so *.txt and *.TXT don't both match the same file on Windows
+    # Match on the suffix so .txt/.csv are picked up in any letter case, and each
+    # file is listed exactly once regardless of filesystem case sensitivity
     if root.is_dir():
-        _seen: dict = {}
-        for f in sorted(root.glob('*.txt')) + sorted(root.glob('*.TXT')):
-            _seen.setdefault(f.name.lower(), f)
-        candidates = list(_seen.values())
+        candidates = sorted(
+            f for f in root.iterdir()
+            if f.is_file() and f.suffix.lower() in IV_FILE_SUFFIXES
+        )
     else:
         candidates = []
     iv_files = [f for f in candidates if _is_iv_file(f)]
@@ -515,6 +553,27 @@ with st.sidebar:
         help="Keep voltage unchanged and multiply current values by -1 before plotting.",
     )
 
+    use_current_density = st.checkbox(
+        "Plot current density",
+        value=False,
+        help="Divide the current by the cell area so the x axis shows current density.",
+    )
+    cell_area = st.number_input(
+        "Cell area [cm²]",
+        min_value=0.0001,
+        value=1.0,
+        step=0.1,
+        format="%.4f",
+        disabled=not use_current_density,
+        help="Active electrode area used to convert current into current density.",
+    )
+    density_unit = st.selectbox(
+        "Current density unit",
+        list(CURRENT_DENSITY_UNITS.keys()),
+        index=0,
+        disabled=not use_current_density,
+    )
+
     st.markdown("---")
 
     st.markdown("### Legend")
@@ -569,7 +628,7 @@ if not root.is_dir():
     st.stop()
 
 if not iv_files:
-    st.info('No Zahner steady-state IV files (.txt) found in the selected folder.')
+    st.info('No Zahner steady-state IV files (.txt or .csv) found in the selected folder.')
     st.stop()
 
 # ── File ordering ─────────────────────────────────────────────────────────────
@@ -659,6 +718,16 @@ if not valid:
 
 plot_entries = apply_current_sign(valid, invert_current)
 
+if use_current_density:
+    plot_entries = apply_current_density(
+        plot_entries, cell_area, CURRENT_DENSITY_UNITS[density_unit]
+    )
+    x_label     = f'Current density [{density_unit}]'
+    current_col = f'Current_density_{density_unit.replace("/", "_per_")}'
+else:
+    x_label     = 'Current [A]'
+    current_col = 'Current_A'
+
 # ── Main plot ─────────────────────────────────────────────────────────────────
 fig = build_iv_figure(
     plot_entries,
@@ -668,6 +737,7 @@ fig = build_iv_figure(
     show_legend,
     int(legend_font_size),
     line_width,
+    x_label,
 )
 st.plotly_chart(fig, use_container_width=True)
 
@@ -687,7 +757,7 @@ with st.expander('Raw data preview'):
     for fname, data in plot_entries:
         if data is None:
             continue
-        df = pd.DataFrame({'Potential_V': data['potential'], 'Current_A': data['current']})
+        df = pd.DataFrame({'Potential_V': data['potential'], current_col: data['current']})
         st.caption(fname)
         st.dataframe(df.head(200))
 
@@ -702,7 +772,7 @@ if save_zip:
 
         mpl_fig = _build_mpl_iv_figure(
             plot_entries, display_name_map, COLOR_PALETTE,
-            line_width, show_legend, int(legend_font_size),
+            line_width, show_legend, int(legend_font_size), x_label,
         )
 
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
