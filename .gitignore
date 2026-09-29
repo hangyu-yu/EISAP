@@ -11,7 +11,7 @@ Projects/
 .claude/
 .agents/
 .venv/
-docs
+docs/
 
 
 # Python packaging build artifacts
