@@ -82,14 +82,15 @@ def _resolve_drt_axis_for_gamma(reim):
         return bool(np.all(np.isfinite(axis) & (axis > 0)))
 
     # Standard path (most Tikhonov outputs)
-    drt_f = _to_1d_array(reim.get("f", None))
-    if _valid_positive_axis(drt_f, len(drt_mes)):
-        return drt_f, drt_mes
-
-    # RBF fine-grid path
+    # Explicit gamma grid (new Tikhonov and existing RBF contract)
     drt_f_gamma = _to_1d_array(reim.get("f_gamma", None))
     if _valid_positive_axis(drt_f_gamma, len(drt_mes)):
         return drt_f_gamma, drt_mes
+
+    # Legacy Tikhonov path
+    drt_f = _to_1d_array(reim.get("f", None))
+    if _valid_positive_axis(drt_f, len(drt_mes)):
+        return drt_f, drt_mes
 
     # Fallback from tau_gamma
     tau_gamma = _to_1d_array(reim.get("tau_gamma", None))
@@ -163,7 +164,7 @@ def resolve_cnls_reference(eis_data, data_type, allow_rbf_fallback=True):
             re_part = reim.get("Re", None)
             im_part = reim.get("Im", None)
             z_mes = re_part + 1j * im_part if re_part is not None and im_part is not None else None
-            z_f = reim.get("f", None)
+            z_f = reim.get("f_Z", reim.get("f", None))
         else:
             eis_branch = _get_eis_item(eis_data, base_type.replace("_KK", ""))
             z_mes = eis_branch.get("Z", None) if isinstance(eis_branch, dict) else None

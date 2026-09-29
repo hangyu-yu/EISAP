@@ -35,6 +35,19 @@ def parse_start_step(text):
     return start, step
 
 
+def _legacy_drt_warning_message(file_names):
+    """Return one warning message for legacy single-frequency DRT workbooks."""
+    unique_names = list(dict.fromkeys(str(name) for name in file_names))
+    files_text = "\n".join(f"  • {name}" for name in unique_names)
+    return (
+        "The following legacy DRT workbooks contain only one frequency column:\n\n"
+        f"{files_text}\n\n"
+        "The reconstructed-impedance Bode frequencies may therefore be incorrect. "
+        "Nyquist plots and gamma-DRT data are unaffected. Please reprocess the original "
+        "EIS data and save the DRT results again to create the new dual-frequency format."
+    )
+
+
 def _open_import_progress(total_steps):
     """Thin wrapper: open a progress window for historical data import."""
     import src.GUI.Utils.progress_modal as _pm
@@ -658,6 +671,20 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None, import_history
         config.store['beacon_DRT_import'] = False
     finally:
         _close_import_progress(progress_ctx)
+
+    legacy_drt_files = []
+    for imported_file in valid_files:
+        imported_key = os.path.splitext(os.path.basename(imported_file))[0]
+        imported_eis = config.store.get(imported_key, {}).get('EIS')
+        if getattr(imported_eis, 'legacy_drt_frequency_warning', False):
+            legacy_drt_files.append(os.path.basename(imported_file))
+
+    if legacy_drt_files:
+        import src.GUI.Utils.progress_modal as _pm
+        _pm.show_warning_dialog(
+            "DRT — Legacy Frequency Format",
+            _legacy_drt_warning_message(legacy_drt_files),
+        )
 
     if show_progress:
         import src.GUI.Utils.progress_modal as _pm
