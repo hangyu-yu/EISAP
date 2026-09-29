@@ -9,6 +9,10 @@ src/GUI/config.json
 Projects/
 .streamlit/
 .claude/
+.agents/
+.venv/
+docs
+
 
 # Python packaging build artifacts
 dist/
