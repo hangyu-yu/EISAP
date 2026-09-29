@@ -33,6 +33,14 @@ def _tknv_export_frame(mode_data):
     """Build a Tikhonov export table with separate gamma and impedance axes."""
     f_gamma = mode_data.get('f_gamma', mode_data.get('f', []))
     f_z = mode_data.get('f_Z', mode_data.get('f', []))
+    if mode_data.get('f_Z_ambiguous', False):
+        return pd.DataFrame({
+            'Frequency/Hz': pd.Series(np.asarray(f_gamma).reshape(-1)),
+            'gamma/ohm·s·cm2': pd.Series(np.asarray(mode_data.get('g', [])).reshape(-1)),
+            'Re/ohm·cm2': pd.Series(np.asarray(mode_data.get('Re', [])).reshape(-1)),
+            'Im/ohm·cm2': pd.Series(np.asarray(mode_data.get('Im', [])).reshape(-1)),
+            'Residuals': pd.Series(np.asarray(mode_data.get('Residuals', [])).reshape(-1)),
+        })
     return pd.DataFrame({
         'Frequency_gamma/Hz': pd.Series(np.asarray(f_gamma).reshape(-1)),
         'gamma/ohm·s·cm2': pd.Series(np.asarray(mode_data.get('g', [])).reshape(-1)),
@@ -60,6 +68,7 @@ def _parse_tknv_sheet(data):
         'f': f_gamma,
         'f_gamma': f_gamma,
         'f_Z': f_z,
+        'f_Z_ambiguous': is_legacy,
         'g': pd.to_numeric(data['gamma/ohm·s·cm2'], errors='coerce').dropna().to_numpy(),
         'Re': pd.to_numeric(data['Re/ohm·cm2'], errors='coerce').dropna().to_numpy(),
         'Im': pd.to_numeric(data['Im/ohm·cm2'], errors='coerce').dropna().to_numpy(),
@@ -1562,6 +1571,12 @@ class DRT:
                         target_dict[data_type] = {}
                     
                     parsed_data, is_legacy = _parse_tknv_sheet(tknv_data)
+                    if is_legacy:
+                        eis_branch = getattr(self, data_cat, None)
+                        measured_f = eis_branch.get('f') if isinstance(eis_branch, dict) else None
+                        if measured_f is not None and len(measured_f) == len(parsed_data['Re']):
+                            parsed_data['f_Z'] = np.asarray(measured_f, dtype=float).reshape(-1).copy()
+                            parsed_data['f_Z_ambiguous'] = False
                     target_dict[data_type].update(parsed_data)
                     if is_legacy:
                         self.legacy_drt_frequency_warning = True

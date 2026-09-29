@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 from src.Methods.DRT.DRT import DRT, _parse_tknv_sheet, _tknv_export_frame
 from src.Methods.CNLS.Utils.DataReference import resolve_cnls_reference
+from src.GUI.Utils.drt_plots import _drt_impedance_frequency
 from src.Methods.DRT.Utils.DRT_tikhonov import DRT_tikhonov
 from src.Methods.DRT.Utils.DRT_tknv_pos import DRT_tknv_pos
 
@@ -122,6 +123,43 @@ class TikhonovFrequencyAxisTests(unittest.TestCase):
         np.testing.assert_allclose(parsed["f"], frame["Frequency/Hz"])
         np.testing.assert_allclose(parsed["f_gamma"], frame["Frequency/Hz"])
         np.testing.assert_allclose(parsed["f_Z"], frame["Frequency/Hz"])
+
+    def test_legacy_sheet_stays_legacy_when_resaved_without_reprocessing(self):
+        legacy_frame = pd.DataFrame(
+            {
+                "Frequency/Hz": [1000.0, 31.62, 1.0],
+                "gamma/ohm·s·cm2": [0.1, 0.2, 0.3],
+                "Re/ohm·cm2": [1.1, 1.2, 1.3],
+                "Im/ohm·cm2": [-0.1, -0.2, -0.3],
+                "Residuals": [0.01, 0.02, 0.03],
+            }
+        )
+        parsed, is_legacy = _parse_tknv_sheet(legacy_frame)
+        self.assertTrue(is_legacy)
+
+        resaved_frame = _tknv_export_frame(parsed)
+        reparsed, is_still_legacy = _parse_tknv_sheet(resaved_frame)
+
+        self.assertTrue(is_still_legacy)
+        self.assertIn("Frequency/Hz", resaved_frame.columns)
+        self.assertNotIn("Frequency_Z/Hz", resaved_frame.columns)
+        np.testing.assert_allclose(reparsed["f_Z"], legacy_frame["Frequency/Hz"])
+
+    def test_gui_impedance_axis_prefers_f_z_with_legacy_f_fallback(self):
+        explicit = {
+            "f": np.array([1000.0, 100.0, 10.0]),
+            "f_Z": np.array([1000.0, 10.0, 1.0]),
+        }
+        legacy = {"f": np.array([1000.0, 100.0, 10.0])}
+
+        np.testing.assert_allclose(
+            _drt_impedance_frequency(explicit),
+            [1000.0, 10.0, 1.0],
+        )
+        np.testing.assert_allclose(
+            _drt_impedance_frequency(legacy),
+            [1000.0, 100.0, 10.0],
+        )
 
     def test_import_legacy_workbook_records_affected_sheet(self):
         legacy_frame = pd.DataFrame(

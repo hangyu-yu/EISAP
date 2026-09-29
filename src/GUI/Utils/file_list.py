@@ -48,6 +48,17 @@ def _legacy_drt_warning_message(file_names):
     )
 
 
+def _show_legacy_drt_warning(file_names):
+    """Show at most one popup for one GUI import operation."""
+    if not file_names:
+        return
+    import src.GUI.Utils.progress_modal as _pm
+    _pm.show_warning_dialog(
+        "DRT — Legacy Frequency Format",
+        _legacy_drt_warning_message(file_names),
+    )
+
+
 def _open_import_progress(total_steps):
     """Thin wrapper: open a progress window for historical data import."""
     import src.GUI.Utils.progress_modal as _pm
@@ -679,12 +690,7 @@ def update_file_list(config, tag = None, EIS = None, CNLS = None, import_history
         if getattr(imported_eis, 'legacy_drt_frequency_warning', False):
             legacy_drt_files.append(os.path.basename(imported_file))
 
-    if legacy_drt_files:
-        import src.GUI.Utils.progress_modal as _pm
-        _pm.show_warning_dialog(
-            "DRT — Legacy Frequency Format",
-            _legacy_drt_warning_message(legacy_drt_files),
-        )
+    _show_legacy_drt_warning(legacy_drt_files)
 
     if show_progress:
         import src.GUI.Utils.progress_modal as _pm

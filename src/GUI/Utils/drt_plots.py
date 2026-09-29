@@ -69,6 +69,14 @@ def _get_gamma_frequency(result_category):
     return np.asarray(result_category.get("f", []), dtype=float).reshape(-1)
 
 
+def _drt_impedance_frequency(result_category):
+    """Return the frequency axis aligned with reconstructed impedance values."""
+    return np.asarray(
+        result_category.get("f_Z", result_category.get("f", [])),
+        dtype=float,
+    ).reshape(-1)
+
+
 def _get_zhit_smooth_eis(data):
     if not hasattr(data, "zhit_data") or data.zhit_data.get("f", None) is None:
         return None
@@ -256,14 +264,14 @@ def _plot_three_views_with_drt(
         if isinstance(extra_drt, dict) and data_category in extra_drt:
             _add_series_to_plot(
                 {
-                    "f": extra_drt[data_category]["f"],
+                        "f": _drt_impedance_frequency(extra_drt[data_category]),
                     "y": extra_drt[data_category]["Re"],
                 },
                 y_axis_re,
                 f"{data_category}_{extra_label}_DRT",
             )
     _add_series_to_plot(
-        {"f": drt_data[data_category]["f"], "y": drt_data[data_category]["Re"]},
+            {"f": _drt_impedance_frequency(drt_data[data_category]), "y": drt_data[data_category]["Re"]},
         y_axis_re,
         f"{data_category}_DRT",
     )
@@ -301,14 +309,14 @@ def _plot_three_views_with_drt(
         if isinstance(extra_drt, dict) and data_category in extra_drt:
             _add_series_to_plot(
                 {
-                    "f": extra_drt[data_category]["f"],
+                        "f": _drt_impedance_frequency(extra_drt[data_category]),
                     "y": -extra_drt[data_category]["Im"],
                 },
                 y_axis_im,
                 f"{data_category}_{extra_label}_DRT",
             )
     _add_series_to_plot(
-        {"f": drt_data[data_category]["f"], "y": -drt_data[data_category]["Im"]},
+            {"f": _drt_impedance_frequency(drt_data[data_category]), "y": -drt_data[data_category]["Im"]},
         y_axis_im,
         f"{data_category}_DRT",
     )
@@ -464,7 +472,7 @@ def _plot_residuals(
         ref_data["Re"],
         ref_data["Im"],
         ref_data["Z"],
-        drt_data["ReIm"].get("f", ref_data["f"]),
+        _drt_impedance_frequency(drt_data["ReIm"]),
         drt_data["ReIm"]["Re"],
         drt_data["ReIm"]["Im"],
     )
@@ -488,7 +496,7 @@ def _plot_residuals(
             ref_data["Re"],
             ref_data["Im"],
             ref_data["Z"],
-            extra_drt_data["ReIm"].get("f", ref_data["f"]),
+            _drt_impedance_frequency(extra_drt_data["ReIm"]),
             extra_drt_data["ReIm"]["Re"],
             extra_drt_data["ReIm"]["Im"],
         )
@@ -543,7 +551,7 @@ def _plot_residuals(
         ref_data["Re"],
         ref_data["Im"],
         ref_data["Z"],
-        drt_data["Re"].get("f", ref_data["f"]),
+        _drt_impedance_frequency(drt_data["Re"]),
         drt_data["Re"]["Re"],
         drt_data["Re"]["Im"],
     )
@@ -562,7 +570,7 @@ def _plot_residuals(
             ref_data["Re"],
             ref_data["Im"],
             ref_data["Z"],
-            extra_drt_data["Re"].get("f", ref_data["f"]),
+            _drt_impedance_frequency(extra_drt_data["Re"]),
             extra_drt_data["Re"]["Re"],
             extra_drt_data["Re"]["Im"],
         )
