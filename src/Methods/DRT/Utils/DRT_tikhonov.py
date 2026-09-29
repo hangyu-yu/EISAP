@@ -41,6 +41,8 @@ def DRT_tikhonov(EIS_data, parameters):
     log_min_tau = np.log10(min(EIS_data['tau']))
     tau = np.logspace(log_min_tau, log_max_tau, n_freq)
     f = 1 / (2 * np.pi * tau)
+    f_gamma = f
+    f_Z = np.asarray(EIS_data['f'], dtype=float).reshape(-1).copy()
     dt = np.log(max(EIS_data['tau']) / min(EIS_data['tau'])) / (n_freq - 1)  # quadrature coefficient
 
     # Initialize A_im and A_re
@@ -91,6 +93,8 @@ def DRT_tikhonov(EIS_data, parameters):
     DRT = {
         'Re': {  # Results for the real part only
             'f': f,                  # Frequency array corresponding to tau
+            'f_gamma': f_gamma,      # Frequency array corresponding to gamma
+            'f_Z': f_Z.copy(),       # Frequency array corresponding to reconstructed impedance
             'tau': tau,              # Relaxation times
             'g': DRT_Re,             # Distribution of relaxation times (DRT) for real part
             'Re': np.real(Z_Re),     # Real part of the reconstructed impedance
@@ -99,6 +103,8 @@ def DRT_tikhonov(EIS_data, parameters):
         },
         'Im': {  # Results for the imaginary part only
             'f': f,                  # Frequency array corresponding to tau
+            'f_gamma': f_gamma,      # Frequency array corresponding to gamma
+            'f_Z': f_Z.copy(),       # Frequency array corresponding to reconstructed impedance
             'tau': tau,              # Relaxation times
             'g': DRT_Im,             # Distribution of relaxation times (DRT) for imaginary part
             'Re': np.real(Z_Im),     # Real part of the reconstructed impedance
@@ -107,6 +113,8 @@ def DRT_tikhonov(EIS_data, parameters):
         },
         'ReIm': {  # Results for the combined imaginary and real parts
             'f': f,                  # Frequency array corresponding to tau
+            'f_gamma': f_gamma,      # Frequency array corresponding to gamma
+            'f_Z': f_Z.copy(),       # Frequency array corresponding to reconstructed impedance
             'tau': tau,              # Relaxation times
             'g': DRT_ReIm,           # Distribution of relaxation times (DRT) for combined parts
             'Re': np.real(Z_ReIm),   # Real part of the reconstructed impedance
