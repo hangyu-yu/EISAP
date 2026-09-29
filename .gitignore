@@ -9,7 +9,6 @@ src/GUI/config.json
 Projects/
 .streamlit/
 .claude/
-.worktrees/
 
 # Python packaging build artifacts
 dist/
