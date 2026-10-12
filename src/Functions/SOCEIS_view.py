@@ -1644,8 +1644,8 @@ def nyquist_compare_plotly(compare_mode, files_to_process, display_name_map):
             if df_other is not None:
 
                 if sheet_other == "DRT Fit":
-                    xcol = 2
-                    ycol = 3
+                    xcol = df_other.columns.get_loc("Re/ohm·cm2")
+                    ycol = df_other.columns.get_loc("Im/ohm·cm2")
                 elif sheet_other == "CNLS Fit":
                     # CNLS 'Z' sheet: Ztot_Re (col 3), Ztot_Im (col 4).
                     xcol = 3
