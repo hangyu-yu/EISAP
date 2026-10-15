@@ -202,14 +202,22 @@ DRT_SHEET_MAP = {
 CNLS_ENABLED_DEFAULT = False
 CNLS_SHEET = "Elements"
 
+def _drt_impedance_columns(dataframe):
+    return (
+        dataframe.columns.get_loc("Re/ohm·cm2"),
+        dataframe.columns.get_loc("Im/ohm·cm2"),
+    )
+
+
 def nyquist_fit_plotly(datasets):
 
     fig = go.Figure()
     show_legend = len(datasets) > 1
     for i, (name, df) in enumerate(datasets):
 
-        x = pd.to_numeric(df.iloc[:, 2], errors="coerce")   # Re
-        y = -pd.to_numeric(df.iloc[:, 3], errors="coerce")  # Im
+        re_col, im_col = _drt_impedance_columns(df)
+        x = pd.to_numeric(df.iloc[:, re_col], errors="coerce")   # Re
+        y = -pd.to_numeric(df.iloc[:, im_col], errors="coerce")  # Im
 
         fig.add_scatter(
             x=x,
@@ -1644,8 +1652,7 @@ def nyquist_compare_plotly(compare_mode, files_to_process, display_name_map):
             if df_other is not None:
 
                 if sheet_other == "DRT Fit":
-                    xcol = df_other.columns.get_loc("Re/ohm·cm2")
-                    ycol = df_other.columns.get_loc("Im/ohm·cm2")
+                    xcol, ycol = _drt_impedance_columns(df_other)
                 elif sheet_other == "CNLS Fit":
                     # CNLS 'Z' sheet: Ztot_Re (col 3), Ztot_Im (col 4).
                     xcol = 3
@@ -2626,8 +2633,7 @@ def add_nyquist_compare_png(
             if df_other is not None:
 
                 if sheet_other == "DRT Fit":
-                    xcol = 2
-                    ycol = 3
+                    xcol, ycol = _drt_impedance_columns(df_other)
                 elif sheet_other == "CNLS Fit":
                     # CNLS 'Z' sheet: Ztot_Re (col 3), Ztot_Im (col 4).
                     xcol = 3
@@ -2843,8 +2849,9 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
 
     for i, (name, df) in enumerate(datasets):
 
-        x = pd.to_numeric(df.iloc[:, 2], errors="coerce")
-        y = -pd.to_numeric(df.iloc[:, 3], errors="coerce")
+        re_col, im_col = _drt_impedance_columns(df)
+        x = pd.to_numeric(df.iloc[:, re_col], errors="coerce")
+        y = -pd.to_numeric(df.iloc[:, im_col], errors="coerce")
 
         if not st.session_state.get("export_no_nyquist_markers", False):
             ax.plot(
@@ -2911,8 +2918,7 @@ def add_nyquist_fit_png(zf: zipfile.ZipFile, datasets):
 def nyquist_fit_3d_plotly(datasets, title="Nyquist – DRT Smooth Fit (3D)"):
     """
     Nyquist-fit datasets use:
-      Re  -> df.iloc[:, 2]
-      Im  -> df.iloc[:, 3] (negated for -Z'')
+      Re and Im columns from the DRT worksheet.
     """
     fig = go.Figure()
 
@@ -2920,8 +2926,9 @@ def nyquist_fit_3d_plotly(datasets, title="Nyquist – DRT Smooth Fit (3D)"):
     all_x = []
     all_z = []
     for _, df in datasets:
-        x = pd.to_numeric(df.iloc[:, 2], errors="coerce").to_numpy()
-        z = (-pd.to_numeric(df.iloc[:, 3], errors="coerce")).to_numpy()
+        re_col, im_col = _drt_impedance_columns(df)
+        x = pd.to_numeric(df.iloc[:, re_col], errors="coerce").to_numpy()
+        z = (-pd.to_numeric(df.iloc[:, im_col], errors="coerce")).to_numpy()
         x = x[np.isfinite(x)]
         z = z[np.isfinite(z)]
         if len(x): all_x.append(x)
@@ -2941,8 +2948,9 @@ def nyquist_fit_3d_plotly(datasets, title="Nyquist – DRT Smooth Fit (3D)"):
 
     # ---- traces ----
     for i, (name, df) in enumerate(datasets):
-        x = pd.to_numeric(df.iloc[:, 2], errors="coerce")
-        z = -pd.to_numeric(df.iloc[:, 3], errors="coerce")
+        re_col, im_col = _drt_impedance_columns(df)
+        x = pd.to_numeric(df.iloc[:, re_col], errors="coerce")
+        z = -pd.to_numeric(df.iloc[:, im_col], errors="coerce")
         y_spacing = 1.0
         y = np.full_like(x, i * y_spacing)
 
@@ -3006,8 +3014,9 @@ def add_nyquist_fit_3d_png(zf: zipfile.ZipFile, datasets, title: str = "Nyquist_
     all_z = []
 
     for _, df in datasets:
-        x = pd.to_numeric(df.iloc[:, 2], errors="coerce").to_numpy()
-        z = (-pd.to_numeric(df.iloc[:, 3], errors="coerce")).to_numpy()
+        re_col, im_col = _drt_impedance_columns(df)
+        x = pd.to_numeric(df.iloc[:, re_col], errors="coerce").to_numpy()
+        z = (-pd.to_numeric(df.iloc[:, im_col], errors="coerce")).to_numpy()
 
         x = x[np.isfinite(x)]
         z = z[np.isfinite(z)]
@@ -4560,8 +4569,9 @@ if nyquist_selected:
 
         if nyquist_3d:
             if p == "DRT Fit":
+                x_col, y_col = _drt_impedance_columns(data[0][1])
                 st.plotly_chart(
-                    nyquist_3d_plotly_cols(data, "Nyquist - DRT Fit", x_col=2, y_col=3, negate_y=True),
+                    nyquist_3d_plotly_cols(data, "Nyquist - DRT Fit", x_col=x_col, y_col=y_col, negate_y=True),
                     width="stretch"
                 )
             else:
